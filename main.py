@@ -8,6 +8,7 @@ import os, sys, time
 import ocr, scam
 
 from datetime import datetime
+from praw.models import Message, Comment
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
@@ -70,9 +71,15 @@ def saveLatest(thingId):
         f.write("\n".join(latest_done))
 
 def loopInbox():
-    inbox = reddit.inbox.unread()
-    for post in inbox:
-        print(post)
+    unread_messages = []
+    for item in reddit.inbox.unread(limit=None):
+        if isinstance(item, Message):
+            unread_messages.append(item)
+        if isinstance(item, Comment):
+            unread_messages.append(item)
+    reddit.inbox.mark_read(unread_messages)
+    for x in unread_messages:
+        logging.warn("%s: %s", x.author.name, x.body)
 
 def getFileName(url):
         filename = url[url.rfind('/')+1:]
@@ -151,10 +158,17 @@ def loopPosts():
 
 
 if __name__ == "__main__":
+    doneOnce = False
     while True:
-        logging.debug("Fetching in loop")
+        if not doneOnce:
+            logging.info("Starting loop")
         loopPosts()
+        if not doneOnce:
+            logging.info("Half way loop")
         loopInbox()
+        if not doneOnce:
+            logging.info("Finished first loop")
+            doneOnce = True
 
 
 
