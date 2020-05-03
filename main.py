@@ -89,7 +89,7 @@ def loopInbox():
             unread_messages.append(item)
     reddit.inbox.mark_read(unread_messages)
     for x in unread_messages:
-        webhook.sendInboxMessage(x)
+        webHook.sendInboxMessage(x)
         logging.warning("%s: %s", x.author.name, str(str(x.body).encode("utf-8")))
 
 def getFileName(url):
