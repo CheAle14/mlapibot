@@ -74,9 +74,17 @@ def loopInbox():
     for post in inbox:
         print(post)
 
-def validImage(url):
+def getFileName(url):
+        filename = url[url.rfind('/')+1:]
+        thing = filename.find('?')
+        if thing != -1:
+            filename = filename[:thing]
+        return filename
+
+
+def validImage(filename):
     for ext in valid_extensions:
-        if url.endswith(ext):
+        if filename.endswith(ext):
             return True
     return False
 
@@ -87,13 +95,13 @@ def extractURLS(post):
     if post.is_self:
         matches = re.findall("https?:\/\/[\w\-%\.\/\=\?\&]+", post.selftext)
         for x in matches:
-            if validImage(x):
+            if validImage(getFileName(x)):
                 any_url.append(x)
     return any_url
 
 
 def handleUrl(url):
-    filename = url.split('/')[-1]
+    filename = getFileName(url)
     r = requests.get(url, allow_redirects=True)
     if not r.ok:
         print("=== err")
@@ -116,8 +124,8 @@ def handleUrl(url):
     return scamResults
 
 def handlePost(post):
-    print(post.title)
     urls = extractURLS(post)
+    logging.info(str(urls))
     for url in urls:
         results = handleUrl(url)
         if len(results) > 0:
@@ -126,7 +134,8 @@ def handlePost(post):
                 text += scam.Name + ": " + scam.Reason + "\r\n\r\n"
                 print(scam.Name, confidence)
             built = TEMPLATE.format(text)
-            #post.reply(built)
+            if os.name() != "nt":
+                post.reply(built)
             logging.info("Replied to: %s", post.title)
             return
 
