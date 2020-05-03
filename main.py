@@ -127,7 +127,7 @@ def handlePost(post):
                 print(scam.Name, confidence)
             built = TEMPLATE.format(text)
             #post.reply(built)
-            logging.info("Replied to:", post.title)
+            logging.info("Replied to: %s", post.title)
             return
 
 
@@ -136,7 +136,7 @@ def loopPosts():
     for post in subReddit.new(limit=25):
         if post.name in latest_done:
             break # Since we go new -> old, don't go any further into old
-        logging.info("New:", post.title)
+        logging.info("New: %s", post.title)
         saveLatest(post.name)
         handlePost(post)
 
