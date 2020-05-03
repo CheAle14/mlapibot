@@ -9,6 +9,7 @@ import ocr, scam
 
 from datetime import datetime
 from praw.models import Message, Comment
+from webhook import WebhookSender
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
@@ -17,8 +18,15 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.1 (by /u/DarkOverLordCO)")
 subReddit = reddit.subreddit("discordapp")
 
-import webhook
+try:
+    with open("webhook.txt", "r") as f:
+        WEBHOOK_URL = f.read()
+except Exception as e:
+    logging.error(e)
+    logging.warning("Disabling webhook sending as missing URL")
+    WEBHOOK_URL = None
 
+webHook = WebhookSender(WEBHOOK_URL, subReddit.display_name)
 
 valid_extensions = [".png", ".jpg", ".jpeg"]
 SCAMS = []
@@ -81,8 +89,8 @@ def loopInbox():
             unread_messages.append(item)
     reddit.inbox.mark_read(unread_messages)
     for x in unread_messages:
-        logging.warning("%s: %s", x.author.name, x.body)
         webhook.sendInboxMessage(x)
+        logging.warning("%s: %s", x.author.name, str(str(x.body).encode("utf-8")))
 
 def getFileName(url):
         filename = url[url.rfind('/')+1:]
@@ -103,7 +111,8 @@ def extractURLS(post):
     if validImage(post.url):
         any_url.append(post.url)
     if post.is_self:
-        matches = re.findall("https?:\/\/[\w\-%\.\/\=\?\&]+", post.selftext)
+        matches = re.findall("https?:\/\/[\w\-%\.\/\=\?\&]+",
+            str(str(post.selftext).encode("utf-8")))
         for x in matches:
             if validImage(getFileName(x)):
                 any_url.append(x)
@@ -146,8 +155,8 @@ def handlePost(post):
             built = TEMPLATE.format(text)
             if os.name != "nt":
                 post.reply(built)
-            webhook.sendSubmission(post, built)
-            logging.info("Replied to: %s", post.title)
+            webHook.sendSubmission(post, text)
+            logging.info("Replied to: " + str(str(post.title).encode("utf-8")))
             return
 
 
@@ -156,7 +165,7 @@ def loopPosts():
     for post in subReddit.new(limit=25):
         if post.name in latest_done:
             break # Since we go new -> old, don't go any further into old
-        logging.info("New: %s", post.title)
+        logging.info("New: " + str(str(post.title).encode("utf-8")))
         saveLatest(post.name)
         handlePost(post)
 
