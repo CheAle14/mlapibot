@@ -11,7 +11,7 @@ from datetime import datetime
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
-logging.basicConfig(filename='mlapi.log', level=logging.INFO)
+logging.basicConfig(filename='mlapi.log', level=logging.DEBUG)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.1 (by /u/DarkOverLordCO)")
 subReddit = reddit.subreddit("discordapp")
@@ -143,6 +143,7 @@ def loopPosts():
 
 if __name__ == "__main__":
     while True:
+        logging.debug("Fetching in loop")
         loopPosts()
         loopInbox()
 
