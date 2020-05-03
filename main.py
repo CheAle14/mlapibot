@@ -134,7 +134,7 @@ def handlePost(post):
                 text += scam.Name + ": " + scam.Reason + "\r\n\r\n"
                 print(scam.Name, confidence)
             built = TEMPLATE.format(text)
-            if os.name() != "nt":
+            if os.name != "nt":
                 post.reply(built)
             logging.info("Replied to: %s", post.title)
             return
