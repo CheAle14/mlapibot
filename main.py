@@ -64,7 +64,7 @@ def setup():
         with open("save.txt", "r") as f:
             for x in f:
                 latest_done.append(x.rstrip())
-                if len(latest_done) > 25:
+                if len(latest_done) > 50:
                     latest_done.pop(0)
     except Exception as e:
         print(e)
@@ -104,7 +104,7 @@ def requests_retry_session(
 
 def saveLatest(thingId):
     latest_done.append(thingId)
-    if len(latest_done) > 25:
+    if len(latest_done) > 50:
         latest_done.pop(0)
     with open("save.txt", "w") as f:
         f.write("\n".join(latest_done))
@@ -241,10 +241,18 @@ if __name__ == "__main__":
     while True:
         if not doneOnce:
             logging.info("Starting loop")
-        loopPosts()
+        try:
+            loopPosts()
+        except Exception as e:
+            logging.error(e)
+            time.sleep(5)
         if not doneOnce:
             logging.info("Half way loop")
-        loopInbox()
+        try:
+            loopInbox()
+        except Exception as e:
+            logging.error(e)
+            time.sleep(5)
         if not doneOnce:
             logging.info("Finished first loop")
             doneOnce = True
