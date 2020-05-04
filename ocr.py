@@ -11,7 +11,7 @@ if os.name == 'nt':
 
 
 def getTextFromPath(path, filename):
-    image = cv2.imread(path)
+    image = cv2.imread(path, cv2.IMREAD_COLOR)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.bitwise_not(gray)
     filename = "corrected_{}.png".format(filename)

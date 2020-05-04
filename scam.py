@@ -4,7 +4,10 @@ class Scam:
         self.Name = name
         self.Reason = reason
         self.Texts = texts
-
+    def  __str__(self):
+        return self.Name
+    def __repr__(self):
+        return self.Name
     def numWordsContain(self, words: List[str], testWords: List[str]) -> int:
         count = 0
         for x in testWords:
