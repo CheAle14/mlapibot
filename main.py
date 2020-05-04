@@ -10,6 +10,8 @@ import ocr, scam
 from datetime import datetime
 from praw.models import Message, Comment
 from webhook import WebhookSender
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
@@ -80,6 +82,25 @@ def setup():
         logging.error("Refusing to continue: Template is empty")
         exit(1)
 
+def requests_retry_session(
+    retries=3,
+    backoff_factor=2,
+    status_forcelist=(500, 502, 504),
+    session=None,
+    ):
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
 
 def saveLatest(thingId):
     latest_done.append(thingId)
@@ -149,7 +170,19 @@ def handleFileName(path, filename):
 
 def handleUrl(url):
     filename = getFileName(url)
-    r = requests.get(url, allow_redirects=True)
+    try:
+        r = requests_retry_session(retries=5).get(url)
+    except Exception as x:
+        print('Could not handle url:', url, x.__class__.__name__)
+        print(str(x))
+        try:
+            e = webHook.getEmbed("Errored With Image",
+                str(x), url, x.__class__.__name__)
+            logging.info(str(e))
+            webHook._sendWebhook(e)
+        except:
+            pass
+        return
     if not r.ok:
         print("=== err")
         print(url)
@@ -166,7 +199,7 @@ def handlePost(post):
     urls = extractURLS(post)
     logging.info(str(urls))
     for url in urls:
-        results = handleUrl(url)
+        results = handleUrl(url) or []
         if len(results) > 0:
             text = ""
             for scam, confidence in results.items():

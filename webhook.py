@@ -11,7 +11,9 @@ class WebhookSender:
         embed = {}
         embed["title"] = title
         embed["description"] = desc
-        embed["url"] = "https://old.reddit.com" + url
+        if not url.startswith("http"):
+            url = "https://old.reddit.com" + url
+        embed["url"] = url
         if footer:
             embed["footer"] = {"text": footer}
         return embed
@@ -28,6 +30,8 @@ class WebhookSender:
             result.raise_for_status()
         except requests.exceptions.HTTPError as err:
             logging.error(err)
+            if result.status_code >= 400:
+                logging.error(result.text)
         else:
             logging.info("Payload delivered, %s", result.status_code)
     def sendSubmission(self, post: Submission, matches: str):
