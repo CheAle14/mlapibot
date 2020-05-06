@@ -1,3 +1,4 @@
+import os
 from typing import List
 class Scam:
     def __init__(self, name: str, reason: str, texts: List[str]):
@@ -34,6 +35,7 @@ class Scam:
 
     def PercentageMatch(self, words: List[str]) -> float:
         highest = 0
+        high_str = None
         for testString in self.Texts:
             testArray = testString.split(' ')
             contain = self.numWordsContain(words, testArray)
@@ -42,5 +44,8 @@ class Scam:
             perc = total / (len(testArray) * 2)
             if perc > highest:
                 highest = perc
+                high_str = testString
+        if os.name == "nt":
+            print(self.highest, self.Name, high_str)
         return highest
 
