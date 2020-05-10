@@ -1,0 +1,66 @@
+{
+    "scams": [{
+            "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users! from march 26, 2020 until march 31, 2020,", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc.", "©2020 twitch interactive inc.", "2020 twitch interactive inc."],
+            "name": "Twitch Nitro",
+            "reason": "Nito Games has been discontinued and is no longer being given out; message has poor grammar; any actual partnership unlikely to be announced through an unknown and unverified bot."
+        }, {
+            "text": ["you have to invite me to your servers", "invite this bot to your server", "click here for invite the bot"],
+            "name": "Invite Scam",
+            "reason": "Caution against adding unknown bots, if malicious they may attempt to delete channels and kick users when added; ensure bots are verified, or you are sure of their source."
+        }, {
+            "text": ["if you want to win a free discord nitro invite this bot to your server.", "free discord nitro"],
+            "name": "Free Discord Nitro",
+            "reason": "Nitro is unlikely to be given away through a bot. If anything, it would either be through email, a custom popup in the client, or a System-tagged account."
+        }, {
+            "text": ["partnership autobox", "make your partnership automatically thanks to this bot, use the command *help to see the menu"],
+            "name": "Partnership Autobot",
+            "reason": "There is no way to automatically get partnered with Discord, you need to apply directly to Discord."
+        }, {
+            "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server, wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event"],
+            "name": "Free Boost",
+            "reason": "Boosts unlikely to be given away - especially 30 of them. If they were to be given away by Discord, it would probably be through email, or a system tagged account"
+        }, {
+            "text": ["mee6 premium", "hi, we are happy to announce you mee6 is now free. cause of covid-19 ! so add it for got premiumed of mee6 premium", "click here to add bot"],
+            "name": "MEE6 Premium",
+            "reason": "MEE6 premium is not free. Premiumed is not a word. Message is filled with grammar errors."
+        }, {
+            "text": ["hi, this is a message from the discord creator and i'm going to tell you a little bit about what will happen on discord on july 23rd. please do not send this back to the person you received it from.", "dear discord members, discord is supposed to close nov 7, 2020 because it has become too populated. there have been many members complaining that discord has become very slow. there are many active members of discord, but also many new members.", "we will send this message to see if the members are active or not. if you are active, please copy and paste this to 15 other users to show that you are still active. those who do not send this message within 2 weeks will be deleted without hesitation to make more space.", "send this message to all your friends to show that you are still active and that you will not be deleted.#"],
+            "name": "Discord Shutdown",
+            "reason": "Discord is not shutting down. Purpose is solely for people to spam servers with the message; has poor grammar too"
+        }, {
+            "text": ["partner bot", "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started !", "link: https://discord.gg/ekajbfx", "https://i.imgur.com/tmwigun.gif", "want to gain members fast & see your advert here?", "partner bot's info below", "gain 2,000 members in a week time by adding me to your server than using the command", "/partner [description here]"],
+            "name": "Partner Bot",
+            "reason": "Poor grammar; bot likely to give permissions to random users"
+        }, {
+            "text": ["partnership: xbox & discord", "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do ! claim when you have add the bot", "step one add me on your servers", "2020 xbox interactive, inc.", "exclusive partnership", "2?? : step one you have to invite me to yur servers (click here)", "1?? : step one join our official discord event and wait a few moments (click here)"],
+            "name": "Xbox Partnership",
+            "reason": "Unreal value of giveaway; poor grammar; not an official or verified account"
+        },
+        {
+            "name": "Discord Rewards",
+            "reason": "Free Nitro is unrealistic, grammar is poor",
+            "text": [
+                "discord rewarding service",
+                "what is this you ask? simple. upon inviting out bot to your server, our bot will monitor chat and collect data on users day to day conversations, with this data our bot will learn day to day language through advanced learning and help build a hepful human-like ai",
+                "upon keep this bot in your server, the longer its their, the more data we collect, to reward Users who help us, we will select a few lucky server owners for some free nirto! Happy Goood Luck!",
+                "To start the process, you must invite the bot through the link at the top of this post and leave the bot to run idle in your server, the rest is up to our bot to silently collect data"
+            ]
+        },
+        {
+            "name": "Nitro Generator",
+            "reason": "Some Anti-Viruses detect it because its a virus; poor grammar.",
+            "text":[
+                "Nitro Generator",
+                "Currently restocked with 250 Nitro Gift-codes (75 boost nitro)",
+                "This generator is still in beta and has a lot of bugs, because that some Anti-Virus apps detect is as a virus. That is why you must disable your Anti-Virus before downloading",
+                "1. After you have done so, download the Nitro Generator, move it out of the WinRaR to your desktop and open it",
+                "2. Put your discord username in the Generator (For example Wumpus#0000)",
+                "3. Pick what kind of Nitro you want the Generator to generate.",
+                "4. Then press on GENERATE!",
+                "Please do NOT generate more than one Nitro Gift Code, so others can also get Nitro."
+                
+            ]
+        }
+    ],
+    "lastChanged": "2020-05-03T08:29:51Z"
+}

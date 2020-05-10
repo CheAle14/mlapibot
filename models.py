@@ -1,10 +1,13 @@
 import os
 from typing import List
+from json import JSONEncoder
 class Scam:
     def __init__(self, name: str, reason: str, texts: List[str]):
         self.Name = name
         self.Reason = reason
-        self.Texts = texts
+        self.Texts = []
+        for x in texts:
+            self.Texts.append(x.lower())
     def  __str__(self):
         return self.Name
     def __repr__(self):
@@ -46,6 +49,9 @@ class Scam:
                 highest = perc
                 high_str = testString
         if os.name == "nt":
-            print(self.highest, self.Name, high_str)
+            print(highest, self.Name, high_str)
         return highest
+class ScamEncoder(JSONEncoder):
+        def default(self, o):
+            return o.__dict__
 

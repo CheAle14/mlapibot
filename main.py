@@ -5,13 +5,14 @@ import requests
 import json
 import tempfile
 import os, sys, time
-import ocr, scam
+import ocr
 
 from datetime import datetime
 from praw.models import Message, Comment
 from webhook import WebhookSender
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from models import Scam, ScamEncoder
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
@@ -26,7 +27,10 @@ def load_scams():
             rawText = f.read()
         obj = json.loads(rawText)
         for scm in obj["scams"]:
-            SCAMS.append(scam.Scam(scm["name"], scm["reason"], scm["text"]))
+            if "name" in scm:
+                SCAMS.append(Scam(scm["name"], scm["reason"], scm["text"]))
+            else:
+                SCAMS.append(Scam(scm["Name"], scm["Reason"], scm["Texts"]))
     except Exception as e:
         logging.error(e)
         SCAMS = []
@@ -34,9 +38,19 @@ def load_scams():
     if len(SCAMS) == 0:
         logging.error("Refusing to continue: no scams loaded")
         exit(1)
+
+def save_scams():
+    try:
+        content = json.dumps({"scams": SCAMS}, indent=4, cls=ScamEncoder)
+        with open("scams.json", "w") as f:
+            f.write(content)
+    except Exception as e:
+        logging.error(e)
+
 def load_reddit():
-    global reddit, subReddit
-    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.1 (by /u/DarkOverLordCO)")
+    global reddit, subReddit, author
+    author = "DarkOverLordCO"
+    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.1 (by /u/" + author + ")")
     subReddit = reddit.subreddit("discordapp")
 
 def setup():
@@ -109,6 +123,21 @@ def saveLatest(thingId):
     with open("save.txt", "w") as f:
         f.write("\n".join(latest_done))
 
+def addScam(content):
+    lines = content.split("\n")
+    name = lines[1]
+    reason = lines[2]
+    texts = lines[3:]
+    scm = Scam(name, reason, texts)
+    SCAMS.append(scm)
+    save_scams()
+
+def handleAdminMsg(post):
+    if post.body.startswith("[add]"):
+        addScam(post.body)
+        post.reply("Registered new scam; note: will not persist.")
+
+
 def loopInbox():
     unread_messages = []
     for item in reddit.inbox.unread(limit=None):
@@ -119,7 +148,10 @@ def loopInbox():
     reddit.inbox.mark_read(unread_messages)
     for x in unread_messages:
         webHook.sendInboxMessage(x)
-        logging.warning("%s: %s", x.author.name, str(str(x.body).encode("utf-8")))
+        body = str(str(x.body).encode("utf-8"))
+        logging.warning("%s: %s", x.author.name, body)
+        if x.author.name == author:
+            handleAdminMsg(x)
 
 def getFileName(url):
         index = url.rfind('/')
