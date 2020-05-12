@@ -60,7 +60,15 @@
                 "Please do NOT generate more than one Nitro Gift Code, so others can also get Nitro."
                 
             ]
+        },
+        {
+            "name": "Opidium",
+            "reason": "*Reason pending; caution per below*",
+            "text": [
+                "Our team has been trying to get a hold of you multiple time but no response back so we re trying a last time",
+                "Alright so you won the giveaway in Opidium but you left the server and so we've been waiting in the server for you to collect it so we decided to first try to contact you before re rolling if you want to collect it please re join",
+                "abigail has invited you to join opidium"
+            ]
         }
-    ],
-    "lastChanged": "2020-05-03T08:29:51Z"
+    ]
 }

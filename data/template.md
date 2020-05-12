@@ -16,4 +16,4 @@ When looking at a possible scam from a bot account, always consider if they:
 
 - - -
 
-^(I am a bot, if you believe I have not made an error, you can report scam accounts to) [^Discord](https://support.discordapp.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)^.
+^(I am a bot, of {1} checks, this is the {2} possible scam; you can) [^report ^scam ^accounts ^to ^Discord](https://support.discordapp.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)^.

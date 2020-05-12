@@ -17,6 +17,11 @@ from models import Scam, ScamEncoder
 os.chdir(os.path.join(os.getcwd(), "data"))
 
 valid_extensions = [".png", ".jpg", ".jpeg"]
+def load_reddit():
+    global reddit, subReddit, author
+    author = "DarkOverLordCO"
+    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.2 (by /u/" + author + ")")
+    subReddit = reddit.subreddit("discordapp")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -47,11 +52,33 @@ def save_scams():
     except Exception as e:
         logging.error(e)
 
-def load_reddit():
-    global reddit, subReddit, author
-    author = "DarkOverLordCO"
-    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.1 (by /u/" + author + ")")
-    subReddit = reddit.subreddit("discordapp")
+def load_history():
+    global HISTORY, HISTORY_TOTAL, TOTAL_CHECKS
+    HISTORY = {}
+    HISTORY_TOTAL = 0
+    TOTAL_CHECKS = 0
+    try:
+        with open("history.json", "r") as f:
+            content = f.read()
+    except:
+        return
+    obj = json.loads(content)
+    HISTORY = obj["history"]
+    HISTORY_TOTAL = obj["scams"]
+    TOTAL_CHECKS = obj["total"]
+
+def save_history():
+    content = json.dumps({
+        "history": HISTORY,
+        "total": TOTAL_CHECKS,
+        "scams": HISTORY_TOTAL
+    })
+    try:
+        with open ("history.json", "w") as f:
+            f.write(content)
+    except Exception as e:
+        logging.error(e)
+        return
 
 def setup():
     global webHook, WEBHOOK_URL, latest_done, handled_messages, handled_posts,\
@@ -81,7 +108,7 @@ def setup():
                 if len(latest_done) > 50:
                     latest_done.pop(0)
     except Exception as e:
-        print(e)
+        logging.error(e)
         latest_done = []
         logging.warn("Failed to load previously handled things")
 
@@ -95,6 +122,8 @@ def setup():
     if not TEMPLATE:
         logging.error("Refusing to continue: Template is empty")
         exit(1)
+
+    load_history()
 
 def requests_retry_session(
     retries=3,
@@ -164,7 +193,8 @@ def getFileName(url):
         return filename
 
 
-def validImage(filename):
+def validImage(url):
+    filename = getFileName(url)
     for ext in valid_extensions:
         if filename.endswith(ext):
             return True
@@ -205,7 +235,7 @@ def handleUrl(url):
     try:
         r = requests_retry_session(retries=5).get(url)
     except Exception as x:
-        print('Could not handle url:', url, x.__class__.__name__)
+        logging.error('Could not handle url:', url, x.__class__.__name__)
         print(str(x))
         try:
             e = webHook.getEmbed("Errored With Image",
@@ -228,17 +258,30 @@ def handleUrl(url):
     return handleFileName(tempPath, filename)
 
 def handlePost(post):
+    global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
+    SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
     urls = extractURLS(post)
     logging.info(str(urls))
+    if len(urls) > 0:
+        TOTAL_CHECKS += 1
     for url in urls:
         results = handleUrl(url) or []
         if len(results) > 0:
             text = ""
             for scam, confidence in results.items():
+                if scam.Name not in HISTORY:
+                    HISTORY[scam.Name] = 0
+                HISTORY[scam.Name] += 1
                 text += scam.Name + ": " + scam.Reason + "\r\n\r\n"
                 print(scam.Name, confidence)
-            built = TEMPLATE.format(text)
-            if os.name != "nt":
+            HISTORY_TOTAL += 1
+            save_history()
+            if 10 <= HISTORY_TOTAL % 100 <= 20:
+                suffix = 'th'
+            else:
+                suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
+            built = TEMPLATE.format(text, TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
+            if os.name != "nt" or subReddit.display_name == "mlapi":
                 post.reply(built)
             webHook.sendSubmission(post, text)
             logging.info("Replied to: " + str(str(post.title).encode("utf-8")))
