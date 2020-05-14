@@ -275,7 +275,6 @@ def handlePost(post):
                 text += scam.Name + ": " + scam.Reason + "\r\n\r\n"
                 print(scam.Name, confidence)
             HISTORY_TOTAL += 1
-            save_history()
             if 10 <= HISTORY_TOTAL % 100 <= 20:
                 suffix = 'th'
             else:
@@ -285,7 +284,8 @@ def handlePost(post):
                 post.reply(built)
             webHook.sendSubmission(post, text)
             logging.info("Replied to: " + str(str(post.title).encode("utf-8")))
-            return
+            break
+    save_history()
 
 
 
