@@ -71,6 +71,17 @@
                 "Alright so you won the giveaway in Opidium but you left the server and so we've been waiting in the server for you to collect it so we decided to first try to contact you before re rolling if you want to collect it please re join",
                 "abigail has invited you to join opidium"
             ]
+        },
+        {
+            "name": "Discord Birthday Extravaganza",
+            "reason": "Giveaways were not done in this fashion.",
+            "text": [
+                "Discord Birthday Extravaganza",
+                "2020 Discord's birthday Event bot.",
+                "Congratulations you have won a 1 month nitro!",
+                "To accept the nitro, all you have to do is click the button 'click for claim this nitro' and then wait 1 hour!",
+                "Click for claim this nitro"
+            ]
         }
     ]
 }
