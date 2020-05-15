@@ -16,7 +16,7 @@
             "name": "Partnership Autobot",
             "reason": "There is no way to automatically get partnered with Discord, you need to apply directly to Discord."
         }, {
-            "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server, wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event"],
+            "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event", "discord nitro event", "free discord boosting"],
             "name": "Free Boost",
             "reason": "Boosts unlikely to be given away - especially 30 of them. If they were to be given away by Discord, it would probably be through email, or a system tagged account"
         }, {
@@ -51,7 +51,9 @@
             "reason": "Nitro cannot be generated for free",
             "text":[
                 "Nitro Generator",
+                "Nitro Generatorv2",
                 "Currently restocked with 250 Nitro Gift-codes (75 boost nitro)",
+                "Currently restocked with 250 Nitro Gift codes 75 boost nitro",
                 "This generator is still in beta and has a lot of bugs, because that some Anti-Virus apps detect is as a virus. That is why you must disable your Anti-Virus before downloading",
                 "1. After you have done so, download the Nitro Generator, move it out of the WinRaR to your desktop and open it",
                 "2. Put your discord username in the Generator (For example Wumpus#0000)",

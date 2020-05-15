@@ -20,10 +20,13 @@ class Scam:
                 continue
         return count
 
-    def phrasesInOrder(self, words: List[str], testWords: List[str]) -> int:
+    def findPhraseInOrder(self, words, testWords, limY = 0, limTest = 0):
         current = 0
-        for testing in range(len(testWords)):
-            for y in range(len(words)):
+        phraseStart = limTest
+        #if self.Name == "Partner Bot":
+        #    print("Looking for '" + " ".join(testWords[phraseStart:]), "' from " + str(limY) + " onwards")
+        for testing in range(limTest, len(testWords)):
+            for y in range(limY, len(words)):
                 if testing >= len(testWords):
                     break
                 word = testWords[testing]
@@ -31,15 +34,38 @@ class Scam:
                 if against == "":
                     continue
                 if word == against:
+                    #if self.Name == "Partner Bot":
+                    #    print(testing, y, limY, limTest, ":", word, against)
                     current += 1
-                    testing += 1
+                    y += 1
+                    limTest = testing + 1
+                    limY = y
                     break
+                elif current > 0:
+                    diff = y - limY
+                    if diff > 3:
+                        #print("Did find", testWords[testing], "vs", words[limY-1])
+                        return (current, limY + 1, phraseStart)
+            if current == 0:
+                # havn't found the phrase at all
+                return (current, limY, phraseStart + 1)
+        return (current, limY, len(testWords))
+
+    def phrasesInOrder(self, words: List[str], testWords: List[str]) -> int:
+        doneTest = 0
+        limY = 0
+        total = 0
+        while doneTest < len(testWords) and limY < len(words):
+            current, limY, doneTest = \
+                self.findPhraseInOrder(words, testWords, limY, doneTest)
+            total += current
         return current
 
     def PercentageMatch(self, words: List[str]) -> float:
         highest = 0
         high_str = None
         for testString in self.Texts:
+            #print("=======BREAK==========")
             testArray = testString.split(' ')
             contain = self.numWordsContain(words, testArray)
             inOrder = self.phrasesInOrder(words, testArray)
