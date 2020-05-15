@@ -297,6 +297,11 @@ def loopPosts():
         saveLatest(post.name)
         handlePost(post)
 
+def deleteBadHistory():
+    for comment in reddit.user.me().comments.new(limit=10):
+        if comment.score < 0:
+            webHook.sendRemovedComment(comment)
+            comment.delete()
 
 
 load_scams()
@@ -322,14 +327,21 @@ if __name__ == "__main__":
             logging.error(e)
             time.sleep(5)
         if not doneOnce:
-            logging.info("Half way loop")
+            logging.info("Checked posts loop")
         try:
             loopInbox()
         except Exception as e:
             logging.error(e)
             time.sleep(5)
         if not doneOnce:
-            logging.info("Finished first loop")
+            logging.info("Checked inbox first loop")
+        try:
+            deleteBadHistory()
+        except Exception as e:
+            logging.error(e)
+            time.sleep(5)
+        if not doneOnce:
+            logging.info("Finished loop")
             doneOnce = True
 
 
