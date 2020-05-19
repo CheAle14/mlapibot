@@ -1,26 +1,27 @@
 {
     "scams": [{
-            "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users! from march 26, 2020 until march 31, 2020,", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc.", "©2020 twitch interactive inc.", "2020 twitch interactive inc."],
+            "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc."],
             "name": "Twitch Nitro",
             "reason": "Nito Games has been discontinued and is no longer being given out; message has poor grammar; any actual partnership unlikely to be announced through an unknown and unverified bot."
         }, {
-            "text": ["you have to invite me to your servers", "invite this bot to your server", "click here for invite the bot"],
+            "text": ["you have to invite me to your servers", "invite this bot to your server", "click here for invite the bot", "click here to add the bot"],
             "name": "Invite Scam",
             "reason": "Caution against adding unknown bots, if malicious they may attempt to delete channels and kick users when added; ensure bots are verified, or you are sure of their source."
         }, {
-            "text": ["if you want to win a free discord nitro invite this bot to your server.", "free discord nitro"],
+            "text": ["if you want to win a free discord nitro invite this bot to your server", "free discord nitro"],
             "name": "Free Discord Nitro",
             "reason": "Nitro is unlikely to be given away through a bot. If anything, it would either be through email, a custom popup in the client, or a System-tagged account."
         }, {
-            "text": ["partnership autobox", "make your partnership automatically thanks to this bot, use the command *help to see the menu"],
+            "text": ["partnership autobox", "make your partnership automatically thanks to this bot use the command *help to see the menu"],
             "name": "Partnership Autobot",
             "reason": "There is no way to automatically get partnered with Discord, you need to apply directly to Discord."
         }, {
-            "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event", "discord nitro event", "free discord boosting"],
+            "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event", "discord nitro event", "free discord boosting",
+            "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend", "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer"],
             "name": "Free Boost",
             "reason": "Boosts unlikely to be given away - especially 30 of them. If they were to be given away by Discord, it would probably be through email, or a system tagged account"
         }, {
-            "text": ["mee6 premium", "hi, we are happy to announce you mee6 is now free. cause of covid-19 ! so add it for got premiumed of mee6 premium", "click here to add bot"],
+            "text": ["mee6 premium", "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"],
             "name": "MEE6 Premium",
             "reason": "MEE6 premium is not free. Premiumed is not a word. Message is filled with grammar errors."
         }, {
