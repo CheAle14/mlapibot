@@ -55,6 +55,7 @@ class Scam:
         doneTest = 0
         limY = 0
         total = 0
+        current = 0
         while doneTest < len(testWords) and limY < len(words):
             current, limY, doneTest = \
                 self.findPhraseInOrder(words, testWords, limY, doneTest)
