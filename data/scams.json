@@ -19,7 +19,7 @@
             "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event", "discord nitro event", "free discord boosting",
             "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend", "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer"],
             "name": "Free Boost",
-            "reason": "Boosts unlikely to be given away - especially 30 of them. If they were to be given away by Discord, it would probably be through email, or a system tagged account"
+            "reason": "Boosts unlikely to be given away. If they were to be given away by Discord, it would probably be through email, or a system tagged account"
         }, {
             "text": ["mee6 premium", "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"],
             "name": "MEE6 Premium",
@@ -91,6 +91,15 @@
                 "ok so basically dank memer can get your ip address this announcement was verified by discord earlier today", "dank memer can send your messages in private dm's to a server of weirdos and most of your dm's can be very personal", 
                 "due to this am not going to risk both myself and another person important to me getting hurt or having their personal information out on the interent because of a discord bot notsobot and dank memer can not be trusted especially if they are able to send creepy emails send your personal info to random weirdos who can harm you and literally get your email and so much personal information", 
                 "do not add dank memer and notsobot on your servers i m warning you i'm not going to add further details to scare or creep out anybody but this is true they have done some weird shit notsobot and dank memer are going to be banned from discord due to these reasons getting ip addresses and kidnapping dank memer is doing it in a lower range to keep it lowkey now that this is all over the internet dank memer can't keep it lowkey anymore these bots are very very dangerous this is for your own good notsobot and dank memer should be removed from your servers this is a warning"
+            ]
+        },
+        {
+            "name": "Discord Birthday",
+            "reason": "Giveaways were not done in this fashion; any bot requiring access to your server for a giveaway is almost always a scam.",
+            "text": [
+                "discord event birthday",
+                "to thank you for your loyalty on discord we are setting up an event to get free boost must add it in all your servers and wait 24h click to add siscord free voice and text chat for gamers",
+                "discord birthday free nitro boost"
             ]
         }
     ]
