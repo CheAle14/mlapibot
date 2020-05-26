@@ -192,13 +192,14 @@ def getFileName(url):
             filename = filename[:thing]
         return filename
 
-
 def validImage(url):
     filename = getFileName(url)
+    print(url + " -> " + filename)
     for ext in valid_extensions:
         if filename.endswith(ext):
             return True
     return False
+
 
 def extractURLS(post):
     any_url = []
@@ -206,7 +207,7 @@ def extractURLS(post):
         any_url.append(post.url)
     if post.is_self:
         matches = re.findall("https?:\/\/[\w\-%\.\/\=\?\&]+",
-            str(str(post.selftext).encode("utf-8")))
+            post.selftext)
         for x in matches:
             if validImage(getFileName(x)):
                 any_url.append(x)
