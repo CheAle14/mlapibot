@@ -20,8 +20,8 @@ valid_extensions = [".png", ".jpg", ".jpeg"]
 def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
-    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.2 (by /u/" + author + ")")
-    subReddit = reddit.subreddit("discordapp")
+    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.3 (by /u/" + author + ")")
+    subReddit = reddit.subreddit("DiscordApp")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -32,12 +32,14 @@ def load_scams():
             rawText = f.read()
         obj = json.loads(rawText)
         for scm in obj["scams"]:
+            template = scm.get("template", "default")
             if "name" in scm:
-                SCAMS.append(Scam(scm["name"], scm["reason"], scm["text"]))
+                SCAMS.append(Scam(scm["name"], scm["reason"], scm["text"], template))
             else:
-                SCAMS.append(Scam(scm["Name"], scm["Reason"], scm["Texts"]))
+                SCAMS.append(Scam(scm["Name"], scm["Reason"], scm["Texts"], template))
     except Exception as e:
         logging.error(e)
+        print(e)
         SCAMS = []
 
     if len(SCAMS) == 0:
@@ -79,10 +81,21 @@ def save_history():
     except Exception as e:
         logging.error(e)
         return
+def load_templates():
+    global TEMPLATES
+    TEMPLATES = {}
+    files = os.listdir("templates")
+    for x in files:
+        if x.endswith(".md"):
+            name = x[:-3]
+            print(name)
+            with open("templates/" + x, "r") as f:
+                TEMPLATES[name] = f.read()
+    return TEMPLATES
 
 def setup():
     global webHook, WEBHOOK_URL, latest_done, handled_messages, handled_posts,\
-        TEMPLATE
+        TEMPLATES
 
     load_scams()
     load_reddit()
@@ -112,15 +125,13 @@ def setup():
         latest_done = []
         logging.warn("Failed to load previously handled things")
 
-    TEMPLATE = ""
     try:
-        with open("template.md", "r") as f:
-            TEMPLATE = f.read()
+        TEMPLATES = load_templates()
     except Exception as e:
         logging.error(e)
 
-    if not TEMPLATE:
-        logging.error("Refusing to continue: Template is empty")
+    if not TEMPLATES:
+        logging.error("Refusing to continue: Templates is empty")
         exit(1)
 
     load_history()
@@ -157,7 +168,7 @@ def addScam(content):
     name = lines[1]
     reason = lines[2]
     texts = lines[3:]
-    scm = Scam(name, reason, texts)
+    scm = Scam(name, reason, texts, None)
     SCAMS.append(scm)
     save_scams()
 
@@ -280,6 +291,7 @@ def handlePost(post):
                 suffix = 'th'
             else:
                 suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
+            TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(text, TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if os.name != "nt" or subReddit.display_name == "mlapi":
                 post.reply(built)

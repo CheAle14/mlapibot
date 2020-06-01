@@ -2,10 +2,11 @@ import os
 from typing import List
 from json import JSONEncoder
 class Scam:
-    def __init__(self, name: str, reason: str, texts: List[str]):
+    def __init__(self, name: str, reason: str, texts: List[str], templateName):
         self.Name = name
         self.Reason = reason
         self.Texts = []
+        self.Template = templateName or "default"
         for x in texts:
             self.Texts.append(x.lower())
     def  __str__(self):
