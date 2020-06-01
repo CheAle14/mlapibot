@@ -34,6 +34,9 @@ If you've been infected, you'll first want to make sure the 2FA on your account 
 
 ### What about the error?
 
+The error is caused when your anti-virus software quarantines, or removes, a file it believes is infected.  
+When Discord then attempts to run, it is unable to find this now-removed file, so errors.
+
 If you don't appear to be infected, then its possible your antivirus is showing whats called a false-positive -- in other words, making a mistake.
 
 If you've removed and reinstalled as per above, and thus have a clean installation that your antivirus is still indicating is infected, and you've verified you are not infected per above, then you can add an exemption to your antivirus to make it ignore the file/folder its getting a false-positive on.
