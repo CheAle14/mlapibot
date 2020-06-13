@@ -16,7 +16,8 @@ At `data/scams.json`, we expect a file that contains the following JSON:
                 "name": "Some Name",
                 "reason": "Why this is a scam, eg, 'poor grammar'",
                 "text": ["some triggers", "that match into the words", "of the detected text",
-                    "the trigger that matches the best will be used as the percentage match value"]
+                    "the trigger that matches the best will be used as the percentage match value"],
+                "template": "default" 
             },
             ...
         ]
@@ -32,4 +33,4 @@ At `data/praw.ini`, we expect a file that contains the following:
     username=...
     
     
-At `data/template.md`, we expect a markdown comment where {0} is replaced by a list of scams detected. An example is already present
+We expect `*.md` files under the `data/templates` folder. Each scam has an optional 'template' json value, which defaults to 'default'. We respond to a post with the *last* scam detected's 'template'.md file.
