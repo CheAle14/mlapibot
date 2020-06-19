@@ -296,7 +296,7 @@ def handlePost(post):
             if os.name != "nt" or subReddit.display_name == "mlapi":
                 post.reply(built)
             webHook.sendSubmission(post, text)
-            logging.info("Replied to: " + str(str(post.title).encode("utf-8")))
+            logging.info("Replied to: " + post.title)
             break
     save_history()
 
@@ -306,7 +306,7 @@ def loopPosts():
     for post in subReddit.new(limit=25):
         if post.name in latest_done:
             break # Since we go new -> old, don't go any further into old
-        logging.info("New: " + str(str(post.title).encode("utf-8")))
+        logging.info("New: " + post.title)
         saveLatest(post.name)
         handlePost(post)
 
