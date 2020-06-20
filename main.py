@@ -338,21 +338,21 @@ if __name__ == "__main__":
         try:
             loopPosts()
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=1)
             time.sleep(5)
         if not doneOnce:
             logging.info("Checked posts loop")
         try:
             loopInbox()
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=1)
             time.sleep(5)
         if not doneOnce:
             logging.info("Checked inbox first loop")
         try:
             deleteBadHistory()
         except Exception as e:
-            logging.error(e)
+            logging.error(e, exc_info=1)
             time.sleep(5)
         if not doneOnce:
             logging.info("Finished loop")

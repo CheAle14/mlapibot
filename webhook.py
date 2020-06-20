@@ -43,5 +43,5 @@ class WebhookSender:
         self._sendWebhook(embed)
 
     def sendRemovedComment(self, comment: praw.models.Comment):
-        embed = self.getEmbed("Removed Comment", comment.parent.title, comment.parent.permalink, str(comment.score))
+        embed = self.getEmbed("Removed Comment", comment.submission.title, comment.submission.permalink, str(comment.score))
         self._sendWebhook(embed)
