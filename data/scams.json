@@ -138,6 +138,14 @@
             ]
         },
         {
+            "name": "DDOS",
+            "reason": "It is not possible to get one's IP from sending nor accepting a friend request; it is not possible for group members to fall victim either. It is only possible to get an IP by a person opening a website in their browser, or downloading and running a malicious program. The user mentioned may not even have attempted to do anything like what the message is suggesting, and could be completely innocent, and subject to harassment over a malicious message. If Discord were aware of such a user, they would be terminated, and this spam message would be unnecessary",
+            "text": [
+                "sending friend requests to random discord users and those who accept his friend requests will have their accounts ddosed and their groups exposed with the members inside it becoming a victim"
+            ],
+            "template": "chainspam"
+        },
+        {
             "name": "AnarchyGrabber",
             "reason": "-",
             "text": [
