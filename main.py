@@ -239,7 +239,8 @@ def handleFileName(path, filename):
     text = text.lower()
     array = re.findall(r"[\w']+", text)
     if len(sys.argv) > 1:
-        logging.info(array)
+        logging.info(" ".join(array))
+        logging.info("==============")
     return getScams(array)
 
 def handleUrl(url):
