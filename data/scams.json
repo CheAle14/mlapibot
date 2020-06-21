@@ -120,12 +120,13 @@
         },
         {
             "name": "Nitro Gift Sender",
-            "reason": "If the gift is legitimate, you can copy and paste it into the DM and a custom invite-like block should appear. Clicking on the link may take you to a different website than what the text says",
+            "reason": "Depending on the specific message: Nitro games does not exist; '.birth' domain is not operated by Discord. For all messages: Unexpected rewards from unknown and unverified bots are scams.",
             "text": [
                 "nitro gift sender",
                 "click link to accept you've got this message because a friend awarded you nitro",
                 "you've been gifted a 1 month nitro games by discord for events",
-                "click on the link for accept add the bot"
+                "click on the link for accept add the bot",
+                "click on the link to accept add the bot hello for our anniversary we decided to gift to all discord users"
             ]
         },
         {
