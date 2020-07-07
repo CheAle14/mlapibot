@@ -43,7 +43,7 @@
         },
         {
             "name": "Discord Rewards",
-            "reason": "Unexpected free gifts are not real - you do not win giveaways you do not enter; poor grammar.",
+            "reason": "Unexpected free gifts are not real - you do not win giveaways or gifts you do not enter; poor grammar.",
             "text": [
                 "discord rewarding service",
                 "what is this you ask? simple. upon inviting out bot to your server, our bot will monitor chat and collect data on users day to day conversations, with this data our bot will learn day to day language through advanced learning and help build a hepful human-like ai",
@@ -55,7 +55,8 @@
                 "this is a official giveaways bot we are giving some rewards to our community randomly",
                 "sponsored by hypesquad",
                 "we are giving some rewards to our community randomly",
-                "add this bot for claim nitro gift 30 boost"
+                "add this bot for claim nitro gift 30 boost",
+                "thank you for your constant activity that you give us everyday"
             ]
         },
         {
