@@ -1,12 +1,6 @@
 Hi!  
 The image(s) you've submitted appear to contain a common DM scam
 
-{0}
-
-
-
-- - -
-
 When looking at a possible scam from a bot account, always consider if they:
 
 - Are new, unfamiliar or are not verified
@@ -16,4 +10,16 @@ When looking at a possible scam from a bot account, always consider if they:
 
 - - -
 
-^(I am a bot, of {1} checks, this is the {2} possible scam; **you can**) [**^report ^scam ^accounts ^to ^Discord**](https://support.discord.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)^.
+To get rid of these bots, you can:
+
+- Block them
+- [Report them to Discord](https://support.discord.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)
+
+If these types of bots are repeatedly sending you messages, you can:
+
+- Use Mutual Servers to determine the server(s) they share with you, and disable Direct Messages from server members for those servers.
+- If you cannot find any common servers, you can disable DMs from all servers under your User Settings
+
+- - -
+
+^(I am a bot, of {0} checks, this is the {1} post I have responded to)

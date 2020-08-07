@@ -34,9 +34,9 @@ def load_scams():
         for scm in obj["scams"]:
             template = scm.get("template", "default")
             if "name" in scm:
-                SCAMS.append(Scam(scm["name"], scm["reason"], scm["text"], template))
+                SCAMS.append(Scam(scm["name"], scm["text"], template))
             else:
-                SCAMS.append(Scam(scm["Name"], scm["Reason"], scm["Texts"], template))
+                SCAMS.append(Scam(scm["Name"], scm["Texts"], template))
     except Exception as e:
         logging.error(e)
         print(e)
@@ -166,9 +166,8 @@ def saveLatest(thingId):
 def addScam(content):
     lines = content.split("\n")
     name = lines[1]
-    reason = lines[2]
-    texts = lines[3:]
-    scm = Scam(name, reason, texts, None)
+    texts = lines[2:]
+    scm = Scam(name, texts, None)
     SCAMS.append(scm)
     save_scams()
 
@@ -280,12 +279,10 @@ def handlePost(post):
     for url in urls:
         results = handleUrl(url) or []
         if len(results) > 0:
-            text = ""
             for scam, confidence in results.items():
                 if scam.Name not in HISTORY:
                     HISTORY[scam.Name] = 0
                 HISTORY[scam.Name] += 1
-                text += scam.Name + ": " + scam.Reason + "\r\n\r\n"
                 print(scam.Name, confidence)
             HISTORY_TOTAL += 1
             if 10 <= HISTORY_TOTAL % 100 <= 20:
@@ -293,7 +290,7 @@ def handlePost(post):
             else:
                 suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
             TEMPLATE = TEMPLATES[scam.Template]
-            built = TEMPLATE.format(text, TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
+            built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if os.name != "nt" or subReddit.display_name == "mlapi":
                 post.reply(built)
             webHook.sendSubmission(post, text)
