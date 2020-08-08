@@ -279,10 +279,12 @@ def handlePost(post):
     for url in urls:
         results = handleUrl(url) or []
         if len(results) > 0:
+            text = ""
             for scam, confidence in results.items():
                 if scam.Name not in HISTORY:
                     HISTORY[scam.Name] = 0
                 HISTORY[scam.Name] += 1
+                text += scam.Name + ", "
                 print(scam.Name, confidence)
             HISTORY_TOTAL += 1
             if 10 <= HISTORY_TOTAL % 100 <= 20:
