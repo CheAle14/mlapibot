@@ -10,10 +10,10 @@ When looking at a possible scam from a bot account, always consider if they:
 
 - - -
 
-To get rid of these bots, you can:
+To get rid of this bots, you can:
 
-- Block them
-- [Report them to Discord](https://support.discord.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)
+- Block it
+- [Report it to Discord](https://support.discord.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)
 
 If these types of bots are repeatedly sending you messages, you can:
 
