@@ -82,3 +82,10 @@ class ScamEncoder(JSONEncoder):
         def default(self, o):
             return o.__dict__
 
+class ResponseBuilder:
+    def __init__(self, results):
+        self.Scams = results
+        self.ScamText = ""
+        for scam, confidence in results.items():
+            self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
+        self.RecognisedText = ""

@@ -7,12 +7,13 @@ import tempfile
 import os, sys, time
 import ocr
 
+from typing import List
 from datetime import datetime
 from praw.models import Message, Comment
 from webhook import WebhookSender
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-from models import Scam, ScamEncoder
+from urllib3.util.retry import Retry
+from models import Scam, ScamEncoder, ResponseBuilder
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
@@ -165,32 +166,48 @@ def saveLatest(thingId):
 
 def addScam(content):
     lines = content.split("\n")
-    name = lines[1]
-    texts = lines[2:]
+    name = lines[0]
+    texts = lines[1:]
     scm = Scam(name, texts, None)
     SCAMS.append(scm)
     save_scams()
 
-def handleAdminMsg(post):
-    if post.body.startswith("[add]"):
+def handleUserMsg(post: Message, isAdmin: bool) -> bool:
+    if post.body.startswith("https"):
+        try:
+            subId = praw.models.Submission.id_from_url(post.body)
+        except praw.exceptions.ClientException:
+            post.reply("Unfortunately, the URL provided must be to a reddit thread.")
+            return True
+        submission = reddit.submission(subId)
+        builder = handlePost(submission, True)
+        if builder is None:
+            post.reply("Could not find any images to examine for that submission.")
+            return True
+        response = "For [this submission]({0}) by {1}, scams detected:  \r\n{2}\r\n - - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {3}\r\n"
+        
+        scamText = "No scams detected." if len(builder.Scams) == 0 else builder.ScamText
+        response = response.format(submission.permalink, submission.author.name, scamText, builder.RecognisedText.replace("\n", "\n    "))
+        post.reply(response)
+        return True
+    elif isAdmin and post.subject == "[add]":
         addScam(post.body)
         post.reply("Registered new scam; note: will not persist.")
-
+        return True
+    return False
 
 def loopInbox():
     unread_messages = []
     for item in reddit.inbox.unread(limit=None):
-        if isinstance(item, Message):
-            unread_messages.append(item)
-        if isinstance(item, Comment):
-            unread_messages.append(item)
+        unread_messages.append(item)
     reddit.inbox.mark_read(unread_messages)
     for x in unread_messages:
         webHook.sendInboxMessage(x)
-        body = str(str(x.body).encode("utf-8"))
-        logging.warning("%s: %s", x.author.name, body)
-        if x.author.name == author:
-            handleAdminMsg(x)
+        logging.warning("%s: %s", x.author.name, x.body)
+        if isinstance(x, Message):
+            done = handleUserMsg(x, x.author.name == author)
+            if not done:
+                x.reply("I was unable to determine what you wanted me to do, sorry.")
 
 def getFileName(url):
         index = url.rfind('/')
@@ -210,39 +227,41 @@ def validImage(url):
             return True
     return False
 
-
 def extractURLS(post):
     any_url = []
     if validImage(post.url):
         any_url.append(post.url)
     if post.is_self:
-        matches = re.findall("https?:\/\/[\w\-%\.\/\=\?\&]+",
+        matches = re.findall(r"https?:\/\/[\w\-%\.\/\=\?\&]+",
             post.selftext)
         for x in matches:
             if validImage(getFileName(x)):
                 any_url.append(x)
     return any_url
 
-def getScams(array):
+def getScams(array : List[str]) -> ResponseBuilder:
     scamResults = {}
     for x in SCAMS:
         result = x.PercentageMatch(array)
         logging.debug("{0}: {1}".format(x, result))
         if result > THRESHOLD:
             scamResults[x] = result
-    return scamResults
+    builder = ResponseBuilder(scamResults)
+    return builder
 
 
-def handleFileName(path, filename):
+def handleFileName(path: str, filename: str) -> ResponseBuilder:
     text = ocr.getTextFromPath(path, filename)
     text = text.lower()
     array = re.findall(r"[\w']+", text)
     if len(sys.argv) > 1:
         logging.info(" ".join(array))
         logging.info("==============")
-    return getScams(array)
+    builder = getScams(array)
+    builder.RecognisedText = text
+    return builder
 
-def handleUrl(url):
+def handleUrl(url: str) -> ResponseBuilder:
     filename = getFileName(url)
     try:
         r = requests_retry_session(retries=5).get(url)
@@ -250,7 +269,7 @@ def handleUrl(url):
         logging.error('Could not handle url:', url, x.__class__.__name__)
         print(str(x))
         try:
-            e = webHook.getEmbed("Errored With Image",
+            e = webHook.getEmbed("Error With Image",
                 str(x), url, x.__class__.__name__)
             logging.info(str(e))
             webHook._sendWebhook(e)
@@ -269,7 +288,7 @@ def handleUrl(url):
         f.write(r.content)
     return handleFileName(tempPath, filename)
 
-def handlePost(post):
+def handlePost(post: praw.models.Submission, trial_run = False) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
     urls = extractURLS(post)
@@ -277,14 +296,13 @@ def handlePost(post):
     if len(urls) > 0:
         TOTAL_CHECKS += 1
     for url in urls:
-        results = handleUrl(url) or []
+        builder = handleUrl(url)
+        results = builder.Scams
         if len(results) > 0:
-            text = ""
             for scam, confidence in results.items():
                 if scam.Name not in HISTORY:
                     HISTORY[scam.Name] = 0
                 HISTORY[scam.Name] += 1
-                text += scam.Name + ", "
                 print(scam.Name, confidence)
             HISTORY_TOTAL += 1
             if 10 <= HISTORY_TOTAL % 100 <= 20:
@@ -293,14 +311,14 @@ def handlePost(post):
                 suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
-            if os.name != "nt" or subReddit.display_name == "mlapi":
+            if os.name != "nt" or subReddit.display_name == "mlapi" and (not trial_run):
                 post.reply(built)
-            webHook.sendSubmission(post, text)
-            logging.info("Replied to: " + post.title)
+            if not trial_run:
+                webHook.sendSubmission(post, builder.ScamText)
+                logging.info("Replied to: " + post.title)
             break
     save_history()
-
-
+    return builder
 
 def loopPosts():
     for post in subReddit.new(limit=25):

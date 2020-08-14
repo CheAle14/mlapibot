@@ -1,6 +1,6 @@
 import praw, logging, requests
 import json
-from praw.models import Submission
+from praw.models import Submission, Comment
 
 class WebhookSender:
     def __init__(self, webhookUrl, subreddit):
@@ -39,7 +39,8 @@ class WebhookSender:
         self._sendWebhook(embed)
 
     def sendInboxMessage(self, message):
-        embed = self.getEmbed("Inbox Message", message.body, message.context, message.author.name)
+        title = "Reply" if isinstance(message, Comment) else "Inbox: " + message.subject
+        embed = self.getEmbed(title, message.body, message.context, message.author.name)
         self._sendWebhook(embed)
 
     def sendRemovedComment(self, comment: praw.models.Comment):

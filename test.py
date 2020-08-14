@@ -13,9 +13,9 @@ def test_file(filename):
     text = text.lower()
     array =  re.findall(r"[\w']+", text)
     logging.info(array)
-    scams = main.getScams(array)
-    logging.info("{0}: {1}".format(filename, scams))
-    return len(scams) > 0
+    builder = main.getScams(array)
+    logging.info(builder.ScamText)
+    return len(builder.Scams) > 0
 
 def test_files_name(iFrom, iTo):
     failed = []
