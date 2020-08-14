@@ -295,6 +295,7 @@ def handlePost(post: praw.models.Submission, trial_run = False) -> ResponseBuild
     logging.info(str(urls))
     if len(urls) > 0:
         TOTAL_CHECKS += 1
+    builder = None
     for url in urls:
         builder = handleUrl(url)
         results = builder.Scams
