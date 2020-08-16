@@ -227,7 +227,9 @@ def extractURLS(post):
     if isinstance(post, praw.models.Submission):
         if validImage(post.url):
             any_url.append(post.url)
-    if isinstance(post, praw.models.Message) or post.is_self:
+        if post.is_self:
+            any_url.extend(extractURLSText(post.selftext))
+    elif isinstance(post, praw.models.Message):
             any_url.extend(extractURLSText(post.body))
     return any_url
 
