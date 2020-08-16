@@ -22,7 +22,7 @@ def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
     reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.3 (by /u/" + author + ")")
-    subReddit = reddit.subreddit("DiscordApp")
+    subReddit = reddit.subreddit("mlapi")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -174,21 +174,7 @@ def addScam(content):
 
 def handleUserMsg(post: Message, isAdmin: bool) -> bool:
     if post.body.startswith("https"):
-        try:
-            subId = praw.models.Submission.id_from_url(post.body)
-        except praw.exceptions.ClientException:
-            post.reply("Unfortunately, the URL provided must be to a reddit thread.")
-            return True
-        submission = reddit.submission(subId)
-        builder = handlePost(submission, True)
-        if builder is None:
-            post.reply("Could not find any images to examine for that submission.")
-            return True
-        response = "For [this submission]({0}) by {1}, scams detected:  \r\n{2}\r\n - - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {3}\r\n"
-        
-        scamText = "No scams detected." if len(builder.Scams) == 0 else builder.ScamText
-        response = response.format(submission.permalink, submission.author.name, scamText, builder.RecognisedText.replace("\n", "\n    "))
-        post.reply(response)
+        handlePost(post)
         return True
     elif isAdmin and post.subject == "[add]":
         addScam(post.body)
@@ -227,16 +213,22 @@ def validImage(url):
             return True
     return False
 
+def extractURLSText(text: str) -> List[str]:
+    any_url = []
+    matches = re.findall(r"https?:\/\/[\w\-%\.\/\=\?\&]+",
+            text)
+    for x in matches:
+        if validImage(getFileName(x)):
+            any_url.append(x)
+    return any_url
+
 def extractURLS(post):
     any_url = []
-    if validImage(post.url):
-        any_url.append(post.url)
-    if post.is_self:
-        matches = re.findall(r"https?:\/\/[\w\-%\.\/\=\?\&]+",
-            post.selftext)
-        for x in matches:
-            if validImage(getFileName(x)):
-                any_url.append(x)
+    if isinstance(post, praw.models.Submission):
+        if validImage(post.url):
+            any_url.append(post.url)
+    if isinstance(post, praw.models.Message) or post.is_self:
+            any_url.extend(extractURLSText(post.body))
     return any_url
 
 def getScams(array : List[str]) -> ResponseBuilder:
@@ -258,7 +250,7 @@ def handleFileName(path: str, filename: str) -> ResponseBuilder:
         logging.info(" ".join(array))
         logging.info("==============")
     builder = getScams(array)
-    builder.RecognisedText = text
+    builder.RecognisedText = text.replace("\n", "\n    ")
     return builder
 
 def handleUrl(url: str) -> ResponseBuilder:
@@ -266,7 +258,7 @@ def handleUrl(url: str) -> ResponseBuilder:
     try:
         r = requests_retry_session(retries=5).get(url)
     except Exception as x:
-        logging.error('Could not handle url:', url, x.__class__.__name__)
+        logging.error('Could not handle url: {0} {1}'.format(url, x.__class__.__name__))
         print(str(x))
         try:
             e = webHook.getEmbed("Error With Image",
@@ -288,14 +280,16 @@ def handleUrl(url: str) -> ResponseBuilder:
         f.write(r.content)
     return handleFileName(tempPath, filename)
 
-def handlePost(post: praw.models.Submission, trial_run = False) -> ResponseBuilder:
+def handlePost(post: praw.models.Message) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
     urls = extractURLS(post)
     logging.info(str(urls))
-    if len(urls) > 0:
+    IS_POST = isinstance(post, praw.models.Submission)
+    if len(urls) > 0 and IS_POST:
         TOTAL_CHECKS += 1
     builder = None
+    replied = False
     for url in urls:
         builder = handleUrl(url)
         results = builder.Scams
@@ -305,20 +299,32 @@ def handlePost(post: praw.models.Submission, trial_run = False) -> ResponseBuild
                     HISTORY[scam.Name] = 0
                 HISTORY[scam.Name] += 1
                 print(scam.Name, confidence)
-            HISTORY_TOTAL += 1
+            if IS_POST:
+                HISTORY_TOTAL += 1
             if 10 <= HISTORY_TOTAL % 100 <= 20:
                 suffix = 'th'
             else:
                 suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
-            if os.name != "nt" or subReddit.display_name == "mlapi" and (not trial_run):
+            if not IS_POST:
+                built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {0}\r\n".format(builder.RecognisedText)
                 post.reply(built)
-            if not trial_run:
+                replied = True
+            elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
+                post.reply(built)
+                replied = True
                 webHook.sendSubmission(post, builder.ScamText)
                 logging.info("Replied to: " + post.title)
             break
-    save_history()
+    if IS_POST:
+        save_history()
+    else:
+        if builder is None:
+            post.reply("Sorry, I was unable to find any image URLs to examine.")
+        elif not replied:
+            post.reply("No scams detected; text I saw was:\r\n\r\n    {0}\r\n".format(builder.RecognisedText))
+        
     return builder
 
 def loopPosts():
