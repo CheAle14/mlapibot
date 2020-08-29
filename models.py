@@ -1,6 +1,23 @@
-import os
+import os, re
 from typing import List
 from json import JSONEncoder
+
+class ResponseBuilder:
+    def __init__(self):
+        self.ScamText = ""
+        self.RecognisedText = ""
+        self.FormattedText = ""
+        self.TestGrounds = ""
+        self.Scams = {}
+    def Load(self, results):
+        self.Scams = results
+        for scam, confidence in results.items():
+            self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
+    def CleanTest(self):
+        self.TestGrounds = self.FormattedText
+    def __str__(self):
+        return self.FormattedText
+
 class Scam:
     def __init__(self, name: str, texts: List[str], templateName):
         self.Name = name
@@ -12,19 +29,22 @@ class Scam:
         return self.Name
     def __repr__(self):
         return self.Name
-    def numWordsContain(self, words: List[str], testWords: List[str]) -> int:
+    def numWordsContain(self, words: List[str], testWords: List[str], builder: ResponseBuilder) -> int:
         count = 0
         for x in testWords:
             if x in words:
+                escaped = r"(?<!_)" + re.escape(x) + r"(?!_)"
+                builder.TestGrounds = re.sub(escaped, "_" + x + "_", builder.TestGrounds)
                 count += 1
                 continue
         return count
 
-    def findPhraseInOrder(self, words, testWords, limY = 0, limTest = 0):
+    def findPhraseInOrder(self, words, testWords, builder: ResponseBuilder, limY = 0, limTest = 0):
         current = 0
         phraseStart = limTest
         #if self.Name == "Partner Bot":
         #    print("Looking for '" + " ".join(testWords[phraseStart:]), "' from " + str(limY) + " onwards")
+        textSeen = []
         for testing in range(limTest, len(testWords)):
             for y in range(limY, len(words)):
                 if testing >= len(testWords):
@@ -34,12 +54,13 @@ class Scam:
                 if against == "":
                     continue
                 if word == against:
-                    #if self.Name == "Partner Bot":
+                    #if self.Name == "Discord Rewards":
                     #    print(testing, y, limY, limTest, ":", word, against)
                     current += 1
                     y += 1
                     limTest = testing + 1
                     limY = y
+                    textSeen.append(word)
                     break
                 elif current > 0:
                     diff = y - limY
@@ -49,27 +70,35 @@ class Scam:
             if current == 0:
                 # havn't found the phrase at all
                 return (current, limY, phraseStart + 1)
+        if current > 0 and (len(textSeen) > (len(testWords)/2)):
+            sawWords = " ".join(textSeen)
+            #print("Saw '" + sawWords + "' of '" + " ".join(testWords) + "'")
+            escaped = r"(?<!\*\*)" + re.escape(sawWords) + r"(?!\*\*)"
+            #print("REGEX: " + escaped)
+            builder.TestGrounds = re.sub(escaped, "**" + sawWords + "**", builder.TestGrounds)
+
         return (current, limY, len(testWords))
 
-    def phrasesInOrder(self, words: List[str], testWords: List[str]) -> int:
+    def phrasesInOrder(self, words: List[str], testWords: List[str], builder: ResponseBuilder) -> int:
         doneTest = 0
         limY = 0
         total = 0
         current = 0
         while doneTest < len(testWords) and limY < len(words):
             current, limY, doneTest = \
-                self.findPhraseInOrder(words, testWords, limY, doneTest)
+                self.findPhraseInOrder(words, testWords, builder, limY, doneTest)
             total += current
         return current
 
-    def PercentageMatch(self, words: List[str]) -> float:
+    def PercentageMatch(self, words: List[str], builder: ResponseBuilder) -> float:
         highest = 0
         high_str = None
         for testString in self.Texts:
             #print("=======BREAK==========")
             testArray = testString.split(' ')
-            contain = self.numWordsContain(words, testArray)
-            inOrder = self.phrasesInOrder(words, testArray)
+            builder.CleanTest()
+            inOrder = self.phrasesInOrder(words, testArray, builder)
+            contain = self.numWordsContain(words, testArray, builder)
             total = contain + inOrder
             perc = total / (len(testArray) * 2)
             if perc > highest:
@@ -81,11 +110,3 @@ class Scam:
 class ScamEncoder(JSONEncoder):
         def default(self, o):
             return o.__dict__
-
-class ResponseBuilder:
-    def __init__(self, results):
-        self.Scams = results
-        self.ScamText = ""
-        for scam, confidence in results.items():
-            self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
-        self.RecognisedText = ""

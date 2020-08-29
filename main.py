@@ -233,14 +233,17 @@ def extractURLS(post):
             any_url.extend(extractURLSText(post.body))
     return any_url
 
-def getScams(array : List[str]) -> ResponseBuilder:
+def getScams(array : List[str], builder: ResponseBuilder) -> ResponseBuilder:
     scamResults = {}
     for x in SCAMS:
-        result = x.PercentageMatch(array)
+        result = x.PercentageMatch(array, builder)
         logging.debug("{0}: {1}".format(x, result))
         if result > THRESHOLD:
+            print("HEY WE ARE THRESH")
             scamResults[x] = result
-    builder = ResponseBuilder(scamResults)
+            builder.FormattedText = builder.TestGrounds
+            print(builder.FormattedText)
+    builder.Load(scamResults)
     return builder
 
 
@@ -251,8 +254,11 @@ def handleFileName(path: str, filename: str) -> ResponseBuilder:
     if len(sys.argv) > 1:
         logging.info(" ".join(array))
         logging.info("==============")
-    builder = getScams(array)
-    builder.RecognisedText = text.replace("\n", "\n    ")
+    builder = ResponseBuilder()
+    builder.RecognisedText = text
+    builder.FormattedText = ">" + text.replace("\n", "\n>")
+    print(builder.FormattedText)
+    getScams(array, builder)
     return builder
 
 def handleUrl(url: str) -> ResponseBuilder:
@@ -310,7 +316,7 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if not IS_POST:
-                built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {0}\r\n".format(builder.RecognisedText)
+                built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
             elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
