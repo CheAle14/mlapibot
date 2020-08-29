@@ -316,6 +316,7 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if not IS_POST:
+                print(builder.FormattedText)
                 built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
