@@ -316,7 +316,6 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if not IS_POST:
-                print(builder.FormattedText)
                 built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n    {0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
@@ -332,7 +331,7 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
         if builder is None:
             post.reply("Sorry, I was unable to find any image URLs to examine.")
         elif not replied:
-            post.reply("No scams detected; text I saw was:\r\n\r\n    {0}\r\n".format(builder.RecognisedText))
+            post.reply("No scams detected; text I saw was:\r\n\r\n    {0}\r\n".format(builder.FormattedText))
         
     return builder
 
