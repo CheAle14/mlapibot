@@ -245,6 +245,14 @@
                 "appdata roaming discord 0 0 modules discord _desktop _core index.js"
             ],
             "template": "anarchy"
+        },
+        {
+            "name": "WinInstallError",
+            "reason": "-",
+            "text": [
+                "a fatal javascript error occured"
+            ],
+            "template": "install"
         }
     ]
 }
