@@ -377,7 +377,6 @@ def handleNewComment(comment: praw.models.Comment):
                 url = "https://www.reddit.com/comments/{0}/{1}/".format(comment.submission.id, comment.id)
                 e = webHook.getEmbed("Reported Comment",
                     comment.body, url, comment.author.name)
-                logging.info(str(e))
                 webHook._sendWebhook(e)
             except:
                 pass
