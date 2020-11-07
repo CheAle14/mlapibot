@@ -218,7 +218,6 @@ def validImage(url):
     return False
 
 def extractURLSText(text: str, pattern: str) -> List[str]:
-    print("Regexing '" + text + "'")
     any_url = []
     matches = re.findall(pattern,
             text)
@@ -374,6 +373,14 @@ def handleNewComment(comment: praw.models.Comment):
         and "VERIFIED" not in features:
             logging.info("Reporting " + comment.id)
             comment.report("Self promotion; not verified/partnered/discoverable (auto-detected /u/mlapibot)")
+            try:
+                url = "https://www.reddit.com/comments/{0}/{1}/".format(comment.submission.id, comment.id)
+                e = webHook.getEmbed("Reported Comment",
+                    comment.body, url, comment.author.name)
+                logging.info(str(e))
+                webHook._sendWebhook(e)
+            except:
+                pass
 
 def loopPosts():
     for post in subReddit.new(limit=25):
