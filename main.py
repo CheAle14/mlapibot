@@ -13,12 +13,14 @@ from praw.models import Message, Comment
 from webhook import WebhookSender
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urlparse
 from models import Scam, ScamEncoder, ResponseBuilder
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
-ocr_scam_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+\.(png|jpg|jpeg)"
+ocr_scam_pattern = r"(?:\bhttps://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]"
 discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9]{6,16})"
+valid_extensions = [".png", ".jpeg", ".jpg"]
 
 def load_reddit():
     global reddit, subReddit, author
@@ -174,8 +176,6 @@ def addScam(content):
     SCAMS.append(scm)
     save_scams()
 
-
-
 def handleUserMsg(post: Message, isAdmin: bool) -> bool:
     if post.body.startswith("https"):
         handlePost(post)
@@ -200,17 +200,23 @@ def loopInbox():
                 x.reply("I was unable to determine what you wanted me to do, sorry.")
 
 def getFileName(url):
-        index = url.rfind('/')
-        if index == -1:
-            index = url.rfind('\\')
-        filename = url[index+1:]
-        thing = filename.find('?')
-        if thing != -1:
-            filename = filename[:thing]
-        return filename
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return None
+    path = parsed.path
+    index = path.rfind('/')
+    if index == -1:
+        index = path.rfind('\\')
+    filename = path[index+1:]
+    thing = filename.find('?')
+    if thing != -1:
+        filename = filename[:thing]
+    return filename
 
 def validImage(url):
     filename = getFileName(url)
+    if filename is None:
+        return False
     print(url + " -> " + filename)
     for ext in valid_extensions:
         if filename.endswith(ext):
@@ -268,6 +274,7 @@ def handleFileName(path: str, filename: str) -> ResponseBuilder:
 
 def handleUrl(url: str) -> ResponseBuilder:
     filename = getFileName(url)
+
     try:
         r = requests_retry_session(retries=5).get(url)
     except Exception as x:
@@ -296,8 +303,8 @@ def handleUrl(url: str) -> ResponseBuilder:
 def handlePost(post: praw.models.Message) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
-    ocr_urls = extractURLS(post, ocr_scam_pattern)
-    discord_urls = extractURLS(post, discord_invite_pattern)
+    urls = extractURLS(post, ocr_scam_pattern)
+    ocr_urls = [x for x in urls if validImage(x)]
     logging.info(str(ocr_urls))
     IS_POST = isinstance(post, praw.models.Submission)
     if len(ocr_urls) > 0 and IS_POST:
