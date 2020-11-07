@@ -17,11 +17,13 @@ from models import Scam, ScamEncoder, ResponseBuilder
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
-valid_extensions = [".png", ".jpg", ".jpeg"]
+ocr_scam_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+\.(png|jpg|jpeg)"
+discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9]{6,16})"
+
 def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
-    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.3 (by /u/" + author + ")")
+    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.4 (by /u/" + author + ")")
     subReddit = reddit.subreddit("DiscordApp")
 def load_scams():
     global SCAMS, THRESHOLD
@@ -159,7 +161,7 @@ def requests_retry_session(
 
 def saveLatest(thingId):
     latest_done.append(thingId)
-    if len(latest_done) > 50:
+    if len(latest_done) > 250:
         latest_done.pop(0)
     with open("save.txt", "w") as f:
         f.write("\n".join(latest_done))
@@ -171,6 +173,8 @@ def addScam(content):
     scm = Scam(name, texts, None)
     SCAMS.append(scm)
     save_scams()
+
+
 
 def handleUserMsg(post: Message, isAdmin: bool) -> bool:
     if post.body.startswith("https"):
@@ -213,24 +217,26 @@ def validImage(url):
             return True
     return False
 
-def extractURLSText(text: str) -> List[str]:
+def extractURLSText(text: str, pattern: str) -> List[str]:
+    print("Regexing '" + text + "'")
     any_url = []
-    matches = re.findall(r"https?:\/\/[\w\-%\.\/\=\?\&]+",
+    matches = re.findall(pattern,
             text)
     for x in matches:
-        if validImage(getFileName(x)):
-            any_url.append(x)
+        any_url.append(x)
     return any_url
 
-def extractURLS(post):
+def extractURLS(post, pattern: str):
     any_url = []
     if isinstance(post, praw.models.Submission):
-        if validImage(post.url):
+        if re.match(pattern, post.url) is not None:
             any_url.append(post.url)
         if post.is_self:
-            any_url.extend(extractURLSText(post.selftext))
+            any_url.extend(extractURLSText(post.selftext, pattern))
     elif isinstance(post, praw.models.Message):
-            any_url.extend(extractURLSText(post.body))
+        any_url.extend(extractURLSText(post.body, pattern))
+    elif isinstance(post, praw.models.Comment):
+        any_url.extend(extractURLSText(post.body, pattern))
     return any_url
 
 def getScams(array : List[str], builder: ResponseBuilder) -> ResponseBuilder:
@@ -291,14 +297,15 @@ def handleUrl(url: str) -> ResponseBuilder:
 def handlePost(post: praw.models.Message) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
-    urls = extractURLS(post)
-    logging.info(str(urls))
+    ocr_urls = extractURLS(post, ocr_scam_pattern)
+    discord_urls = extractURLS(post, discord_invite_pattern)
+    logging.info(str(ocr_urls))
     IS_POST = isinstance(post, praw.models.Submission)
-    if len(urls) > 0 and IS_POST:
+    if len(ocr_urls) > 0 and IS_POST:
         TOTAL_CHECKS += 1
     builder = None
     replied = False
-    for url in urls:
+    for url in ocr_urls:
         builder = handleUrl(url)
         results = builder.Scams
         if len(results) > 0:
@@ -329,19 +336,60 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
         save_history()
     else:
         if builder is None:
-            post.reply("Sorry, I was unable to find any image URLs to examine.")
+            post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
         elif not replied:
             post.reply("No scams detected; text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText))
-        
     return builder
+
+def getInviteData(code: str):
+    url = "https://discord.com/api/v8/invites/" + code
+    print("Fetching " + url)
+    try:
+        r = requests_retry_session(retries=5).get(url)
+    except Exception as x:
+        logging.error('Could not handle url: {0} {1}'.format(url, x.__class__.__name__))
+        print(str(x))
+        try:
+            e = webHook.getEmbed("Error with Discord Invite",
+                str(x), url, x.__class__.__name__)
+            logging.info(str(e))
+            webHook._sendWebhook(e)
+        except:
+            pass
+        return
+    if not r.ok:
+        logging.error("Url failed")
+        return
+    return json.loads(r.text)
+
+def handleNewComment(comment: praw.models.Comment):
+    discord_codes = extractURLS(comment, discord_invite_pattern)
+    print(discord_codes)
+    for code in discord_codes:
+        data = getInviteData(code)
+        print(data)
+        features = data["guild"]["features"]
+        if  "DISCOVERABLE" not in features \
+        and "PARTNERED" not in features \
+        and "VERIFIED" not in features:
+            logging.info("Reporting " + comment.id)
+            comment.report("Self promotion; not verified/partnered/discoverable (auto-detected /u/mlapibot)")
 
 def loopPosts():
     for post in subReddit.new(limit=25):
         if post.name in latest_done:
             break # Since we go new -> old, don't go any further into old
-        logging.info("New: " + post.title)
+        logging.info("Post new: " + post.title)
         saveLatest(post.name)
         handlePost(post)
+
+def loopComments():
+    for comment in subReddit.comments(limit=25):
+        if comment.id in latest_done:
+            break
+        logging.info("Comment new: " + comment.id + ", in " + comment.link_id)
+        saveLatest(comment.id)
+        handleNewComment(comment)
 
 def deleteBadHistory():
     for comment in reddit.user.me().comments.new(limit=10):
@@ -374,6 +422,13 @@ if __name__ == "__main__":
             time.sleep(5)
         if not doneOnce:
             logging.info("Checked posts loop")
+        try:
+            loopComments()
+        except Exception as e:
+            logging.error(e, exc_info=1)
+            time.sleep(5)
+        if not doneOnce:
+            logging.info("Checked new subreddit comments")
         try:
             loopInbox()
         except Exception as e:
