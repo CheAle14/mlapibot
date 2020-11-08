@@ -274,7 +274,6 @@ def handleFileName(path: str, filename: str) -> ResponseBuilder:
 
 def handleUrl(url: str) -> ResponseBuilder:
     filename = getFileName(url)
-
     try:
         r = requests_retry_session(retries=5).get(url)
     except Exception as x:
@@ -371,6 +370,7 @@ def getInviteData(code: str):
 def handleNewComment(comment: praw.models.Comment):
     discord_codes = extractURLS(comment, discord_invite_pattern)
     print(discord_codes)
+    anyIllegal = False
     for code in discord_codes:
         data = getInviteData(code)
         print(data)
@@ -378,15 +378,18 @@ def handleNewComment(comment: praw.models.Comment):
         if  "DISCOVERABLE" not in features \
         and "PARTNERED" not in features \
         and "VERIFIED" not in features:
-            logging.info("Reporting " + comment.id)
-            comment.report("Self promotion; not verified/partnered/discoverable (auto-detected /u/mlapibot)")
-            try:
-                url = "https://www.reddit.com/comments/{0}/{1}/".format(comment.submission.id, comment.id)
-                e = webHook.getEmbed("Reported Comment",
-                    comment.body, url, comment.author.name)
-                webHook._sendWebhook(e)
-            except:
-                pass
+            anyIllegal = True
+            break
+    if anyIllegal:
+        logging.info("Reporting " + comment.id)
+        comment.report("Self promotion; not verified/partnered/discoverable (auto-detected /u/mlapibot)")
+        try:
+            url = "https://www.reddit.com/comments/{0}/{1}/".format(comment.submission.id, comment.id)
+            e = webHook.getEmbed("Reported Comment",
+                comment.body, url, comment.author.name)
+            webHook._sendWebhook(e)
+        except:
+            pass
 
 def loopPosts():
     for post in subReddit.new(limit=25):
