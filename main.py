@@ -384,7 +384,7 @@ def handleNewComment(comment: praw.models.Comment):
         logging.info("Reporting " + comment.id)
         comment.report("Self promotion; not verified/partnered/discoverable (auto-detected /u/mlapibot)")
         try:
-            url = "https://www.reddit.com/comments/{0}/{1}/".format(comment.submission.id, comment.id)
+            url = "https://www.reddit.com/comments/{0}/comment/{1}/".format(comment.submission.id, comment.id)
             e = webHook.getEmbed("Reported Comment",
                 comment.body, url, comment.author.name)
             webHook._sendWebhook(e)
