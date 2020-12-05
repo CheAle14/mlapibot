@@ -19,7 +19,7 @@ from models import Scam, ScamEncoder, ResponseBuilder
 os.chdir(os.path.join(os.getcwd(), "data"))
 
 ocr_scam_pattern = r"(?:\bhttps://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]"
-discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9]{6,16})"
+discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]{6,16})"
 valid_extensions = [".png", ".jpeg", ".jpg"]
 
 def load_reddit():
@@ -346,7 +346,16 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
             post.reply("No scams detected; text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText))
     return builder
 
+_fromcoded = {"guild": {"features": ["DISCOVERABLE", "FROM_HARDCODE"]}}
+def getHardCoded(code: str):
+    if code == "discord-testers":
+        return _fromcoded
+    return None
+
 def getInviteData(code: str):
+    hardcode = getHardCoded(code)
+    if hardcode is not None:
+        return hardcode
     url = "https://discord.com/api/v8/invites/" + code
     print("Fetching " + url)
     try:
