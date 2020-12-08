@@ -250,7 +250,8 @@
             "name": "WinInstallError",
             "reason": "-",
             "text": [
-                "fatal javascript error occured"
+                "fatal javascript error occured",
+                "javascript error occurred in the main process"
             ],
             "template": "install"
         }
