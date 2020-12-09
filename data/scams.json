@@ -260,7 +260,8 @@
             "reason": "-",
             "text": [
                 "fatal javascript error occured",
-                "javascript error occurred in the main process"
+                "javascript error occurred in the main process",
+                "error: cannot find module"
             ],
             "template": "install"
         }
