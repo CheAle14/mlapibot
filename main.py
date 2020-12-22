@@ -19,7 +19,7 @@ from models import Scam, ScamEncoder, ResponseBuilder
 os.chdir(os.path.join(os.getcwd(), "data"))
 
 ocr_scam_pattern = r"(?:\bhttps://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]"
-discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]{6,16})"
+discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]{5,16})"
 valid_extensions = [".png", ".jpeg", ".jpg"]
 
 def load_reddit():
