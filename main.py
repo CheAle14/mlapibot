@@ -317,8 +317,9 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
     urls = extractURLS(post, ocr_scam_pattern)
     ocr_urls = [x for x in urls if validImage(x)]
     logging.info(str(ocr_urls))
-    IS_POST = isinstance(post, praw.models.Submission) or \
-              post.parent_id is not None
+    IS_POST = isinstance(post, praw.models.Submission)
+    DO_TEXT = post.author.name == author or \
+              (not IS_POST and post.parent_id is None)
     if len(ocr_urls) > 0 and IS_POST:
         TOTAL_CHECKS += 1
     builder = None
@@ -340,7 +341,7 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
                 suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
-            if (not IS_POST) or post.author.name == author:
+            if DO_TEXT:
                 built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
