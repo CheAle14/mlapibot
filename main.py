@@ -176,11 +176,15 @@ def addScam(content):
     SCAMS.append(scm)
     save_scams()
 
-def handleUserMsg(post: Message, isAdmin: bool) -> bool:
-    if post.body.startswith("https"):
+def handleUserMsg(post, isAdmin: bool) -> bool:
+    text = post.body
+    if text.startswith("/u/mlapibot "):
+        text = text[len("/u/mlapibot "):]
+        print(text)
+    if text.startswith("https"):
         handlePost(post)
         return True
-    elif isAdmin and post.subject == "[add]":
+    elif isAdmin and isinstance(post, Message) and post.subject == "[add]":
         addScam(post.body)
         post.reply("Registered new scam; note: will not persist.")
         return True
@@ -192,12 +196,20 @@ def loopInbox():
         unread_messages.append(item)
     reddit.inbox.mark_read(unread_messages)
     for x in unread_messages:
+        for property, value in vars(x).items():
+            print(property, ":", value)
         webHook.sendInboxMessage(x)
         logging.warning("%s: %s", x.author.name, x.body)
         if isinstance(x, Message):
             done = handleUserMsg(x, x.author.name == author)
             if not done:
                 x.reply("I was unable to determine what you wanted me to do, sorry.")
+        elif isinstance(x, Comment):
+            if not x.body.startswith("/u/mlapibot"):
+                continue
+            done = handleUserMsg(x, x.author.name == author)
+            if not done:
+                x.reply("Sorry! I'm not sure what you wanted me to do.")
 
 def getFileName(url):
     parsed = urlparse(url)
@@ -299,13 +311,14 @@ def handleUrl(url: str) -> ResponseBuilder:
         f.write(r.content)
     return handleFileName(tempPath, filename)
 
-def handlePost(post: praw.models.Message) -> ResponseBuilder:
+def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
     urls = extractURLS(post, ocr_scam_pattern)
     ocr_urls = [x for x in urls if validImage(x)]
     logging.info(str(ocr_urls))
-    IS_POST = isinstance(post, praw.models.Submission)
+    IS_POST = isinstance(post, praw.models.Submission) or \
+              post.parent_id is not None
     if len(ocr_urls) > 0 and IS_POST:
         TOTAL_CHECKS += 1
     builder = None
@@ -327,7 +340,7 @@ def handlePost(post: praw.models.Message) -> ResponseBuilder:
                 suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
-            if not IS_POST:
+            if (not IS_POST) or post.author.name == author:
                 built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
