@@ -264,6 +264,17 @@
                 "error: cannot find module"
             ],
             "template": "install"
+        },
+        {
+            "name": "UnixTimestamp",
+            "reason": "-",
+            "text": [
+                "12/31/1969",
+                "01/01/1970",
+                "jan 1, 1970",
+                "dec 31, 1969"
+            ],
+            "template": "timestamp"
         }
     ]
 }
