@@ -14,7 +14,7 @@ from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 
 print("About to...")
-import mlapi.ocr
+import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
 from mlapi.models.scam import Scam
 from mlapi.models.scam_encoder import ScamEncoder
