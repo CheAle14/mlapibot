@@ -345,9 +345,10 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if DO_TEXT:
+                build += "\r\n - - -"
                 if doSkip:
-                    built += "\r\n(Detected words indicating I should ignore this post)"
-                built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
+                    built += "Detected words indicating I should ignore this post, possibly legit.  "
+                built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
             elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
