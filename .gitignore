@@ -128,9 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
-
-data/*
-!data/templates
-!data/scams.json
 .vscode/*
