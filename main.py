@@ -14,7 +14,9 @@ from webhook import WebhookSender
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
-from models import Scam, ScamEncoder, ResponseBuilder
+from mlapibot.models.ResponseBuilder import ResponseBuilder
+from mlapibot.models.Scam import Scam
+from mlapibot.models.ScamEncoder import ScamEncoder
 
 os.chdir(os.path.join(os.getcwd(), "data"))
 
@@ -26,7 +28,7 @@ def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
     reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.4 (by /u/" + author + ")")
-    subReddit = reddit.subreddit("DiscordApp")
+    subReddit = reddit.subreddit("mlapi")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -345,7 +347,7 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if DO_TEXT:
-                build += "\r\n - - -"
+                built += "\r\n - - -"
                 if doSkip:
                     built += "Detected words indicating I should ignore this post, possibly legit.  "
                 built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)

@@ -1,22 +1,7 @@
 import os, re
 from typing import List
 from json import JSONEncoder
-
-class ResponseBuilder:
-    def __init__(self):
-        self.ScamText = ""
-        self.RecognisedText = ""
-        self.FormattedText = ""
-        self.TestGrounds = ""
-        self.Scams = {}
-    def Load(self, results):
-        self.Scams = results
-        for scam, confidence in results.items():
-            self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
-    def CleanTest(self):
-        self.TestGrounds = self.FormattedText
-    def __str__(self):
-        return self.FormattedText
+from mlapibot.models.ResponseBuilder import ResponseBuilder
 
 class Scam:
     def __init__(self, name: str, texts: List[str], templateName):
@@ -107,6 +92,3 @@ class Scam:
         if os.name == "nt":
             print(highest, self.Name, high_str)
         return highest
-class ScamEncoder(JSONEncoder):
-        def default(self, o):
-            return o.__dict__
