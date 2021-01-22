@@ -32,7 +32,7 @@ def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
     reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.4 (by /u/" + author + ")")
-    subReddit = reddit.subreddit("mlapi")
+    subReddit = reddit.subreddit("DiscordApp")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
