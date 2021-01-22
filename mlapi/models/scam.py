@@ -1,7 +1,7 @@
 import os, re
 from typing import List
 from json import JSONEncoder
-from mlapibot.models.ResponseBuilder import ResponseBuilder
+from .response_builder import ResponseBuilder
 
 class Scam:
     def __init__(self, name: str, texts: List[str], templateName):

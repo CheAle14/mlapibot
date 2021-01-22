@@ -1,0 +1,1 @@
+{"history": {"Invite Scam": 4, "Free Boost": 4, "MEE6 Premium": 2, "Opidium": 3}, "total": 7, "scams": 7}

@@ -5,19 +5,23 @@ import requests
 import json
 import tempfile
 import os, sys, time
-import ocr
 
 from typing import List
 from datetime import datetime
 from praw.models import Message, Comment
-from webhook import WebhookSender
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
-from mlapibot.models.ResponseBuilder import ResponseBuilder
-from mlapibot.models.Scam import Scam
-from mlapibot.models.ScamEncoder import ScamEncoder
 
+print("About to...")
+import mlapi.ocr
+from mlapi.models.response_builder import ResponseBuilder
+from mlapi.models.scam import Scam
+from mlapi.models.scam_encoder import ScamEncoder
+from mlapi.webhook import WebhookSender
+print("Done...")
+
+print(os.getcwd())
 os.chdir(os.path.join(os.getcwd(), "data"))
 
 ocr_scam_pattern = r"(?:\bhttps://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]"
@@ -447,7 +451,8 @@ def deleteBadHistory():
 
 
 load_scams()
-if __name__ == "__main__":
+
+def start():
     logging.basicConfig(filename='mlapi.log', level=logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     if len(sys.argv) == 2:
@@ -494,4 +499,6 @@ if __name__ == "__main__":
             doneOnce = True
 
 
+if __name__ == "__main__":
+    start()
 
