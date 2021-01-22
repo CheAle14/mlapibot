@@ -1,5 +1,11 @@
 {
     "scams": [{
+            "text": [
+                "get a free month of discord nitro! install the discord mobile app on your phone and log in with this account. you'll automatically get your free month and have access to"
+            ],
+            "name": "IgnorePost",
+            "reason": "-"
+        }, {
             "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc."],
             "name": "Twitch Nitro",
             "reason": "Nito Games has been discontinued and is no longer being given out; message has poor grammar; any actual partnership unlikely to be announced through an unknown and unverified bot."

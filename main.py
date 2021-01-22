@@ -328,10 +328,13 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
         builder = handleUrl(url)
         results = builder.Scams
         if len(results) > 0:
+            doSkip = False
             for scam, confidence in results.items():
                 if scam.Name not in HISTORY:
                     HISTORY[scam.Name] = 0
                 HISTORY[scam.Name] += 1
+                if scam.Name == "IgnorePost":
+                    doSkip = True
                 print(scam.Name, confidence)
             if IS_POST:
                 HISTORY_TOTAL += 1
@@ -342,11 +345,14 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
             TEMPLATE = TEMPLATES[scam.Template]
             built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
             if DO_TEXT:
+                if doSkip:
+                    built += "\r\n(Detected words indicating I should ignore this post)"
                 built += "\r\n- - -\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
                 post.reply(built)
                 replied = True
             elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
-                post.reply(built)
+                if not doSkip:
+                    post.reply(built)
                 replied = True
                 webHook.sendSubmission(post, builder.ScamText)
                 logging.info("Replied to: " + post.title)
