@@ -31,7 +31,7 @@ valid_extensions = [".png", ".jpeg", ".jpg"]
 def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
-    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.4 (by /u/" + author + ")")
+    reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.5 (by /u/" + author + ")")
     subReddit = reddit.subreddit("DiscordApp")
 def load_scams():
     global SCAMS, THRESHOLD
