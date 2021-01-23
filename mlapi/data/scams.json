@@ -268,8 +268,7 @@
                 "appdata roaming discord 0 0 modules discord _desktop _core index.js"
             ],
             "template": "anarchy"
-        },
-        {
+        }, {
             "name": "WinInstallError",
             "reason": "-",
             "text": [
@@ -278,8 +277,7 @@
                 "error: cannot find module"
             ],
             "template": "install"
-        },
-        {
+        }, {
             "name": "UnixTimestamp",
             "reason": "-",
             "text": [
@@ -289,6 +287,11 @@
                 "dec 31 1969"
             ],
             "template": "timestamp"
+        }, {
+            "name": "CyberAttack",
+            "reason": "-",
+            "text": ["tomorrow is a cyber attack event on all social media platforms including discord"],
+            "template": "chainspam"
         }
     ]
 }
