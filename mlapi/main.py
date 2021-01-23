@@ -113,7 +113,7 @@ def setup():
 
     try:
         with open("webhook.txt", "r") as f:
-            WEBHOOK_URL = f.read()
+            WEBHOOK_URL = f.read().strip()
     except Exception as e:
         logging.error(e)
         logging.warning("Disabling webhook sending as missing URL")
