@@ -14,6 +14,11 @@
             "template": "trojan"
             
         }, {
+            "text": ["those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"],
+            "name": "GenericChainSpam",
+            "reason": "-",
+            "template": "chainspam"
+        }, {
             "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc."],
             "name": "Twitch Nitro",
             "reason": "Nito Games has been discontinued and is no longer being given out; message has poor grammar; any actual partnership unlikely to be announced through an unknown and unverified bot."
