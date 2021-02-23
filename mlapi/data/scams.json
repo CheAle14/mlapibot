@@ -12,12 +12,16 @@
             "name": "TrojanImage",
             "reason": "-",
             "template": "trojan"
-            
         }, {
             "text": ["those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"],
             "name": "GenericChainSpam",
             "reason": "-",
             "template": "chainspam"
+        }, {
+            "name": "GameTestersMalware",
+            "reason": "-",
+            "template": "libraryMalware",
+            "text": ["you've been invited to test discord’s game testers", "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"]
         }, {
             "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc."],
             "name": "Twitch Nitro",
