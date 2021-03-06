@@ -13,13 +13,11 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 
-print("About to...")
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
 from mlapi.models.scam import Scam
 from mlapi.models.scam_encoder import ScamEncoder
 from mlapi.webhook import WebhookSender
-print("Done...")
 
 print(os.getcwd())
 os.chdir(os.path.join(os.getcwd(), "data"))
@@ -32,7 +30,10 @@ def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
     reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.5 (by /u/" + author + ")")
-    subReddit = reddit.subreddit("DiscordApp")
+    srName = "DiscordApp"
+    if os.name == "nt":
+        srName = "mlapi"
+    subReddit = reddit.subreddit(srName)
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -44,10 +45,13 @@ def load_scams():
         obj = json.loads(rawText)
         for scm in obj["scams"]:
             template = scm.get("template", "default")
-            if "name" in scm:
-                SCAMS.append(Scam(scm["name"], scm["text"], template))
-            else:
-                SCAMS.append(Scam(scm["Name"], scm["Texts"], template))
+            upLow = "name" in scm
+            name = scm["name" if upLow else "Name"]
+            ocr = scm.get("ocr" if upLow else "OCR", [])
+            title = scm.get("title" if upLow else "Title", [])
+            body = scm.get("body" if upLow else "Body", [])
+            scam = Scam(name, ocr, title, body, template)
+            SCAMS.append(scam)
     except Exception as e:
         logging.error(e)
         print(e)
@@ -265,7 +269,7 @@ def extractURLS(post, pattern: str):
 def getScams(array : List[str], builder: ResponseBuilder) -> ResponseBuilder:
     scamResults = {}
     for x in SCAMS:
-        result = x.PercentageMatch(array, builder)
+        result = x.TestOCR(array, builder)
         logging.debug("{0}: {1}".format(x, result))
         if result > THRESHOLD:
             print("HEY WE ARE THRESH")
@@ -317,53 +321,89 @@ def handleUrl(url: str) -> ResponseBuilder:
         f.write(r.content)
     return handleFileName(tempPath, filename)
 
+def determineScams(post: praw.models.Submission) -> ResponseBuilder:
+    scams = {}
+    urls = extractURLS(post, ocr_scam_pattern)
+    ocr_urls = [x for x in urls if validImage(x)]
+    builder = None
+    for url in ocr_urls:
+        tempBuilder = handleUrl(url)
+        if builder == None:
+            builder = tempBuilder
+        elif len(tempBuilder.Scams) > 0:
+            builder.Add(tempBuilder.Scams)
+
+    if hasattr(post, "title"):
+        titleText = post.title.lower()
+    else:
+        titleText = post.subject.lower()
+    titleArray = re.findall(r"[\w']+", titleText)
+
+    if hasattr(post, "selftext"):
+        bodyText = post.selftext.lower()
+    elif hasattr(post, "body"):
+        bodyText = post.body.lower()
+    else:
+        bodyText = ""
+    bodyArray = re.findall(r"[\w']+", bodyText)
+
+    if builder == None:
+        builder = ResponseBuilder()
+        builder.RecognisedText = titleText + "  \r\n" + bodyText
+        builder.FormattedText = ">" +builder.RecognisedText.replace("\n", "\n>")
+
+    for x in SCAMS:
+        tit = x.TestTitle(titleArray, builder)
+        bod = x.TestBody(bodyArray, builder)
+        if tit > THRESHOLD:
+            builder.Add({x: tit})
+        if bod > THRESHOLD:
+            builder.Add({x: bod})
+
+    return builder
+
+
+
 def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
-    urls = extractURLS(post, ocr_scam_pattern)
-    ocr_urls = [x for x in urls if validImage(x)]
-    logging.info(str(ocr_urls))
     IS_POST = isinstance(post, praw.models.Submission)
     DO_TEXT = post.author.name == author or \
               (not IS_POST and post.parent_id is None)
-    if len(ocr_urls) > 0 and IS_POST:
+    builder = determineScams(post)
+    results = builder.Scams
+    if len(results) > 0 and IS_POST:
         TOTAL_CHECKS += 1
-    builder = None
-    replied = False
-    for url in ocr_urls:
-        builder = handleUrl(url)
-        results = builder.Scams
-        if len(results) > 0:
-            doSkip = False
-            for scam, confidence in results.items():
-                if scam.Name not in HISTORY:
-                    HISTORY[scam.Name] = 0
-                HISTORY[scam.Name] += 1
-                if scam.Name == "IgnorePost":
-                    doSkip = True
-                print(scam.Name, confidence)
-            if IS_POST:
-                HISTORY_TOTAL += 1
-            if 10 <= HISTORY_TOTAL % 100 <= 20:
-                suffix = 'th'
-            else:
-                suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
-            TEMPLATE = TEMPLATES[scam.Template]
-            built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
-            if DO_TEXT:
-                built += "\r\n - - -"
-                if doSkip:
-                    built += "Detected words indicating I should ignore this post, possibly legit.  "
-                built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
+    if len(results) > 0:
+        doSkip = False
+        for scam, confidence in results.items():
+            if scam.Name not in HISTORY:
+                HISTORY[scam.Name] = 0
+            HISTORY[scam.Name] += 1
+            if scam.Name == "IgnorePost":
+                doSkip = True
+            print(scam.Name, confidence)
+        if IS_POST:
+            HISTORY_TOTAL += 1
+        if 10 <= HISTORY_TOTAL % 100 <= 20:
+            suffix = 'th'
+        else:
+            suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
+        TEMPLATE = TEMPLATES[scam.Template]
+        built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
+        if DO_TEXT:
+            built += "\r\n - - -"
+            if doSkip:
+                built += "Detected words indicating I should ignore this post, possibly legit.  "
+            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
+            post.reply(built)
+            replied = True
+        elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
+            if not doSkip:
                 post.reply(built)
-                replied = True
-            elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
-                if not doSkip:
-                    post.reply(built)
-                replied = True
-                webHook.sendSubmission(post, builder.ScamText)
-                logging.info("Replied to: " + post.title)
-            break
+            replied = True
+            webHook.sendSubmission(post, builder.ScamText)
+            logging.info("Replied to: " + post.title)
     if IS_POST:
         save_history()
     else:

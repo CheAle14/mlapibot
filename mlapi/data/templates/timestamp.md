@@ -7,4 +7,4 @@ In many cases, this incorrect timestamp (or glitched message, etc) can be fixed 
 
 - - -
 
-^(I am a bot; of {0} image posts, this is the {1} I have responded to.)
+^(I am a bot; if this comment was made in error, please correct and downvote me.)

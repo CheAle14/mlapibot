@@ -13,6 +13,10 @@ class ResponseBuilder:
         self.Scams = results
         for scam, confidence in results.items():
             self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
+    def Add(self, results):
+        for scam, confidence in results.items():
+            self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
+            self.Scams[scam] = confidence
     def CleanTest(self):
         self.TestGrounds = self.FormattedText
     def __str__(self):

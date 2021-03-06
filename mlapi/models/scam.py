@@ -4,12 +4,13 @@ from json import JSONEncoder
 from .response_builder import ResponseBuilder
 
 class Scam:
-    def __init__(self, name: str, texts: List[str], templateName):
+    def __init__(self, name: str, ocr: List[str], title: List[str],
+                                    body: List[str], templateName):
         self.Name = name
-        self.Texts = []
+        self.OCR = ocr
+        self.Title = title or []
+        self.Body = body or []
         self.Template = templateName or "default"
-        for x in texts:
-            self.Texts.append(x.lower())
     def  __str__(self):
         return self.Name
     def __repr__(self):
@@ -75,15 +76,16 @@ class Scam:
             total += current
         return current
 
-    def PercentageMatch(self, words: List[str], builder: ResponseBuilder) -> float:
+    def TestItem(self, wordsPost: List[str], textsJson: List[str],
+                             builder: ResponseBuilder) -> float:
         highest = 0
         high_str = None
-        for testString in self.Texts:
+        for testString in textsJson:
             #print("=======BREAK==========")
             testArray = testString.split(' ')
             builder.CleanTest()
-            inOrder = self.phrasesInOrder(words, testArray, builder)
-            contain = self.numWordsContain(words, testArray, builder)
+            inOrder = self.phrasesInOrder(wordsPost, testArray, builder)
+            contain = self.numWordsContain(wordsPost, testArray, builder)
             total = contain + inOrder
             perc = total / (len(testArray) * 2)
             if perc > highest:
@@ -92,3 +94,12 @@ class Scam:
         if os.name == "nt":
             print(highest, self.Name, high_str)
         return highest
+
+    def TestTitle(self, words: List[str], builder: ResponseBuilder) -> float:
+        return self.TestItem(words, self.Title, builder)
+
+    def TestBody(self, words: List[str], builder: ResponseBuilder) -> float:
+        return self.TestItem(words, self.Body, builder)
+
+    def TestOCR(self, words: List[str], builder: ResponseBuilder) -> float:
+        return self.TestItem(words, self.OCR, builder)

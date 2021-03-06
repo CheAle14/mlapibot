@@ -1,19 +1,24 @@
 {
     "scams": [{
-            "text": [
+            "ocr": [
                 "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to"
             ],
             "name": "IgnorePost",
             "reason": "-"
         }, {
-            "text": [
+            "ocr": [
                 "trojandownloaderhtml"
             ],
             "name": "TrojanImage",
             "reason": "-",
             "template": "trojan"
         }, {
-            "text": ["those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"],
+            "name": "BetterDiscordCrash",
+            "template": "bdCrash",
+            "title": ["crash", "crashing", "crashes", "shift-enter"],
+            "body": ["crash", "crashing", "crashes"]
+        }, {
+            "ocr": ["those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"],
             "name": "GenericChainSpam",
             "reason": "-",
             "template": "chainspam"
@@ -21,59 +26,59 @@
             "name": "GameTestersMalware",
             "reason": "-",
             "template": "libraryMalware",
-            "text": ["you've been invited to test discord’s game testers", "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"]
+            "ocr": ["you've been invited to test discord’s game testers", "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"]
         }, {
-            "text": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc."],
+            "ocr": ["we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc."],
             "name": "Twitch Nitro",
             "reason": "Nito Games has been discontinued and is no longer being given out; message has poor grammar; any actual partnership unlikely to be announced through an unknown and unverified bot."
         }, {
             "name": "Invite Scam",
             "reason": "Caution against adding unknown bots, if malicious they may attempt to delete channels and kick users when added; ensure bots are verified, or you are sure of their source.",
-            "text": [
-                "you have to invite me to your servers", 
-                "invite this bot to your server", 
-                "click here for invite the bot", 
+            "ocr": [
+                "you have to invite me to your servers",
+                "invite this bot to your server",
+                "click here for invite the bot",
                 "click here to add the bot",
                 "invite the bot to your server"
             ]
         }, {
-            "text": ["if you want to win a free discord nitro invite this bot to your server", "free discord nitro"],
+            "ocr": ["if you want to win a free discord nitro invite this bot to your server", "free discord nitro"],
             "name": "Free Discord Nitro",
             "reason": "Nitro is unlikely to be given away through a bot. If anything, it would either be through email, a custom popup in the client, or a System-tagged account."
         }, {
-            "text": ["partnership autobox", "make your partnership automatically thanks to this bot use the command *help to see the menu"],
+            "ocr": ["partnership autobox", "make your partnership automatically thanks to this bot use the command *help to see the menu"],
             "name": "Partnership Autobot",
             "reason": "There is no way to automatically get partnered with Discord, you need to apply directly to Discord."
         }, {
-            "text": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event", "discord nitro event", "free discord boosting",
+            "ocr": ["free boost", "invite this bot to your server, wait 1 day and your server will have 30 boosts!.", "click here for invite the bot", "invite for free boost", "discord boosting official", "free boosting event", "discord offical & legit boosting event.", "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!", "free boosting event", "discord nitro event", "free discord boosting",
             "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend", "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer",
             "new giveaway server free nitro need join to receive boost nitro",
             "to claim your x30 boost and nitro you have to click on the blue link"],
             "name": "Free Boost",
             "reason": "Boosts unlikely to be given away. If they were to be given away by Discord, it would probably be through email, or a system tagged account"
         }, {
-            "text": ["mee6 premium", "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"],
+            "ocr": ["mee6 premium", "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"],
             "name": "MEE6 Premium",
             "reason": "MEE6 premium is not free. Premiumed is not a word. Message is filled with grammar errors."
         }, {
-            "text": ["hi, this is a message from the discord creator and i'm going to tell you a little bit about what will happen on discord on july 23rd. please do not send this back to the person you received it from.", "dear discord members, discord is supposed to close nov 7, 2020 because it has become too populated. there have been many members complaining that discord has become very slow. there are many active members of discord, but also many new members.", "we will send this message to see if the members are active or not. if you are active, please copy and paste this to 15 other users to show that you are still active. those who do not send this message within 2 weeks will be deleted without hesitation to make more space.", "send this message to all your friends to show that you are still active and that you will not be deleted.",
+            "ocr": ["hi, this is a message from the discord creator and i'm going to tell you a little bit about what will happen on discord on july 23rd. please do not send this back to the person you received it from.", "dear discord members, discord is supposed to close nov 7, 2020 because it has become too populated. there have been many members complaining that discord has become very slow. there are many active members of discord, but also many new members.", "we will send this message to see if the members are active or not. if you are active, please copy and paste this to 15 other users to show that you are still active. those who do not send this message within 2 weeks will be deleted without hesitation to make more space.", "send this message to all your friends to show that you are still active and that you will not be deleted.",
             "hello this is a message from the discord creator and he tells you a little bit about what will happen on discord on july 23rd please do not send it back to the person you received it dear discord members discord is supposed to close on november 7 2020 because it has become too populated many members complained that the discord has become very slow indicate that there are many active members of the discord but also many new members we will send this message to see if the members are active or not if you are active please send to 15 other users using copy and paste to show that you are still active those who do not send this message within 2 weeks will be deleted without hesitation to make more room send this message to all your friends to show you're still active and you will not be deleted"],
             "name": "Discord Shutdown",
             "reason": "Discord is not shutting down. Purpose is solely for people to spam servers with the message; has poor grammar too",
             "template": "chainspam"
         }, {
-            "text": ["partner bot", "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started !", "link: https://discord.gg/ekajbfx", "https://i.imgur.com/tmwigun.gif", "want to gain members fast & see your advert here?", "partner bot's info below", "gain 2,000 members in a week time by adding me to your server than using the command", "/partner [description here]"],
+            "ocr": ["partner bot", "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started !", "link: https://discord.gg/ekajbfx", "https://i.imgur.com/tmwigun.gif", "want to gain members fast & see your advert here?", "partner bot's info below", "gain 2,000 members in a week time by adding me to your server than using the command", "/partner [description here]"],
             "name": "Partner Bot",
             "reason": "Poor grammar; bot likely to give permissions to random users"
         }, {
-            "text": ["partnership: xbox & discord", "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do ! claim when you have add the bot", "step one add me on your servers", "2020 xbox interactive, inc.", "exclusive partnership", "2?? : step one you have to invite me to yur servers (click here)", "1?? : step one join our official discord event and wait a few moments (click here)"],
+            "ocr": ["partnership: xbox & discord", "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do ! claim when you have add the bot", "step one add me on your servers", "2020 xbox interactive, inc.", "exclusive partnership", "2?? : step one you have to invite me to yur servers (click here)", "1?? : step one join our official discord event and wait a few moments (click here)"],
             "name": "Xbox Partnership",
             "reason": "Unreal value of giveaway; poor grammar; not an official or verified account"
         },
         {
             "name": "Discord Rewards",
             "reason": "Unexpected free gifts are not real - you do not win giveaways or gifts you do not enter; poor grammar.",
-            "text": [
+            "ocr": [
                 "discord rewarding service",
                 "what is this you ask? simple. upon inviting out bot to your server, our bot will monitor chat and collect data on users day to day conversations, with this data our bot will learn day to day language through advanced learning and help build a hepful human-like ai",
                 "upon keep this bot in your server, the longer its their, the more data we collect, to reward Users who help us, we will select a few lucky server owners for some free nirto! Happy Goood Luck!",
@@ -95,7 +100,7 @@
         {
             "name": "Nitro Generator",
             "reason": "Nitro cannot be generated for free",
-            "text":[
+            "ocr":[
                 "Nitro Generator",
                 "Nitro Generatorv2",
                 "Currently restocked with 250 Nitro Gift-codes (75 boost nitro)",
@@ -106,13 +111,13 @@
                 "3. Pick what kind of Nitro you want the Generator to generate.",
                 "4. Then press on GENERATE!",
                 "Please do NOT generate more than one Nitro Gift Code, so others can also get Nitro."
-                
+
             ]
         },
         {
             "name": "Opidium",
             "reason": "Spam bot, you likely didn't even join the server, and any giveaway/winnings is a scam. Poor grammar.",
-            "text": [
+            "ocr": [
                 "Our team has been trying to get a hold of you multiple time but no response back so we re trying a last time",
                 "Alright so you won the giveaway in Opidium but you left the server and so we've been waiting in the server for you to collect it so we decided to first try to contact you before re rolling if you want to collect it please re join",
                 "abigail has invited you to join opidium"
@@ -121,7 +126,7 @@
         {
             "name": "Discord Birthday Extravaganza",
             "reason": "Giveaways were not done in this fashion.",
-            "text": [
+            "ocr": [
                 "Discord Birthday Extravaganza",
                 "2020 Discord's birthday Event bot.",
                 "Congratulations you have won a 1 month nitro!",
@@ -132,16 +137,16 @@
         {
             "name": "Bot Copypasta",
             "reason": "Getting one's IP is not possible through Discord directly. Your IP is however given to any website you visit, so going to any website that's owned by these bots would allow them to see it. However, given that your IP is given to **every** website you visit, or anything your device communicates to over the internet, it isn't an issue at all. Bots are only able to access your private DMs *to that bot*, not anyone else. If it were true, and if Discord has verified it, and if it were an issue, Discord would've terminated the bot account and you wouldn't be able to add it. Notice the three ifs there.",
-            "text": [
-                "ok so basically dank memer can get your ip address this announcement was verified by discord earlier today", "dank memer can send your messages in private dm's to a server of weirdos and most of your dm's can be very personal", 
-                "due to this am not going to risk both myself and another person important to me getting hurt or having their personal information out on the interent because of a discord bot notsobot and dank memer can not be trusted especially if they are able to send creepy emails send your personal info to random weirdos who can harm you and literally get your email and so much personal information", 
+            "ocr": [
+                "ok so basically dank memer can get your ip address this announcement was verified by discord earlier today", "dank memer can send your messages in private dm's to a server of weirdos and most of your dm's can be very personal",
+                "due to this am not going to risk both myself and another person important to me getting hurt or having their personal information out on the interent because of a discord bot notsobot and dank memer can not be trusted especially if they are able to send creepy emails send your personal info to random weirdos who can harm you and literally get your email and so much personal information",
                 "do not add dank memer and notsobot on your servers i m warning you i'm not going to add further details to scare or creep out anybody but this is true they have done some weird shit notsobot and dank memer are going to be banned from discord due to these reasons getting ip addresses and kidnapping dank memer is doing it in a lower range to keep it lowkey now that this is all over the internet dank memer can't keep it lowkey anymore these bots are very very dangerous this is for your own good notsobot and dank memer should be removed from your servers this is a warning"
             ]
         },
         {
             "name": "Discord Birthday",
             "reason": "Giveaways were not done in this fashion; any bot requiring access to your server for a giveaway is almost always a scam.",
-            "text": [
+            "ocr": [
                 "discord event birthday",
                 "to thank you for your loyalty on discord we are setting up an event to get free boost must add it in all your servers and wait 24h click to add siscord free voice and text chat for gamers",
                 "discord birthday free nitro boost",
@@ -154,8 +159,8 @@
         {
             "name": "Discord Ending",
             "reason": "Discord isn't shutting down or ending. Discord can already see who's active on the service since they have complete access to any and all logs and usage stats.",
-            "text": [
-                "discord important announcement of end", "good evening to you discord user I am jason lemon the creator of discord just wanted to send you this", 
+            "ocr": [
+                "discord important announcement of end", "good evening to you discord user I am jason lemon the creator of discord just wanted to send you this",
                 "discord will soon be 5 years old and unfortunately we are losing a lot of our users if you are still present and active on our platform please add our bot on your servers so that we can understand that you are still there click here for to support us"
             ],
             "template": "chainspam"
@@ -163,7 +168,7 @@
         {
             "name": "Nitro Gift Sender",
             "reason": "Depending on the specific message: Nitro games does not exist; '.birth' domain is not operated by Discord. For all messages: Unexpected rewards from unknown and unverified bots are scams.",
-            "text": [
+            "ocr": [
                 "nitro gift sender",
                 "click link to accept you've got this message because a friend awarded you nitro",
                 "you've been gifted a 1 month nitro games by discord for events",
@@ -174,7 +179,7 @@
         {
             "name": "Pokécord Return",
             "reason": "Bot has not returned and remains closed.",
-            "text": [
+            "ocr": [
                 "recently pokecord developers have taken down their bot but many of you guys were a huge fan of it to satisfy our fan base we've decided to create another pokecord bot add it to your servers and get back on that grind",
                 "to satisfy our fan base we've decided to create another pokecord bot",
                 "recently pokecord developers have taken down their bot but many of you guys were a huge fan of it",
@@ -188,7 +193,7 @@
         {
             "name": "DDOS",
             "reason": "It is not possible to get one's IP from sending nor accepting a friend request; it is not possible for group members to fall victim either. It is only possible to get an IP by a person opening a website in their browser, or downloading and running a malicious program. The user mentioned may not even have attempted to do anything like what the message is suggesting, and could be completely innocent, and subject to harassment over a malicious message. If Discord were aware of such a user, they would be terminated, and this spam message would be unnecessary",
-            "text": [
+            "ocr": [
                 "sending friend requests to random discord users and those who accept his friend requests will have their accounts ddosed and their groups exposed with the members inside it becoming a victim"
             ],
             "template": "chainspam"
@@ -196,7 +201,7 @@
         {
             "name": "Claim Your Gift/Nitro",
             "reason": "Unexpected gifts from unverified and unknown bots are not real; possible phishing link.",
-            "text": [
+            "ocr": [
                 "you have win the nitro so add the bot",
                 "click on the nitro link and add the bot in all servers",
                 "you've been gifted a 1 month nitro games",
@@ -206,7 +211,7 @@
         },
         {
             "name": "Discord's Special Gift",
-            "text": [
+            "ocr": [
                 "discord's special gift",
                 "discords special gift",
                 "you have to click on the nitro link and accept and then just wait 1 hour"
@@ -214,7 +219,7 @@
         },
         {
             "name": "HypeSquad Event",
-            "text": [
+            "ocr": [
                 "new discord hypesquad event",
                 "invite this bot in all your servers",
                 "your account will have the hypesquad event badge",
@@ -225,7 +230,7 @@
         {
             "name": "AnarchyGrabber",
             "reason": "-",
-            "text": [
+            "ocr": [
                 "library application support discord 0 0 257 modules discord_desktop_core index js'",
                 "library application support discord 0 0 257 modules discord_desktop_core index js",
                 "library application support discord 0 0 257 modules discord_desktop_core indexjs",
@@ -281,7 +286,7 @@
         }, {
             "name": "WinInstallError",
             "reason": "-",
-            "text": [
+            "ocr": [
                 "fatal javascript error occured",
                 "javascript error occurred in the main process",
                 "error: cannot find module"
@@ -290,7 +295,7 @@
         }, {
             "name": "UnixTimestamp",
             "reason": "-",
-            "text": [
+            "ocr": [
                 "12 31 1969",
                 "01 01 1970",
                 "1 01 1970",
@@ -303,7 +308,7 @@
         }, {
             "name": "CyberAttack",
             "reason": "-",
-            "text": ["tomorrow is a cyber attack event on all social media platforms including discord"],
+            "ocr": ["tomorrow is a cyber attack event on all social media platforms including discord"],
             "template": "chainspam"
         }
     ]

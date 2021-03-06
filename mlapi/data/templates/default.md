@@ -22,4 +22,4 @@ If these types of bots are repeatedly sending you messages, you can:
 
 - - -
 
-^(I am a bot, of {0} checks, this is the {1} post I have responded to; you can) [^(message me image links)](https://www.reddit.com/message/compose?to=mlapibot&subject=test%20image&message=replace%20with%20link%20to%20image) ^(to test them)
+^(I am a bot; if this comment was made in error, please correct and downvote me.)

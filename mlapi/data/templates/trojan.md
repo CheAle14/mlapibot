@@ -3,4 +3,4 @@ If your post is about malware concerning **TrojanDownloaderHTML/Adodb.gen!A**, t
 
 - - -
 
-^(I am a bot; of {0} image posts, this is the {1} I have responded to; if this comment was made in error, please downvote me.)
+^(I am a bot; if this comment was made in error, please correct and downvote me.)
