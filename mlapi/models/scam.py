@@ -5,11 +5,14 @@ from .response_builder import ResponseBuilder
 
 class Scam:
     def __init__(self, name: str, ocr: List[str], title: List[str],
-                                    body: List[str], templateName):
+                                    body: List[str],
+                                    blackList: List[str],
+                                     templateName):
         self.Name = name
         self.OCR = ocr
         self.Title = title or []
         self.Body = body or []
+        self.Blacklist = blackList or []
         self.Template = templateName or "default"
     def  __str__(self):
         return self.Name
@@ -94,6 +97,9 @@ class Scam:
         if os.name == "nt":
             print(highest, self.Name, high_str)
         return highest
+
+    def IsBlacklisted(self, words: List[str], builder: ResponseBuilder) -> bool:
+        return self.TestItem(words, self.Blacklist, builder) > 0
 
     def TestTitle(self, words: List[str], builder: ResponseBuilder) -> float:
         return self.TestItem(words, self.Title, builder)

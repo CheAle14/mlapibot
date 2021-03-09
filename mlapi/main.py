@@ -50,7 +50,8 @@ def load_scams():
             ocr = scm.get("ocr" if upLow else "OCR", [])
             title = scm.get("title" if upLow else "Title", [])
             body = scm.get("body" if upLow else "Body", [])
-            scam = Scam(name, ocr, title, body, template)
+            blacklist = scm.get("blacklist" if upLow else "Blacklist", [])
+            scam = Scam(name, ocr, title, body, blacklist, template)
             SCAMS.append(scam)
     except Exception as e:
         logging.error(e)
@@ -269,6 +270,9 @@ def extractURLS(post, pattern: str):
 def getScams(array : List[str], builder: ResponseBuilder) -> ResponseBuilder:
     scamResults = {}
     for x in SCAMS:
+        if x.IsBlacklisted(array, builder):
+            logging.debug("Skipping {0} as blacklisted".format(x.Name))
+            continue
         result = x.TestOCR(array, builder)
         logging.debug("{0}: {1}".format(x, result))
         if result > THRESHOLD:
@@ -352,7 +356,13 @@ def determineScams(post: praw.models.Submission) -> ResponseBuilder:
         builder.RecognisedText = titleText + "  \r\n" + bodyText
         builder.FormattedText = ">" +builder.RecognisedText.replace("\n", "\n>")
 
+    totalArray = []
+    totalArray.extend(titleArray)
+    totalArray.extend(bodyArray)
     for x in SCAMS:
+        if x.IsBlacklisted(totalArray, builder):
+            logging.debug("Skipping due to blacklist")
+            continue
         tit = x.TestTitle(titleArray, builder)
         bod = x.TestBody(bodyArray, builder)
         if tit > THRESHOLD:
