@@ -382,6 +382,7 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
               (not IS_POST and post.parent_id is None)
     builder = determineScams(post)
     results = builder.Scams
+    replied = False
     if len(results) > 0 and IS_POST:
         TOTAL_CHECKS += 1
     if len(results) > 0:
