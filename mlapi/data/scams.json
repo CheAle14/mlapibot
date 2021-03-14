@@ -17,7 +17,7 @@
             "template": "crash",
             "title": ["crash", "crashing", "crashes", "shift enter"],
             "body": ["crash", "crashing", "crashes", "shift enter"],
-            "blacklist": ["ios", "mobile", "android", "appdata", "huawei", "iphone", "samsung", "apple", "browser", "firefox", "chrome", "ipad"]
+            "blacklist": ["ios", "mobile", "android", "appdata", "huawei", "iphone", "samsung", "apple", "browser", "firefox", "chrome", "ipad", "safari"]
         }, {
             "ocr": ["those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"],
             "name": "GenericChainSpam",
