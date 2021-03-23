@@ -21,7 +21,7 @@
         }, {
             "name": "Server Ban Appeal",
             "template": "serverBanAppeal",
-            "title": ["banned from minecraft discord server", "ban from minecraft discord server", "ban minecraft discord server", "banned minecraft discord server", "banned from minecraft server", "banned minecraft server"]
+            "title": ["banned from minecraft discord server", "ban from minecraft discord server", "ban minecraft discord server", "banned minecraft discord server", "banned from minecraft server", "banned minecraft server", "banned from the minecraft discord"]
         }, {
             "ocr": ["those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"],
             "name": "GenericChainSpam",
