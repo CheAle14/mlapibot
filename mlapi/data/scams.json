@@ -13,12 +13,6 @@
             "reason": "-",
             "template": "trojan"
         }, {
-            "name": "DiscordCrash",
-            "template": "crash",
-            "title": ["crash", "crashing", "crashes", "shift enter"],
-            "body": ["crash", "crashing", "crashes", "shift enter"],
-            "blacklist": ["ios", "mobile", "android", "appdata", "huawei", "iphone", "samsung", "apple", "browser", "firefox", "chrome", "ipad", "safari", "phone"]
-        }, {
             "name": "Server Ban Appeal",
             "template": "serverBanAppeal",
             "title": ["banned from minecraft discord server", "ban from minecraft discord server", "ban minecraft discord server", "banned minecraft discord server", "banned from minecraft server", "banned minecraft server", "banned from the minecraft discord"]
