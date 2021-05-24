@@ -7,6 +7,13 @@
             "name": "IgnorePost",
             "reason": "-"
         }, {
+            "name": "bitly game malware",
+            "reason": "-",
+            "ocr": [
+                "hi bro i made a game please rate it"
+            ],
+            "template": "bitlyMalware"
+        }, {
             "ocr": [
                 "when we share your account copyright is in your account in your account",
                 "your account has been reviewed by our team and found to contain copyright"
