@@ -2,8 +2,12 @@
     "scams": [
         {
             "ocr": [
-                "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to"
+                "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to",
+				"offer ends june 24 2021"
             ],
+			"title": [
+				"epic games", "epic game"
+			],
             "name": "IgnorePost",
             "reason": "-"
         }, {
