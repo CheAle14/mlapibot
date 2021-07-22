@@ -17,7 +17,8 @@
                 "i know this might be a bit random but i still have many discord nitro codes from the promotion",
                 "ill give you one for free if u need it",
                 "i still got a spare nitro code from the epic games promotion"
-            ]
+            ],
+			"template": "malwareLink"
         }, {
             "name": "bitly game malware",
             "reason": "-",
@@ -28,7 +29,7 @@
                 "i create game rate it"
                 
             ],
-            "template": "bitlyMalware"
+            "template": "malwareLink"
         }, {
             "ocr": [
                 "when we share your account copyright is in your account in your account",
