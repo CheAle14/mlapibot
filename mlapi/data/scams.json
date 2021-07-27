@@ -39,7 +39,8 @@
             "reason":  "-"
         }, {
             "ocr": [
-                "trojandownloaderhtml"
+                "trojandownloaderhtml",
+                "Win32/BadJoke.IE"
             ],
             "name": "TrojanImage",
             "reason": "-",
