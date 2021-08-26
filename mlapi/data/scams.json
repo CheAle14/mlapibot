@@ -31,6 +31,13 @@
             ],
             "template": "malwareLink"
         }, {
+			"name": "discord support",
+			"reason": "-",
+			"ocr": [
+				"you have successfully completed the test period on the discord testers server",
+				"to complete the process of becoming a discord moderator you will need to take a"
+			]
+		}, {
             "ocr": [
                 "when we share your account copyright is in your account in your account",
                 "your account has been reviewed by our team and found to contain copyright"
