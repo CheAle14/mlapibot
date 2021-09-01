@@ -87,7 +87,11 @@
             ]
         },
         {
-            "ocr": [ "if you want to win a free discord nitro invite this bot to your server", "free discord nitro" ],
+            "ocr": [ 
+                "if you want to win a free discord nitro invite this bot to your server", 
+                "free discord nitro",
+                "when you added the bot you have to wait 24 hours and our bot will come and send you your reward in private message"
+                ],
             "name": "Free Discord Nitro",
             "reason": "Nitro is unlikely to be given away through a bot. If anything, it would either be through email, a custom popup in the client, or a System-tagged account."
         },
