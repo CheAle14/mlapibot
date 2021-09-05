@@ -3,7 +3,7 @@ The image(s) you've submitted appear to contain a common DM scam
 
 When looking at a possible scam from a bot account, always consider if they:
 
-- Are new, unfamiliar or are not verified
+- Are new, unfamiliar, unverified or contacting you unprompted
 - Are not from Discord: not through email from them, or from a [System-tagged account](https://support.discord.com/hc/en-us/articles/360036118732)
 - Have poor grammar, spelling or misuse punctuation or capitalisation
 - Offer things that are 'too good to be true'
