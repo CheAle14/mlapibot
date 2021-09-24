@@ -1,10 +1,10 @@
 Hi!  
-The image(s) you've submitted appear to contain a common DM scam
+The image(s) you've submitted appear to contain a common DM scam. DM scams like these usually come from compromised user accounts, or bot accounts.
 
-When looking at a possible scam from a bot account, always consider if they:
+When looking at a possible scam from either a bot account or user account, always consider if they:
 
-- Are new, unfamiliar, unverified or contacting you unprompted
-- Are not from Discord: not through email from them, or from a [System-tagged account](https://support.discord.com/hc/en-us/articles/360036118732)
+- Are new, unfamiliar, unverified (in the case of bot accounts) or contacting you unprompted
+- Are not from Discord: not through email from them, or from a [System-tagged account](https://support.discord.com/hc/articles/360036118732)
 - Have poor grammar, spelling or misuse punctuation or capitalisation
 - Offer things that are 'too good to be true'
 
@@ -13,7 +13,7 @@ When looking at a possible scam from a bot account, always consider if they:
 To get rid of this bot, you can:
 
 - Block it
-- [Report it to Discord](https://support.discord.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)
+- [Report it to Discord](https://dis.gd/howtoreport)
 
 If these types of bots are repeatedly sending you messages, you can:
 
