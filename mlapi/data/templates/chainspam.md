@@ -7,4 +7,4 @@ Furthermore, if any users are mentioned in the message, they are more than likel
 
 - - -
 
-^(I am a bot, if this comment was made in error please report me; otherwise, you can) [^report ^scam ^accounts ^to ^Discord](https://support.discord.com/hc/en-us/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)^.
+^(I am a bot, if this comment was made in error please report me; otherwise, you can) [^report ^scam ^accounts ^to ^Discord](https://support.discord.com/hc/articles/360000291932-How-to-Properly-Report-Issues-to-Trust-Safety)^.
