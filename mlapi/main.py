@@ -394,6 +394,8 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
             if scam.Name == "IgnorePost":
                 doSkip = True
             print(scam.Name, confidence)
+        if post.is_self:
+            doSkip = True
         if IS_POST:
             HISTORY_TOTAL += 1
         if 10 <= HISTORY_TOTAL % 100 <= 20:
