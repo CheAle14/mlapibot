@@ -51,7 +51,8 @@ def load_scams():
             title = scm.get("title" if upLow else "Title", [])
             body = scm.get("body" if upLow else "Body", [])
             blacklist = scm.get("blacklist" if upLow else "Blacklist", [])
-            scam = Scam(name, ocr, title, body, blacklist, template)
+            selfposts = scm.get("ignore_self_posts", False)
+            scam = Scam(name, ocr, title, body, blacklist, selfposts, template)
             SCAMS.append(scam)
     except Exception as e:
         logging.error(e)
@@ -267,38 +268,34 @@ def extractURLS(post, pattern: str):
         any_url.extend(extractURLSText(post.body, pattern))
     return any_url
 
-def getScams(array : List[str], builder: ResponseBuilder) -> ResponseBuilder:
+def getScams(array : List[str], isSelfPost, builder: ResponseBuilder) -> ResponseBuilder:
     scamResults = {}
     for x in SCAMS:
+        if x.IgnoreSelfPosts and isSelfPost:
+            logging.debug("Skipping {0} as self post".format(x.Name))
+            continue
         if x.IsBlacklisted(array, builder):
             logging.debug("Skipping {0} as blacklisted".format(x.Name))
             continue
         result = x.TestOCR(array, builder)
         logging.debug("{0}: {1}".format(x, result))
         if result > THRESHOLD:
-            print("HEY WE ARE THRESH")
             scamResults[x] = result
             builder.FormattedText = builder.TestGrounds
-            print(builder.FormattedText)
-    builder.Load(scamResults)
+            #print(builder.FormattedText)
+    builder.Add(scamResults)
     return builder
 
-
-def handleFileName(path: str, filename: str) -> ResponseBuilder:
+def getTextFromFileName(path: str, filename: str) -> List[str]:
     text = ocr.getTextFromPath(path, filename)
     text = text.lower()
     array = re.findall(r"[\w']+", text)
     if len(sys.argv) > 1:
         logging.info(" ".join(array))
         logging.info("==============")
-    builder = ResponseBuilder()
-    builder.RecognisedText = text
-    builder.FormattedText = ">" + text.replace("\n", "\n>")
-    print(builder.FormattedText)
-    getScams(array, builder)
-    return builder
+    return array
 
-def handleUrl(url: str) -> ResponseBuilder:
+def handleUrl(url: str) -> List[str]:
     filename = getFileName(url)
     try:
         r = requests_retry_session(retries=5).get(url)
@@ -323,19 +320,30 @@ def handleUrl(url: str) -> ResponseBuilder:
     print(tempPath)
     with open(tempPath, "wb") as f:
         f.write(r.content)
-    return handleFileName(tempPath, filename)
+    return getTextFromFileName(tempPath, filename)
 
 def determineScams(post: praw.models.Submission) -> ResponseBuilder:
     scams = {}
     urls = extractURLS(post, ocr_scam_pattern)
     ocr_urls = [x for x in urls if validImage(x)]
+    ocrArray = []
     builder = None
     for url in ocr_urls:
-        tempBuilder = handleUrl(url)
-        if builder == None:
-            builder = tempBuilder
-        elif len(tempBuilder.Scams) > 0:
-            builder.Add(tempBuilder.Scams)
+        wordArray = handleUrl(url)
+        if wordArray is None or len(wordArray) == 0:
+            continue
+
+        if builder is None:
+            builder = ResponseBuilder(THRESHOLD)
+            builder.RecognisedText = " ".join(wordArray)
+            builder.FormattedText = ">" + builder.RecognisedText.replace("\n", "\n>")
+        else:
+            text = " ".join(wordArray)
+            builder.RecognisedText += "\r\n---\r\n" + text
+            builder.FormattedText += "\r\n---\r\n>" + text.replace("\n", "\n>")
+
+        ocrArray.extend(wordArray)
+
 
     if hasattr(post, "title"):
         titleText = post.title.lower()
@@ -352,23 +360,34 @@ def determineScams(post: praw.models.Submission) -> ResponseBuilder:
     bodyArray = re.findall(r"[\w']+", bodyText)
 
     if builder == None:
-        builder = ResponseBuilder()
+        builder = ResponseBuilder(THRESHOLD)
         builder.RecognisedText = titleText + "  \r\n" + bodyText
-        builder.FormattedText = ">" +builder.RecognisedText.replace("\n", "\n>")
+        builder.FormattedText = ">" + builder.RecognisedText.replace("\n", "\n>")
+
+    logging.info("Saw: " + builder.RecognisedText)
 
     totalArray = []
     totalArray.extend(titleArray)
     totalArray.extend(bodyArray)
+    totalArray.extend(ocrArray)
     for x in SCAMS:
+        if hasattr(post, "is_self"):
+            if x.IgnoreSelfPosts and post.is_self:
+                logging.info(f'Skipping {x.Name} due to selfpost')
+                continue
         if x.IsBlacklisted(totalArray, builder):
-            logging.debug("Skipping due to blacklist")
+            logging.info(f"Skipping {x.Name} due to blacklisted")
+            builder.Remove(x)
             continue
         tit = x.TestTitle(titleArray, builder)
         bod = x.TestBody(bodyArray, builder)
+        ocr = x.TestOCR(ocrArray, builder)
         if tit > THRESHOLD:
             builder.Add({x: tit})
         if bod > THRESHOLD:
             builder.Add({x: bod})
+        if ocr > THRESHOLD:
+            builder.Add({x: ocr})
 
     return builder
 
@@ -504,7 +523,8 @@ def deleteBadHistory():
 load_scams()
 
 def start():
-    logging.basicConfig(filename='mlapi.log', level=logging.INFO)
+    logLevel = logging.INFO if os.name == "nt" else logging.INFO
+    logging.basicConfig(filename='mlapi.log', level=logLevel)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     if len(sys.argv) == 2:
         path = sys.argv[1]
