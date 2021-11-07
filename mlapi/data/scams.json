@@ -62,6 +62,14 @@
             ],
 			"template": "malwareLink"
         }, {
+            "name": "Verification",
+            "ocr": [
+                "something's going on here",
+                "we've detected something out of the ordinary going on"
+            ],
+            "template": "phone",
+            "ignore_self_posts": true
+        }, {
             "name": "bitly game malware",
             "ocr": [
                 "hi bro i made a game please rate it",
