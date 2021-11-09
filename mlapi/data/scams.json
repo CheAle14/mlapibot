@@ -67,8 +67,7 @@
                 "something's going on here",
                 "we've detected something out of the ordinary going on"
             ],
-            "template": "phone",
-            "ignore_self_posts": true
+            "template": "phone"
         }, {
             "name": "bitly game malware",
             "ocr": [
