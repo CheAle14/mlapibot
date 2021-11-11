@@ -524,8 +524,14 @@ load_scams()
 
 def start():
     logLevel = logging.INFO if os.name == "nt" else logging.INFO
-    logging.basicConfig(filename='mlapi.log', level=logLevel)
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+    logging.basicConfig(
+        level=logLevel,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler("mlapi.log"),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
     if len(sys.argv) == 2:
         path = sys.argv[1]
         if path.startswith("http"):
