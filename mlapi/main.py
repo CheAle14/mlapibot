@@ -26,6 +26,8 @@ ocr_scam_pattern = r"(?:\bhttps://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#
 discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]{5,16})"
 valid_extensions = [".png", ".jpeg", ".jpg"]
 
+MAX_SAVE_COUNT = 250
+
 def load_reddit():
     global reddit, subReddit, author
     author = "DarkOverLordCO"
@@ -135,7 +137,7 @@ def setup():
         with open("save.txt", "r") as f:
             for x in f:
                 latest_done.append(x.rstrip())
-                if len(latest_done) > 50:
+                if len(latest_done) > MAX_SAVE_COUNT:
                     latest_done.pop(0)
     except Exception as e:
         logging.error(e)
@@ -175,7 +177,7 @@ def requests_retry_session(
 
 def saveLatest(thingId):
     latest_done.append(thingId)
-    if len(latest_done) > 250:
+    if len(latest_done) > MAX_SAVE_COUNT:
         latest_done.pop(0)
     with open("save.txt", "w") as f:
         f.write("\n".join(latest_done))
