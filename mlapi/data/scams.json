@@ -62,6 +62,12 @@
             ],
 			"template": "malwareLink"
         }, {
+            "name": "image malware",
+            "ocr": [
+                "the nature of this attack appears to be auth token based"
+            ],
+            "template": "imageMalware"
+        }, {
             "name": "Verification",
             "ocr": [
                 "something's going on here",
