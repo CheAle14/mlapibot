@@ -64,7 +64,8 @@
         }, {
             "name": "image malware",
             "ocr": [
-                "the nature of this attack appears to be auth token based"
+                "the nature of this attack appears to be auth token based",
+                "there's a new scam going around so exercise extreme caution"
             ],
             "template": "imageMalware"
         }, {
