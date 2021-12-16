@@ -8,6 +8,8 @@ When looking at a possible scam from either a bot account or user account, alway
 - Have poor grammar, spelling or misuse punctuation or capitalisation
 - Offer things that are 'too good to be true'
 
+Official Discord gifts should use the `discord.gift` domain, and will generate a special embed, [as in this image](https://imgur.com/Xsy1zdE). These gifts can be claimed in-app, by pressing the Accept button, so you should not trust any gift links which do not allow you to claim them through that button.
+
 - - -
 
 To get rid of this bot, you can:

@@ -539,8 +539,9 @@ def start():
         if path.startswith("http"):
             print(handleUrl(path))
         else:
-            fileName = getFileName(path)
-            print(handleFileName(path, fileName))
+            print("That functionality has been temporarily removed")
+            #fileName = getFileName(path)
+            #print(handleFileName(path, fileName))
         exit(0)
     setup()
     doneOnce = False
