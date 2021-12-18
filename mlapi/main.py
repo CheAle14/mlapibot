@@ -264,7 +264,7 @@ def extractURLS(post, pattern: str):
             any_url.append(post.url)
         if post.is_self:
             any_url.extend(extractURLSText(post.selftext, pattern))
-        if post.media_metadata:
+        if hasattr(post, "media_metadata"):
             for i in post.media_metadata.items():
                 url = i[1]['p'][0]['u']
                 url = url.split("?")[0].replace("preview", "i")
