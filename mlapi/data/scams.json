@@ -47,7 +47,8 @@
                 "epic games", "epic game", "t-mobile",
                 "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to"
             ],
-            "ignore_self_posts": true
+            "ignore_self_posts": true,
+            "report": true
         }, {
             "name": "Invite Scam",
             "ocr": [
@@ -64,7 +65,8 @@
                 "would like to receive keystrokes from any application",
                 "grant access to this application in security privacy preferences located in system preferences"
             ],
-            "template": "macKeybinds"
+            "template": "macKeybinds",
+            "report": true
         }, {
             "name": "promotions link",
             "ocr": [
@@ -97,7 +99,8 @@
                 "i create game rate it"
                 
             ],
-            "template": "malwareLink"
+            "template": "malwareLink",
+            "report": true
         }, {
 			"name": "discord support",
 			"ocr": [
@@ -184,7 +187,8 @@
                 "you won a nitro gift as part of a limited time event",
                 "discord official event"
             ],
-            "ignore_self_posts": true
+            "ignore_self_posts": true,
+            "report": true
         },
         {
             "name": "Nitro Generator",
@@ -365,7 +369,8 @@
                 "jan 1 1970",
                 "dec 31 1969"
             ],
-            "template": "timestamp"
+            "template": "timestamp",
+            "report": true
         },
         {
             "name": "CyberAttack",

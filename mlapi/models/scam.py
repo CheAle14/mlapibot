@@ -8,7 +8,8 @@ class Scam:
                                     body: List[str],
                                     blackList: List[str],
                                     ignoreSelfPosts: bool,
-                                     templateName):
+                                    templateName : str,
+                                    report : bool):
         self.Name = name
         self.OCR = ocr
         self.Title = title or []
@@ -16,6 +17,7 @@ class Scam:
         self.Blacklist = blackList or []
         self.IgnoreSelfPosts = ignoreSelfPosts or False
         self.Template = templateName or "default"
+        self.Report = report
 
         self.__dbg = False #name == "Free Nitro/Boost"
     def  __str__(self):

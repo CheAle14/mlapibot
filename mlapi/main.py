@@ -54,7 +54,8 @@ def load_scams():
             body = scm.get("body" if upLow else "Body", [])
             blacklist = scm.get("blacklist" if upLow else "Blacklist", [])
             selfposts = scm.get("ignore_self_posts", False)
-            scam = Scam(name, ocr, title, body, blacklist, selfposts, template)
+            report = scm.get("report", False)
+            scam = Scam(name, ocr, title, body, blacklist, selfposts, template, report)
             SCAMS.append(scam)
     except Exception as e:
         logging.error(e)
@@ -414,13 +415,15 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
         TOTAL_CHECKS += 1
     if len(results) > 0:
         doSkip = False
+        doReport = True
         for scam, confidence in results.items():
             if scam.Name not in HISTORY:
                 HISTORY[scam.Name] = 0
             HISTORY[scam.Name] += 1
             if scam.Name == "IgnorePost":
                 doSkip = True
-            print(scam.Name, confidence)
+            doReport = doReport or scam.Report
+            print(scam.Name, confidence, scam.Report)
         if IS_POST:
             HISTORY_TOTAL += 1
         if 10 <= HISTORY_TOTAL % 100 <= 20:
@@ -439,6 +442,8 @@ def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> Respon
         elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
             if not doSkip:
                 post.reply(built)
+                if doReport:
+                    post.report("Appears to be a common repost")
             replied = True
             webHook.sendSubmission(post, builder.ScamText)
             logging.info("Replied to: " + post.title)
@@ -496,7 +501,7 @@ def handleNewComment(comment: praw.models.Comment):
             break
     if anyIllegal:
         logging.info("Reporting " + comment.id)
-        comment.report("Self promotion; not verified/partnered/discoverable (auto-detected /u/mlapibot)")
+        comment.report("Possible self promotion; not verified/partnered/discoverable")
         try:
             url = "https://www.reddit.com/comments/{0}/comment/{1}/".format(comment.submission.id, comment.id)
             e = webHook.getEmbed("Reported Comment",
