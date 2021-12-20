@@ -58,6 +58,13 @@
                 "invite the bot to your server"
             ],
             "ignore_self_posts": true
+        },  {
+            "name": "Mac Keybind Perms",
+            "ocr": [
+                "would like to receive keystrokes from any application",
+                "grant access to this application in security privacy preferences located in system preferences"
+            ],
+            "template": "macKeybinds"
         }, {
             "name": "promotions link",
             "ocr": [
