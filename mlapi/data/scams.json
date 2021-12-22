@@ -42,7 +42,8 @@
 
                     "you've won 15x boosts congratulations",
                     "you've been gifted 15x discord server boosts from the arkazi development team",
-                    "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord"
+                    "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
+                    "you won x1 nitro classic x14 server boost"
                 ],
             "blacklist": [
                 "epic games", "epic game", "t-mobile",
@@ -57,17 +58,18 @@
                 "invite this bot to your server",
                 "click here for invite the bot",
                 "click here to add the bot",
-                "invite the bot to your server"
+                "invite the bot to your server",
+                "invite this bot on your biggest server wait 1 day and you will receive the prizes listed above on your account"
             ],
-            "ignore_self_posts": true
+            "ignore_self_posts": true,
+            "report": true
         },  {
             "name": "Mac Keybind Perms",
             "ocr": [
                 "would like to receive keystrokes from any application",
                 "grant access to this application in security privacy preferences located in system preferences"
             ],
-            "template": "macKeybinds",
-            "report": true
+            "template": "macKeybinds"
         }, {
             "name": "promotions link",
             "ocr": [
