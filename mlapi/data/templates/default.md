@@ -22,6 +22,12 @@ If these types of bots are repeatedly sending you messages, you can:
 - Use Mutual Servers to determine the server(s) they share with you, and disable Direct Messages from server members for those servers.
 - If you cannot find any common servers, you can disable DMs from all servers under your User Settings
 
+If your account is the one sending this message, then it means your account has been compromised. If you...
+
+- ... downloaded and executed malware: You should try and use a different device entirely to change your password (e.g. your phone). You should then [follow these steps](https://support.discord.com/hc/articles/115004307527--Windows-Corrupt-Installation) to fully uninstall Discord, run a complete anti-virus scan, and then re-install Discord. If your account is compromised again when logging in afterwards, you may need to factory reset your computer.
+- ... entered your password into a malicious/fake website: You should change your password. 
+- ... something else: You should change your password.
+
 - - -
 
 ^(I am a bot; if this comment was made in error, please correct and downvote me.)
