@@ -295,8 +295,10 @@
                 "your account will have the hypesquad event badge",
                 "a nitro with 30 server boost",
                 "you won the rare hypesquad event badge",
-                "come one and come all to the newest discord event"
-            ]
+                "come one and come all to the newest discord event",
+                "we are very happy to announce that we are starting hypesquad events again and entries are selected between"
+            ],
+            "report": true
         },
         {
             "name": "AnarchyGrabber",
