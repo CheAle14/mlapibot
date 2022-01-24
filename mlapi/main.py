@@ -217,8 +217,6 @@ def loopInbox():
         logging.warning("%s: %s", x.author.name, x.body)
         if isinstance(x, Message):
             done = handleUserMsg(x, x.author.name == author)
-            if not done:
-                x.reply("I was unable to determine what you wanted me to do, sorry.")
         elif isinstance(x, Comment):
             if not x.body.startswith("/u/mlapibot"):
                 continue
