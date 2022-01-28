@@ -485,6 +485,7 @@ def getInviteData(code: str):
     return json.loads(r.text)
 
 def handleNewComment(comment: praw.models.Comment):
+    return # the subreddit's automoderator does this already
     discord_codes = extractURLS(comment, discord_invite_pattern)
     print(discord_codes)
     anyIllegal = False
