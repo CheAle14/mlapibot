@@ -565,13 +565,13 @@ def start():
             time.sleep(5)
         if not doneOnce:
             logging.info("Checked posts loop")
-        try:
-            loopComments()
-        except Exception as e:
-            logging.error(e, exc_info=1)
-            time.sleep(5)
-        if not doneOnce:
-            logging.info("Checked new subreddit comments")
+        #try:
+        #    loopComments()
+        #except Exception as e:
+        #    logging.error(e, exc_info=1)
+        #    time.sleep(5)
+        #if not doneOnce:
+        #    logging.info("Checked new subreddit comments")
         try:
             loopInbox()
         except Exception as e:
