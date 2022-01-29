@@ -95,7 +95,8 @@
                 "something's going on here",
                 "we've detected something out of the ordinary going on"
             ],
-            "template": "phone"
+            "template": "phone",
+            "report": true
         }, {
             "name": "bitly game malware",
             "ocr": [
