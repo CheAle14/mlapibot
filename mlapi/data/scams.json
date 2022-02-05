@@ -112,8 +112,12 @@
 			"name": "discord support",
 			"ocr": [
 				"you have successfully completed the test period on the discord testers server",
-				"to complete the process of becoming a discord moderator you will need to take a"
-			]
+				"to complete the process of becoming a discord moderator you will need to take a",
+                "we are pleased to announce that we are starting the moderator program again but now we're releasing it to people who've been using discord for a while and this app is just for selected people and you were one of those selected congratulations",
+                "however to participate you must register to start the analysis procedure as a first step you must fill in a form the observation are below",
+                "fill out the form carefully and be formal as it is very important that our team make your assessment"
+			],
+            "report": true
 		}, {
             "name": "Copyright",
             "ocr": [
