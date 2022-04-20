@@ -256,6 +256,15 @@ def extractURLSText(text: str, pattern: str) -> List[str]:
         any_url.append(x)
     return any_url
 
+def fixUrl(url):
+    uri = urlparse(url)
+    print(uri)
+    if uri.hostname == "preview.redd.it":
+        url = url.replace("preview.redd.it", "i.redd.it")
+    elif uri.hostname == "gyazo.com":
+        url = url.replace("gyazo.com", "i.gyazo.com") + ".png"
+    return url
+
 def extractURLS(post, pattern: str):
     any_url = []
     if isinstance(post, praw.models.Submission):
@@ -273,7 +282,8 @@ def extractURLS(post, pattern: str):
         any_url.extend(extractURLSText(post.body, pattern))
     elif isinstance(post, praw.models.Comment):
         any_url.extend(extractURLSText(post.body, pattern))
-    return any_url
+
+    return [fixUrl(x) for x in any_url if x is not None]
 
 def getScams(array : List[str], isSelfPost, builder: ResponseBuilder) -> ResponseBuilder:
     scamResults = {}
