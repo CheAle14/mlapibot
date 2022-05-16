@@ -53,7 +53,9 @@
                     "you've been gifted 15x discord server boosts from the arkazi development team",
                     "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
 					"you have been gifted 14x boosts for your server",
-                    "you won x1 nitro classic x14 server boost"
+                    "you won x1 nitro classic x14 server boost",
+					"you've won a giveaway you just won a 10 discord nitro", 
+					"follow these steps to claim the 10 nitro gift code"
                 ],
             "blacklist": [
                 "epic games", "epic game", "t-mobile",
@@ -128,7 +130,9 @@
                 "we are pleased to announce that discord has decided to open moderator academy however to participate you must register to start the analysis procedure",
                 "we are here to present you a new update of our launcher discord we are experiencing updates improvements performances and more we want to hear from you what do you think we should improve in our discord beta",
                 "you were one of those chosen in our system to be able to participate in our launcher beta",
-                "we want to launch a new discord one hundred percent good and that's why we need your help we need your help to find bugs"
+                "we want to launch a new discord one hundred percent good and that's why we need your help we need your help to find bugs",
+				"your account is receiving this notice due to your approval as a discord beta user",
+				"specifically discord beta has been released to a few users and you have been selected"
 			],
             "report": true
 		}, {
