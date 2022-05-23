@@ -102,7 +102,7 @@
         }, {
             "name": "Verification",
             "ocr": [
-                "something's going on here",
+                "verification required",
                 "we've detected something out of the ordinary going on"
             ],
             "template": "phone",
