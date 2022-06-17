@@ -258,6 +258,8 @@ def extractURLSText(text: str, pattern: str) -> List[str]:
 
 def fixUrl(url):
     uri = urlparse(url)
+    if uri.scheme != "http" and uri.scheme != "https":
+        return ""
     print(uri)
     if uri.hostname == "preview.redd.it":
         url = url.replace("preview.redd.it", "i.redd.it")
