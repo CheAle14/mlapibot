@@ -1,5 +1,5 @@
 Hi!  
-The image(s) you've submitted appear to contain a common DM scam. DM scams like these usually come from compromised user accounts, or bot accounts.
+The image(s) you've submitted appear to contain a common DM scam. DM scams like these usually come from compromised user or bot accounts.
 
 When looking at a possible scam from either a bot account or user account, always consider if they:
 
@@ -26,7 +26,7 @@ If your account is the one sending this message, then it means your account has 
 
 - ... downloaded and executed malware: You should try and use a different device entirely to change your password (e.g. your phone). You should then [follow these steps](https://support.discord.com/hc/articles/115004307527--Windows-Corrupt-Installation) to fully uninstall Discord, run a complete anti-virus scan, and then re-install Discord. If your account is compromised again when logging in afterwards, you may need to factory reset your computer.
 - ... entered your password into a malicious/fake website: You should change your password. 
-- ... something else: You should change your password.
+- ... did something else: You should change your password.
 
 - - -
 

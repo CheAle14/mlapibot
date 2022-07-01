@@ -71,10 +71,12 @@
             "name": "verify scam",
             "ocr": [
                 "we're doing a lot of giveaways first 100 members to join and verify will be sent nitro",
-                "we decided to move to a new server to promote the growth"
+                "we decided to move to a new server to promote the growth",
+                "idk what happened or if its really you but it was your name and the same avatar and you sent a girl erm stuff like what the fuck"
             ],
             "ignore_self_posts": true,
-            "report": true
+            "report": true,
+            "template": "verifyscam"
         },
         {
             "name": "Invite Scam",
