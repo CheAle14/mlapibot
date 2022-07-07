@@ -78,7 +78,8 @@
             ],
             "ignore_self_posts": true,
             "report": true,
-            "template": "verifyscam"
+            "template": "verifyscam",
+            "blacklist": ["registered games"]
         },
         {
             "name": "Invite Scam",
