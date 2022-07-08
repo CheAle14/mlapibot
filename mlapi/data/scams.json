@@ -81,7 +81,7 @@
             "ignore_self_posts": true,
             "report": true,
             "template": "verifyscam",
-            "blacklist": ["registered games"]
+            "blacklist": ["registered games", "activity settings"]
         },
         {
             "name": "Invite Scam",
