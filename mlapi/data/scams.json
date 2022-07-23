@@ -85,12 +85,6 @@
             "blacklist": ["registered games", "activity settings"]
         },
         {
-            "name": "Activity status",
-            "ocr": ["not seeing your game add it"],
-            "title": ["activity status"],
-            "template": "activity"
-        },
-        {
             "name": "Invite Scam",
             "ocr": [
                 "you have to invite me to your servers",
