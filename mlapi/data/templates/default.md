@@ -29,7 +29,7 @@ If your account is the one sending this message, then it means your account has 
 - ... scanned a QR code in-app and then authorized the login: You should change your password.
 - ... did something else: You should change your password.
 
-You should also check your Authorised Apps (under User Settings) to ensure that no suspicious applications have been added (remove any that you don't recognise or didn't add). If you had payment information saved, you should also double check with your bank to ensure no gifts were bought whilst your account was compromised.
+You should also check your Authorised Apps (under User Settings) to ensure that no suspicious applications have been added (remove any that you don't recognise or didn't add, especially those with "Join servers for you"). If you had payment information saved, you should also double check with your bank to ensure no gifts were bought whilst your account was compromised.
 
 - - -
 
