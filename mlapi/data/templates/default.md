@@ -26,7 +26,10 @@ If your account is the one sending this message, then it means your account has 
 
 - ... downloaded and executed malware: You should try and use a different device entirely to change your password (e.g. your phone). You should then [follow these steps](https://support.discord.com/hc/articles/115004307527--Windows-Corrupt-Installation) to fully uninstall Discord, run a complete anti-virus scan, and then re-install Discord. If your account is compromised again when logging in afterwards, you may need to factory reset your computer.
 - ... entered your password into a malicious/fake website: You should change your password. 
+- ... scanned a QR code in-app and then authorized the login: You should change your password.
 - ... did something else: You should change your password.
+
+You should also check your Authorised Apps (under User Settings) to ensure that no suspicious applications have been added (remove any that you don't recognise or didn't add). If you had payment information saved, you should also double check with your bank to ensure no gifts were bought whilst your account was compromised.
 
 - - -
 
