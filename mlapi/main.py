@@ -13,6 +13,17 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 
+
+from mlapi.models.status import StatusAPI
+
+status = StatusAPI("https://discordstatus.com/api/v2")
+print(status.summary())
+inc = status.incidents()
+for x in inc.incidents:
+    print(x.getBody())
+    aaa = input("")
+exit(0)
+
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
 from mlapi.models.scam import Scam
