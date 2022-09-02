@@ -1,18 +1,24 @@
 from re import sub
-from typing import Dict
+from typing import Dict, Union
 from xml.etree.ElementInclude import include
 from zoneinfo import ZoneInfo
 from datetime import datetime
 from dateutil.parser import parse
 from unicodedata import name
-from praw.models import Submission
+from praw.models import Submission, Subreddit
 from praw import Reddit
 import requests
 import zoneinfo
+import json, os
 pst = ZoneInfo("US/Pacific")
+utc = ZoneInfo("UTC")
 def parseDate(dateStr):
     date = parse(dateStr)
     return date.astimezone(pst)
+def parseUtc(dateStr):
+    return parse(dateStr).astimezone(utc)
+def now_utc():
+    return datetime.now().astimezone(utc)
 
 
 class Status:
@@ -124,8 +130,9 @@ class StatusPageIncident:
 
 
 class StatusAPI:
-    def __init__(self, root):
+    def __init__(self, root, temp):
         self.root = root
+        self.temp = temp
 
     def _get(self, path):
         resp = requests.get(self.root + path)
@@ -133,6 +140,10 @@ class StatusAPI:
         return resp.json()
 
     def summary(self):
+        if self.temp: 
+            x = StatusSummary(self.temp)
+            self.temp = None
+            return x
         return StatusSummary(self._get("/summary.json"))
 
     def incidents(self):
@@ -146,29 +157,101 @@ class StatusReporter:
     def __init__(self, api : StatusAPI):
         self.postId = None
         self.incidentsTracked : Dict[str, StatusIncident] = {}
-        self.lastUpdated : datetime | None = None
+        self.lastUpdated : datetime = None
+        self.lastSent : datetime = None
         self.api = api
-    
-    def getPost(self, reddit : Reddit):
+
+    def load(self, path = "status.json"):
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return # nothing to load.
+        self.postId = data["postId"]
+        self.lastUpdated = parseUtc(data["lastUpdated"])
+        self.lastSent = parseUtc(data["lastSent"])
+        self.incidentsTracked = {}
+        for x in data["incidents"]:
+            self.incidentsTracked[x] = None
+        self.fetchAllIncidents()
+
+    def save(self, path = "status.json"):
         if self.postId:
-            return Submission(reddit, self.postId)
+            data = {
+                "postId": self.postId,
+                "lastUpdated": self.lastUpdated.isoformat(),
+                "lastSent": self.lastSent.isoformat(),
+                "incidents": []
+            }
+            for x, v in self.incidentsTracked.items():
+                data["incidents"].append(x)
+            with open(path, "w") as f:
+                json.dump(data, f)
         else:
-            return None
+            try:
+                os.remove(path)
+            except: pass
+
+        
+        
+    
+    def getOrCreateSubmission(self, subreddit : Subreddit):
+        if self.postId:
+            return (Submission(subreddit._reddit, self.postId), False)
+        else:
+            return (subreddit.submit(title=self.getTitle(), selftext=self.getBody()), True)
 
     def shouldUpdate(self):
-        return self.lastUpdated is None or (datetime.now() - self.lastUpdated).total_seconds() > 300
+        return self.lastUpdated is None or (datetime.now(utc) - self.lastUpdated).total_seconds() > 300
 
-    def checkStatus(self):
+    def shouldSend(self):
+        if self.lastSent is None: return True
+        for id, incident in self.incidentsTracked.items():
+            if incident.updatedAt and incident.updatedAt > self.lastSent:
+                return True
+        return False
+
+    def areAllResolved(self):
+        self.fetchAllIncidents()
+        for key, value in self.incidentsTracked.items():
+            if value.resolvedAt is None: return False
+        return True
+
+    def checkStatus(self, subreddit : Subreddit) -> Union[Submission, None]:
         if not self.shouldUpdate(): return False
         summary = self.api.summary()
+        self.lastUpdated = datetime.now(utc)
 
-        for inc in summary.incidents:
-            self.add(inc)
+        rtn_post = None
 
-        if len(self.incidentsTracked) == 0:
-            return False
+        try:
+            for inc in summary.incidents:
+                self.add(inc)
+
+            if len(self.incidentsTracked) > 0:
+                if self.shouldSend():
+                    rtn_post = self.sendToPost(subreddit)
+                elif self.areAllResolved() and self.postId is not None:
+                    rtn_post = self.sendToPost(subreddit)
+                    self.incidentsTracked = {}
+                    self.lastSent = None
+                    self.postId = None
+        finally:
+            self.save()    
+        return rtn_post
+
+    def sendToPost(self, subreddit : Subreddit) -> Union[Submission, None]:
+        (post, newlyCreated) = self.getOrCreateSubmission(subreddit)
+        if newlyCreated:
+            self.postId = post.id
+        else:
+            post.edit(body=self.getBody())
+        self.lastSent = datetime.now(utc)
+        if newlyCreated: return post
+        return None
         
-        # There are incidents that should be updated.
+
+
     
     def setPost(self, submission : Submission):
         self.postId = submission.id
@@ -192,7 +275,29 @@ class StatusReporter:
                 self.add(resp)
         
 
-
+    def getTitle(self):
+        s = "Discord "
+        highestState = ""
+        isoutage = False
+        involves = []
+        for id, incident in self.incidentsTracked.items():
+            if incident.impact == "critical":
+                highestState = "Critical"
+            elif incident.impact == "major" and highestState != "critical":
+                highestState = "Major"
+            elif incident.impact == "minor" and (highestState != "major" and highestState != "critical"):
+                highestState = "Minor"
+            if "outage" in incident.name.lower():
+                isoutage = True
+            for x in incident.components:
+                if x.name not in involves: involves.append(x.name)
+        s += highestState 
+        s += ", ".join(involves)
+        if isoutage:
+            s += " outage"
+        else:
+            s += " issue"
+        return s
 
     def getBody(self):
         s = ""
