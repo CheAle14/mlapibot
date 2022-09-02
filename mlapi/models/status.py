@@ -11,6 +11,7 @@ import logging
 pst = ZoneInfo("US/Pacific")
 utc = ZoneInfo("UTC")
 def parseDate(dateStr):
+    if dateStr is None: return None
     date = parse(dateStr)
     return date.astimezone(pst)
 def parseUtc(dateStr):
@@ -53,28 +54,17 @@ class StatusIncident:
         self.id = json["id"]
         self.name = json["name"]
         self.status = json["status"]
-        try:
-            self.createdAt = parseDate(json["created_at"])
-        except:
-            self.createdAt = None
-        try:
-            self.updatedAt = parseDate(json["updated_at"])
-        except:
-            self.updatedAt = None
-        try:
-            self.monitoringAt = parseDate(json["monitoring_at"])
-        except:
-            self.monitoringAt = None
-        try:
-            self.resolvedAt = parseDate(json["resolved_at"])
-        except:
-            self.resolvedAt = None
+
+        self.createdAt = parseDate(json.get("created_at", None))
+        self.updatedAt = parseDate(json.get("updated_at", None))
+        self.monitoringAt = parseDate(json.get("monitoring_at", None))
+        self.resolvedAt = parseDate(json.get("resolved_at", None))
         self.impact = json["impact"]
         self.shortlink = json["shortlink"]
-        self.startedAt = parseDate(json["started_at"])
+        self.startedAt = parseDate(json.get("started_at", None))
         self.page_id = json["page_id"]
-        self.updates = [StatusIncidentUpdate(x) for x in json["incident_updates"]]
-        self.components = [StatusComponent(x) for x in json["components"]]
+        self.updates = [StatusIncidentUpdate(x) for x in json.get("incident_updates", [])]
+        self.components = [StatusComponent(x) for x in json.get("components", [])]
 
     def getTitle(self):
         s = "Discord "
