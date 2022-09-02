@@ -142,7 +142,6 @@ class StatusPageIncident:
 class StatusAPI:
     def __init__(self, root, temp):
         self.root = root
-        self.temp = temp
 
     def _get(self, path):
         resp = requests.get(self.root + path)
@@ -150,10 +149,6 @@ class StatusAPI:
         return resp.json()
 
     def summary(self):
-        if self.temp: 
-            x = StatusSummary(self.temp)
-            self.temp = None
-            return x
         return StatusSummary(self._get("/summary.json"))
 
     def incidents(self):

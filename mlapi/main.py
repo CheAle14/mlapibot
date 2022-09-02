@@ -16,10 +16,7 @@ from urllib.parse import urlparse
 
 from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
 
-with open("summary.json") as f:
-    temp_data = json.load(f)
-
-status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2", temp_data))
+status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2"))
 
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
