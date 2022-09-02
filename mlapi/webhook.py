@@ -18,9 +18,18 @@ class WebhookSender:
             embed["footer"] = {"text": footer}
         return embed
 
+    def getStatusEmbed(self, submission : Submission):
+        embed = {
+            "title": "Status: New incident post",
+            "description": "A new incident has been seen.\r\n" + submission.title,
+            "url": submission.shortlink
+        }
+        return embed
+
 
     def _sendWebhook(self, embed):
         if not self.WEBHOOK_URL:
+            logging.warning("There is no webhook URL recorded.")
             return
         data = {}
         data["username"] = "/r/" + self.SubReddit
@@ -43,6 +52,10 @@ class WebhookSender:
         embed = self.getEmbed(title, message.body, message.context, message.author.name)
         self._sendWebhook(embed)
 
-    def sendRemovedComment(self, comment: praw.models.Comment):
+    def sendRemovedComment(self, comment: Comment):
         embed = self.getEmbed("Removed Comment", comment.submission.title, comment.submission.permalink, str(comment.score))
+        self._sendWebhook(embed)
+
+    def sendStatusIncident(self, submission : Submission):
+        embed = self.getStatusEmbed(submission)
         self._sendWebhook(embed)
