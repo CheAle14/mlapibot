@@ -14,14 +14,20 @@ from urllib3.util.retry import Retry
 from urllib.parse import urlparse
 
 
-from mlapi.models.status import StatusAPI
+from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
 
-status = StatusAPI("https://discordstatus.com/api/v2")
-print(status.summary())
-inc = status.incidents()
-for x in inc.incidents:
-    print(x.getBody())
-    aaa = input("")
+with open("D:\Downloads\summary.json") as f:
+    temp_data = json.load(f)
+
+reported_statuses = []
+reporter = StatusReporter()
+
+def handleStatus(summary : StatusSummary):
+    for inc in summary.incidents:
+        reporter.add(inc)
+    
+
+handleStatus(StatusSummary(temp_data))
 exit(0)
 
 import mlapi.ocr as ocr

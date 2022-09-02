@@ -1,7 +1,12 @@
-from re import S
+from re import sub
+from typing import Dict
+from xml.etree.ElementInclude import include
 from zoneinfo import ZoneInfo
+from datetime import datetime
 from dateutil.parser import parse
 from unicodedata import name
+from praw.models import Submission
+from praw import Reddit
 import requests
 import zoneinfo
 pst = ZoneInfo("US/Pacific")
@@ -132,3 +137,66 @@ class StatusAPI:
 
     def incidents(self):
         return StatusPageIncident(self._get("/incidents.json"))
+
+    def incident(self, id : str):
+        resp = self._get("/incidents/{0}.json".format(id))
+        return resp
+
+class StatusReporter:
+    def __init__(self, api : StatusAPI):
+        self.postId = None
+        self.incidentsTracked : Dict[str, StatusIncident] = {}
+        self.lastUpdated : datetime | None = None
+        self.api = api
+    
+    def getPost(self, reddit : Reddit):
+        if self.postId:
+            return Submission(reddit, self.postId)
+        else:
+            return None
+
+    def shouldUpdate(self):
+        return self.lastUpdated is None or (datetime.now() - self.lastUpdated).total_seconds() > 300
+
+    def checkStatus(self):
+        if not self.shouldUpdate(): return False
+        summary = self.api.summary()
+
+        for inc in summary.incidents:
+            self.add(inc)
+
+        if len(self.incidentsTracked) == 0:
+            return False
+        
+        # There are incidents that should be updated.
+    
+    def setPost(self, submission : Submission):
+        self.postId = submission.id
+
+    def isTracked(self, incident : StatusIncident):
+        return incident.id in self.incidentsTracked
+    
+    def add(self, incident : StatusIncident):
+        self.incidentsTracked[incident.id] = incident
+
+    def fetchAllIncidents(self):
+        updated = []
+        resp = self.api.incidents()
+        for x in resp.incidents:
+            if x.id in self.incidentsTracked:
+                self.add(x)
+                updated.append(x.id)
+        for key in self.incidentsTracked:
+            if key not in updated:
+                resp = self.api.incident(key)
+                self.add(resp)
+        
+
+
+
+    def getBody(self):
+        s = ""
+        for id, incident in self.incidentsTracked.items():
+            s += incident.getBody()
+            s += "\r\n\r\n---\r\n\r\n"
+        return s
