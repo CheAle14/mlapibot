@@ -1,13 +1,9 @@
 from typing import Dict, Union
-from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 from datetime import datetime
 from dateutil.parser import parse
-from unicodedata import name
 from praw.models import Submission, Subreddit, Comment
-from praw import Reddit
 import requests
-import zoneinfo
 import json
 import os
 import logging
