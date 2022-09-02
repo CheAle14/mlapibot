@@ -1,15 +1,17 @@
-from re import sub
 from typing import Dict, Union
-from xml.etree.ElementInclude import include
+from urllib.error import HTTPError
 from zoneinfo import ZoneInfo
 from datetime import datetime
 from dateutil.parser import parse
 from unicodedata import name
-from praw.models import Submission, Subreddit
+from praw.models import Submission, Subreddit, Comment
 from praw import Reddit
 import requests
 import zoneinfo
-import json, os
+import json
+import os
+import logging
+
 pst = ZoneInfo("US/Pacific")
 utc = ZoneInfo("UTC")
 def parseDate(dateStr):
@@ -32,6 +34,13 @@ class StatusPage:
         self.name = json["name"]
         self.url = json["url"]
         self.updatedAt = parseDate(json["updated_at"])
+
+class StatusComponent:
+    def __init__(self, json):
+        self.id = json["id"]
+        self.name = json.get("name")
+        self.status = json.get("status")
+        self.description = json.get("description")
 
 class StatusIncidentUpdate:
     def __init__(self, json):
@@ -69,6 +78,7 @@ class StatusIncident:
         self.startedAt = parseDate(json["started_at"])
         self.page_id = json["page_id"]
         self.updates = [StatusIncidentUpdate(x) for x in json["incident_updates"]]
+        self.components = [StatusComponent(x) for x in json["components"]]
 
     def getTitle(self):
         s = "Discord "
@@ -150,7 +160,12 @@ class StatusAPI:
         return StatusPageIncident(self._get("/incidents.json"))
 
     def incident(self, id : str):
-        resp = self._get("/incidents/{0}.json".format(id))
+        try:
+            resp = StatusIncident(self._get("/incidents/{0}.json".format(id)))
+        except requests.exceptions.HTTPError as e:
+            logging.error(e, exc_info=1)
+            logging.error("Failed to fetch incident with id " + id)
+            resp = None
         return resp
 
 class StatusReporter:
@@ -193,13 +208,47 @@ class StatusReporter:
             except: pass
 
         
+    def replyDebugInfo(self, submission : Submission):
+        lines = ["# Debug Information"]
+
+        for k, incident in self.incidentsTracked.items():
+            lines.append("Id: " + k)
+            lines.append("Name: " + incident.name)
+            lines.append("Impact: " + incident.impact)
+            lines.append("Status: " + incident.status)
+
+            if len(incident.updates) > 0:
+                lines.append("Updates:\r\n")
+                for upd in incident.updates:
+                    lines.append("- " + upd.id + ": " + upd.status + "; " + upd.body)
+                lines.append("")
+
+            if len(incident.components) > 0:
+                lines.append("Components:\r\n")
+                for com in incident.components:
+                    lines.append("- " + com.id + ": " + com.name)
+                lines.append("")
+
+
+            lines.append("-----")
+            lines.append("")
+
+        body = "  \r\n".join(lines)
+        rep : Comment = submission.reply(body=body)
+        try:
+            rep.mod.distinguish(sticky=True)
+        except: pass
+        
         
     
     def getOrCreateSubmission(self, subreddit : Subreddit):
         if self.postId:
             return (Submission(subreddit._reddit, self.postId), False)
         else:
-            return (subreddit.submit(title=self.getTitle(), selftext=self.getBody()), True)
+            post = subreddit.submit(title=self.getTitle(), selftext=self.getBody(), send_replies=False)
+            if subreddit.display_name == "mlapi":
+                self.replyDebugInfo(post)
+            return (post, True)
 
     def shouldUpdate(self):
         return self.lastUpdated is None or (datetime.now(utc) - self.lastUpdated).total_seconds() > 300
@@ -219,6 +268,7 @@ class StatusReporter:
 
     def checkStatus(self, subreddit : Subreddit) -> Union[Submission, None]:
         if not self.shouldUpdate(): return False
+        logging.info("Fetching Discord status...")
         summary = self.api.summary()
         self.lastUpdated = datetime.now(utc)
 
@@ -269,10 +319,16 @@ class StatusReporter:
             if x.id in self.incidentsTracked:
                 self.add(x)
                 updated.append(x.id)
+        drop = []
         for key in self.incidentsTracked:
             if key not in updated:
                 resp = self.api.incident(key)
-                self.add(resp)
+                if resp:
+                    self.add(resp)
+                else: # not found? so remove
+                    drop.append(key)
+        for x in drop:
+            self.incidentsTracked.pop(x, None)
         
 
     def getTitle(self):
@@ -291,7 +347,8 @@ class StatusReporter:
                 isoutage = True
             for x in incident.components:
                 if x.name not in involves: involves.append(x.name)
-        s += highestState 
+        if highestState != "":
+            s += highestState + " "
         s += ", ".join(involves)
         if isoutage:
             s += " outage"

@@ -18,11 +18,11 @@ class WebhookSender:
             embed["footer"] = {"text": footer}
         return embed
 
-    def getStatusEmbed(self, url):
+    def getStatusEmbed(self, submission : Submission):
         embed = {
             "title": "Status: New incident post",
-            "description": "A new incident has been seen.",
-            "url": url
+            "description": "A new incident has been seen.\r\n" + submission.title,
+            "url": submission.shortlink
         }
         return embed
 
@@ -57,5 +57,5 @@ class WebhookSender:
         self._sendWebhook(embed)
 
     def sendStatusIncident(self, submission : Submission):
-        embed = self.getStatusEmbed(submission.shortlink)
+        embed = self.getStatusEmbed(submission)
         self._sendWebhook(embed)

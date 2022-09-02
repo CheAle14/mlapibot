@@ -37,13 +37,14 @@ valid_extensions = [".png", ".jpeg", ".jpg"]
 MAX_SAVE_COUNT = 250
 
 def load_reddit():
-    global reddit, subReddit, author
+    global reddit, subReddit, author, testReddit
     author = "DarkOverLordCO"
     reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.5 (by /u/" + author + ")")
     srName = "DiscordApp"
     if os.name == "nt":
         srName = "mlapi"
     subReddit = reddit.subreddit(srName)
+    testReddit = reddit.subreddit("mlapi")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -558,7 +559,7 @@ def deleteBadHistory():
             comment.delete()
 
 def handleStatusChecks():
-    subm = status_reporter.checkStatus(subReddit)
+    subm = status_reporter.checkStatus(testReddit)
     if subm:
         logging.info("Made new status incident submission " + subm.shortlink + "; sending webhook..")
         webHook.sendStatusIncident(subm)
