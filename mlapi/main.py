@@ -435,7 +435,7 @@ def checkPostForIncidentReport(post : Submission):
         body = "Detected a post which might be talking about this incident:\r\n\r\n"
         body += "[Link here](" + post.shortlink + ")\r\n\r\n"
         body += "**" + match[0] + "** matches in\r\n\r\n>" + match[1]
-        subm = status_reporter.getOrCreateSubmission(testSubreddit)
+        subm = status_reporter.getOrCreateSubmission(testReddit)
         subm.reply(body=body)
     
 
