@@ -1,5 +1,6 @@
 from typing import Dict, Union
-from zoneinfo import ZoneInfo
+from pytz import timezone
+import pytz
 from datetime import datetime
 from dateutil.parser import parse
 from praw.models import Submission, Subreddit, Comment
@@ -8,16 +9,22 @@ import json
 import os
 import logging
 
-pst = ZoneInfo("US/Pacific")
-utc = ZoneInfo("UTC")
+pst = timezone("US/Pacific")
+utc = pytz.utc
+
+def convert(datetime : datetime, tz):
+    if datetime.tzinfo:
+        return datetime.astimezone(tz)
+    else:
+        return tz.localize(datetime)
+
 def parseDate(dateStr):
     if dateStr is None: return None
-    date = parse(dateStr)
-    return date.astimezone(pst)
+    return convert(parse(dateStr), pst)
 def parseUtc(dateStr):
-    return parse(dateStr).astimezone(utc)
+    return convert(parse(dateStr), utc)
 def now_utc():
-    return datetime.now().astimezone(utc)
+    return convert(datetime.now(), utc)
 
 
 class Status:
@@ -126,7 +133,7 @@ class StatusPageIncident:
 
 
 class StatusAPI:
-    def __init__(self, root, temp):
+    def __init__(self, root):
         self.root = root
 
     def _get(self, path):
