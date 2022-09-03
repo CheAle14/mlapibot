@@ -26,6 +26,34 @@ def parseUtc(dateStr):
 def now_utc():
     return convert(datetime.now(), utc)
 
+IGNORE_WORDS = [
+    "a", "we", "the", "we've", "has", "identified", "we're", "being"
+]
+KEYWORDS = {
+    "emote": ["emoji"],
+    "message": [],
+    "embed": ["link"],
+    "purchase": [],
+    "ban": [],
+    "kick": [],
+    "leave": [],
+    "spam": [],
+    "latency": [],
+    "guild": ["server"],
+    "cdn": ["cloudflare"],
+    "edit": ["modify", "update", "change"],
+    "delete": ["remove"]
+}
+def isKeyWord(word : str):
+    word = word.lower()
+    if word in IGNORE_WORDS: return False
+
+    for key, ls in KEYWORDS.items():
+        if key == word: return True
+        if word in ls: return True
+    return False
+
+
 
 class Status:
     def __init__(self, json):
@@ -72,6 +100,27 @@ class StatusIncident:
         self.page_id = json["page_id"]
         self.updates = [StatusIncidentUpdate(x) for x in json.get("incident_updates", [])]
         self.components = [StatusComponent(x) for x in json.get("components", [])]
+
+        self._cachekeywords = None
+
+    def getKeywords(self):
+        if self._cachekeywords:
+            return self._cachekeywords
+        words = {}
+        for word in self.name.split():
+            if word not in words and isKeyWord(word):
+                words[word] = self.name
+        for updt in self.updates:
+            for word in updt.body.split():
+                if word not in words and isKeyWord(word):
+                    words[word] = updt.body
+        for comp in self.components:
+            for word in comp.name.split():
+                if word not in words and isKeyWord(word):
+                    words[word] = comp.name
+        self._cachekeywords = words
+        return words
+
 
     def getTitle(self):
         s = "Discord "

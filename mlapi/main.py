@@ -18,6 +18,7 @@ from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
 
 status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2"))
 
+
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
 from mlapi.models.scam import Scam
@@ -417,6 +418,28 @@ def determineScams(post: praw.models.Submission) -> ResponseBuilder:
 
     return builder
 
+def checkPostForIncidentReport(post : Submission):
+    if not post.selftext: return
+    if len(status_reporter.incidentsTracked) == 0: return
+    keywords = {}
+    for id, inc in status_reporter.incidentsTracked.items():
+        for key, v in inc.getKeywords().items():
+            keywords[key] = v
+    words = [x.lower() for x in post.selftext.split()]
+    match = None
+    for word in words:
+        if word in keywords:
+            match = (word, keywords[word])
+            return
+    if match:
+        body = "Detected a post which might be talking about this incident:\r\n\r\n"
+        body += "[Link here](" + post.shortlink + ")\r\n\r\n"
+        body += "**" + match[0] + "** matches in\r\n\r\n>" + match[1]
+        subm = status_reporter.getOrCreateSubmission(testSubreddit)
+        subm.reply(body=body)
+    
+
+
 
 
 def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = False) -> ResponseBuilder:
@@ -425,6 +448,8 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
     if post.author.id == reddit.user.me().id:
         logging.info("Ignoring post made by ourselves.")
         return None
+
+    
 
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
     IS_POST = isinstance(post, praw.models.Submission)
@@ -471,6 +496,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             logging.info("Replied to: " + post.title)
     if IS_POST:
         save_history()
+        checkPostForIncidentReport(post)
     else:
         if builder is None:
             post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
@@ -540,6 +566,7 @@ def loopPosts():
         logging.info("Post new: " + post.title)
         saveLatest(post.name)
         handlePost(post)
+        
 
 def loopComments():
     for comment in subReddit.comments(limit=25):
