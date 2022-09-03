@@ -6,12 +6,17 @@ import json
 import tempfile
 import os, sys, time
 
-from typing import List
+from typing import List, Union
 from datetime import datetime
-from praw.models import Message, Comment
+from praw.models import Message, Comment, Submission
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
+
+
+from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
+
+status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2"))
 
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
@@ -29,13 +34,14 @@ valid_extensions = [".png", ".jpeg", ".jpg"]
 MAX_SAVE_COUNT = 250
 
 def load_reddit():
-    global reddit, subReddit, author
+    global reddit, subReddit, author, testReddit
     author = "DarkOverLordCO"
     reddit = praw.Reddit("bot1", user_agent="script:mlapiOCR:v0.0.5 (by /u/" + author + ")")
     srName = "DiscordApp"
     if os.name == "nt":
         srName = "mlapi"
     subReddit = reddit.subreddit(srName)
+    testReddit = reddit.subreddit("mlapi")
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -119,6 +125,7 @@ def setup():
 
     load_scams()
     load_reddit()
+    status_reporter.load()
 
     try:
         with open("webhook.txt", "r") as f:
@@ -191,7 +198,7 @@ def addScam(content):
     SCAMS.append(scm)
     save_scams()
 
-def handleUserMsg(post, isAdmin: bool) -> bool:
+def handleUserMsg(post : Union[Message, Comment], isAdmin: bool) -> bool:
     text = post.body
     if text.startswith("/u/mlapibot "):
         text = text[len("/u/mlapibot "):]
@@ -412,8 +419,13 @@ def determineScams(post: praw.models.Submission) -> ResponseBuilder:
 
 
 
-def handlePost(post: praw.models.Message, printRawTextOnPosts = False) -> ResponseBuilder:
+def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = False) -> ResponseBuilder:
     global TOTAL_CHECKS, HISTORY_TOTAL, HISTORY
+
+    if post.author.id == reddit.user.me().id:
+        logging.info("Ignoring post made by ourselves.")
+        return None
+
     SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
     IS_POST = isinstance(post, praw.models.Submission)
     DO_TEXT = post.author.name == author or \
@@ -543,6 +555,11 @@ def deleteBadHistory():
             webHook.sendRemovedComment(comment)
             comment.delete()
 
+def handleStatusChecks():
+    subm = status_reporter.checkStatus(testReddit)
+    if subm:
+        logging.info("Made new status incident submission " + subm.shortlink + "; sending webhook..")
+        webHook.sendStatusIncident(subm)
 
 load_scams()
 
@@ -596,9 +613,19 @@ def start():
         except Exception as e:
             logging.error(e, exc_info=1)
             time.sleep(5)
+
+        if not doneOnce:
+            logging.info("Deleted bad history.")
+        try:
+            handleStatusChecks()
+        except Exception as e:
+            logging.error(e, exc_info=1)
+            time.sleep(5)
+
         if not doneOnce:
             logging.info("Finished loop")
             doneOnce = True
+
 
 
 if __name__ == "__main__":
