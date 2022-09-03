@@ -133,7 +133,7 @@ class StatusPageIncident:
 
 
 class StatusAPI:
-    def __init__(self, root, temp):
+    def __init__(self, root):
         self.root = root
 
     def _get(self, path):
