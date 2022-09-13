@@ -1,5 +1,5 @@
 Hi!   
-The image(s) in your post appear to contain a common scam. It usually takes the form of someone claiming to have accidentally reported you on Steam, eventually having you speak with someone claiming to work for Steam to appeal it. They don't. It's a scam.   
+The image(s) in your post appear to contain a common scam. It usually takes the form of someone claiming to have accidentally reported you on Steam, eventually having you speak with someone claiming to work for Steam to appeal it. They don't. It's a scam. For more information, see [Steam Support :: Scam FAQ](https://help.steampowered.com/faqs/view/70E6-991B-233B-A37B)
 
 - - -
 
