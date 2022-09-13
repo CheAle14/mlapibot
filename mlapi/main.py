@@ -199,19 +199,23 @@ def addScam(content):
     SCAMS.append(scm)
     save_scams()
 
+def handleInboxMessage(message : Message, isAdmin : bool) -> bool:
+    if text.startswith("https"):
+        handlePost(post)
+        return True
+    return False
+
+def handleMentionMessage(comment : Comment, isAdmin : bool) -> bool:
+    pass
+
 def handleUserMsg(post : Union[Message, Comment], isAdmin: bool) -> bool:
     text = post.body
     if text.startswith("/u/mlapibot "):
         text = text[len("/u/mlapibot "):]
-        print(text)
-    if text.startswith("https"):
-        handlePost(post)
-        return True
-    elif isAdmin and isinstance(post, Message) and post.subject == "[add]":
-        addScam(post.body)
-        post.reply("Registered new scam; note: will not persist.")
-        return True
-    return False
+    if isinstance(post, Message):
+        return handleInboxMessage(post, isAdmin)
+    else:
+        return handleMentionMessage(post, isAdmin)
 
 def loopInbox():
     unread_messages = []
