@@ -201,7 +201,7 @@ def addScam(content):
 
 def handleInboxMessage(message : Message, text : str, isAdmin : bool) -> bool:
     if text.startswith("https"):
-        handlePost(post)
+        handlePost(message)
         return True
     return False
 
