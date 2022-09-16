@@ -32,7 +32,7 @@ IGNORE_WORDS = [
 KEYWORDS = {
     "emote": ["emoji"],
     "message": [],
-    "embed": ["link"],
+    "embed": ["link", "embeds"],
     "purchase": [],
     "ban": [],
     "kick": [],
@@ -182,8 +182,9 @@ class StatusPageIncident:
 
 
 class StatusAPI:
-    def __init__(self, root):
+    def __init__(self, root, debugStatus = None):
         self.root = root
+        self._debugStatus = debugStatus
 
     def _get(self, path):
         resp = requests.get(self.root + path)
@@ -191,6 +192,10 @@ class StatusAPI:
         return resp.json()
 
     def summary(self):
+        if self._debugStatus: 
+            sum = StatusSummary(self._debugStatus)
+            self._debugStatus = None
+            return sum
         return StatusSummary(self._get("/summary.json"))
 
     def incidents(self):
@@ -304,7 +309,7 @@ class StatusReporter:
         return True
 
     def checkStatus(self, subreddit : Subreddit) -> Union[Submission, None]:
-        if not self.shouldUpdate(): return False
+        if not self.shouldUpdate(): return None
         logging.info("Fetching Discord status...")
         summary = self.api.summary()
         self.lastUpdated = datetime.now(utc)

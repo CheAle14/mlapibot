@@ -8,7 +8,7 @@ import os, sys, time
 
 from typing import List, Union
 from datetime import datetime
-from praw.models import Message, Comment, Submission
+from praw.models import Message, Comment, Submission, Subreddit
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
@@ -16,7 +16,10 @@ from urllib.parse import urlparse
 
 from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
 
-status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2"))
+# with open(summary.json, "r") as f:
+# debug = json.load(f)
+debug = None
+status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2", debug))
 
 
 import mlapi.ocr as ocr
@@ -33,6 +36,8 @@ discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]
 valid_extensions = [".png", ".jpeg", ".jpg"]
 
 MAX_SAVE_COUNT = 250
+
+subReddit: Subreddit # type hint
 
 def load_reddit():
     global reddit, subReddit, author, testReddit
@@ -422,24 +427,26 @@ def determineScams(post: praw.models.Submission) -> ResponseBuilder:
 
     return builder
 
-def checkPostForIncidentReport(post : Submission):
+def checkPostForIncidentReport(post : Submission, wasBeforeStatus : bool):
     if not post.selftext: return
     if len(status_reporter.incidentsTracked) == 0: return
     keywords = {}
     for id, inc in status_reporter.incidentsTracked.items():
         for key, v in inc.getKeywords().items():
             keywords[key] = v
-    words = [x.lower() for x in post.selftext.split()]
+    words = [x.lower() for x in post.selftext.split()] + [x.lower() for x in post.title.split()]
     match = None
     for word in words:
         if word in keywords:
             match = (word, keywords[word])
-            return
+            break
     if match:
-        body = "Detected a post which might be talking about this incident:\r\n\r\n"
+        body = "Detected a"
+        body += ("n old " if wasBeforeStatus else " new ")
+        body += "post which might be talking about this incident:\r\n\r\n"
         body += "[Link here](" + post.shortlink + ")\r\n\r\n"
         body += "**" + match[0] + "** matches in\r\n\r\n>" + match[1]
-        subm = status_reporter.getOrCreateSubmission(testReddit)
+        (subm, created) = status_reporter.getOrCreateSubmission(testReddit)
         subm.reply(body=body)
     
 
@@ -500,7 +507,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             logging.info("Replied to: " + post.title)
     if IS_POST:
         save_history()
-        checkPostForIncidentReport(post)
+        checkPostForIncidentReport(post, False)
     else:
         if builder is None:
             post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
@@ -587,10 +594,24 @@ def deleteBadHistory():
             comment.delete()
 
 def handleStatusChecks():
+    noPreviousSubmission = status_reporter.postId is None
     subm = status_reporter.checkStatus(testReddit)
-    if subm:
+    if subm and noPreviousSubmission:
         logging.info("Made new status incident submission " + subm.shortlink + "; sending webhook..")
         webHook.sendStatusIncident(subm)
+        # Now we should backdate to see if any previous posts were talking about this incident.
+        post: Submission
+        statusPostSentAt = datetime.utcfromtimestamp(int(subm.created_utc))
+        for post in subReddit.new():
+            if post.author.id == reddit.user.me().id: 
+                continue
+            sentAt = datetime.utcfromtimestamp(int(post.created_utc))
+            if sentAt < statusPostSentAt:
+                diff = statusPostSentAt - sentAt
+                if diff.total_seconds() < (60 * 30):
+                    checkPostForIncidentReport(post, True)
+
+
 
 load_scams()
 
