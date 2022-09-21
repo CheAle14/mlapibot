@@ -31,21 +31,35 @@ IGNORE_WORDS = [
 ]
 KEYWORDS = {
     "emote": ["emoji"],
-    "message": [],
-    "embed": ["link", "embeds"],
+    "message send": [],
+    "attachment": ["file", "media"],
+    "embed": ["link"],
     "purchase": [],
     "ban": [],
     "kick": [],
-    "leave": [],
+    "prune": [],
+    "leave": ["left"],
     "spam": [],
-    "latency": [],
+    "latency": ["lag"],
     "guild": ["server"],
     "cdn": ["cloudflare"],
     "edit": ["modify", "update", "change"],
-    "delete": ["remove"]
+    "delete": ["remove"],
+    "voice": ["vc"]
 }
+
+
 def isKeyWord(word : str):
+    # Normalise the word.
     word = word.lower()
+    # Remove 's' from end.
+    if word.endswith('s'):
+        word = word[:-1]
+    
+    # Remove -ing from end.
+    if word.endswith('ing'):
+        word = word[:-3]
+
     if word in IGNORE_WORDS: return False
 
     for key, ls in KEYWORDS.items():
