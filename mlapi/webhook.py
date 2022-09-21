@@ -32,7 +32,7 @@ class WebhookSender:
             logging.warning("There is no webhook URL recorded.")
             return
         data = {}
-        data["username"] = "/r/" + self.SubReddit
+        data["username"] = ("/r/" + self.SubReddit).replace("Discord", "Ds")
         data["embeds"] = [embed]
         result = requests.post(self.WEBHOOK_URL, data=json.dumps(data), headers={"Content-Type": "application/json"})
         try:
