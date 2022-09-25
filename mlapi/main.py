@@ -24,6 +24,7 @@ status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2", d
 
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
+from mlapi.models.fileguard import FileGuard
 from mlapi.models.scam import Scam
 from mlapi.models.scam_encoder import ScamEncoder
 from mlapi.webhook import WebhookSender
@@ -354,9 +355,10 @@ def handleUrl(url: str) -> List[str]:
         return
     tempPath = os.path.join(tempfile.gettempdir(), filename)
     print(tempPath)
-    with open(tempPath, "wb") as f:
-        f.write(r.content)
-    return getTextFromFileName(tempPath, filename)
+    with FileGuard(tempPath):
+        with open(tempPath, "wb") as f:
+            f.write(r.content)
+        return getTextFromFileName(tempPath, filename)
 
 def determineScams(post: praw.models.Submission) -> ResponseBuilder:
     scams = {}

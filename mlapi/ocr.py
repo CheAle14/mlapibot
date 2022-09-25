@@ -1,4 +1,6 @@
 import logging
+
+from mlapi.models.fileguard import FileGuard
 try:
     from PIL import Image
 except ImportError:
@@ -30,10 +32,13 @@ def getTextFromPath(path, filename):
     image = cv2.imread(path, cv2.IMREAD_COLOR)
 
     processed = processImage(image)
-    
-    filename = "corrected_{}.png".format(filename)
+
+    filename = "corrected_{}".format(filename)
+    if '.' not in filename:
+        filename = filename + ".png"
     correctedPath = os.path.join(tempfile.gettempdir(), filename)
     logging.info("Corrected -> " + correctedPath)
-    cv2.imwrite(correctedPath, processed)
-    return pytesseract.image_to_string(Image.open(correctedPath))
+    with FileGuard(correctedPath):
+        cv2.imwrite(correctedPath, processed)
+        return pytesseract.image_to_string(Image.open(correctedPath))
 
