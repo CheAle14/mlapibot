@@ -326,6 +326,7 @@ class StatusReporter:
         if not self.shouldUpdate(): return None
         logging.info("Fetching Discord status...")
         summary = self.api.summary()
+        logging.info("Fetched with " + str(summary.status.indicator) + ": " + str(summary.status.description) + "; incidents: " + str(len(summary.incidents)))
         self.lastUpdated = datetime.now(utc)
 
         rtn_post = None
