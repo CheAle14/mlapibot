@@ -47,7 +47,7 @@ KEYWORDS = {
     "delete": ["remove"],
     "voice": ["vc"],
     "ios": ["iphone"],
-    "android": [],
+    "android": ["126.20", "126.21", "v126", "v126.20", "v126.21"],
     "canary": [],
     "ptb": []
 }
