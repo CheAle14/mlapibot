@@ -45,7 +45,11 @@ KEYWORDS = {
     "cdn": ["cloudflare"],
     "edit": ["modify", "update", "change"],
     "delete": ["remove"],
-    "voice": ["vc"]
+    "voice": ["vc"],
+    "ios": ["iphone"],
+    "android": [],
+    "canary": [],
+    "ptb": []
 }
 
 
