@@ -104,7 +104,9 @@
             "report": true,
             "template": "status",
             "ocr": [
-                "user is suspected to be part of an online terrorist organization. please report any suspicious activity to discord staff"
+                "user is suspected to be part of an online terrorist organization",
+                "user is suspected to be apart of an online terrorist organization",
+                "please report any suspicious activity to discord staff"
             ]
         },
         {
