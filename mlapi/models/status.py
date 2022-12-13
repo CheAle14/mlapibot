@@ -52,7 +52,7 @@ KEYWORDS = {
     "ptb": [],
     "client": [],
     "outage": ["not responding", "not loading", "down"],
-    "member list": []
+    "member list": ["members"]
 }
 
 
