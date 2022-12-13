@@ -406,7 +406,7 @@ class StatusReporter:
         
 
     def getTitle(self):
-        s = "Discord "
+        s = "Discord Status "
         highestState = ""
         isoutage = False
         involves = []
@@ -427,7 +427,7 @@ class StatusReporter:
         if isoutage:
             s += " outage"
         else:
-            s += " issue/outage/etc"
+            s += " issue/problem reported"
         return s
 
     def getBody(self):
