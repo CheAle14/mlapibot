@@ -597,7 +597,7 @@ def deleteBadHistory():
 
 def handleStatusChecks():
     noPreviousSubmission = status_reporter.postId is None
-    subm = status_reporter.checkStatus(testReddit)
+    subm = status_reporter.checkStatus(testReddit, subReddit)
     if subm and noPreviousSubmission:
         logging.info("Made new status incident submission " + subm.shortlink + "; sending webhook..")
         webHook.sendStatusIncident(subm)
