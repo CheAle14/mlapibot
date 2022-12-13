@@ -49,7 +49,10 @@ KEYWORDS = {
     "ios": ["iphone"],
     "android": ["126.20", "126.21", "v126", "v126.20", "v126.21"],
     "canary": [],
-    "ptb": []
+    "ptb": [],
+    "client": [],
+    "outage": ["not responding", "not loading", "down"],
+    "member list": []
 }
 
 
