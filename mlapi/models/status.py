@@ -329,7 +329,7 @@ class StatusReporter:
             if value.resolvedAt is None: return False
         return True
 
-    def checkStatus(self, subreddit : Subreddit) -> Union[Submission, None]:
+    def checkStatus(self, testSubreddit : Subreddit, mainSubreddit : Subreddit) -> Union[Submission, None]:
         if not self.shouldUpdate(): return None
         logging.info("Fetching Discord status...")
         summary = self.api.summary()
@@ -339,14 +339,24 @@ class StatusReporter:
         rtn_post = None
 
         try:
+            anyMajorOrMore = False
+            inc : StatusIncident = None
             for inc in summary.incidents:
                 self.add(inc)
+                if inc.impact == "major":
+                    anyMajorOrMore = True
+                elif inc.impact == "critical":
+                    anyMajorOrMore = True
+                elif 'outage' in inc.name.lower():
+                    anyMajorOrMore = True
+                if anyMajorOrMore: break
 
             if len(self.incidentsTracked) > 0:
+                sendSub = mainSubreddit if anyMajorOrMore else testSubreddit
                 if self.shouldSend():
-                    rtn_post = self.sendToPost(subreddit)
+                    rtn_post = self.sendToPost(sendSub)
                 elif self.areAllResolved() and self.postId is not None:
-                    rtn_post = self.sendToPost(subreddit)
+                    rtn_post = self.sendToPost(sendSub)
                     self.incidentsTracked = {}
                     self.lastSent = None
                     self.postId = None
@@ -417,7 +427,7 @@ class StatusReporter:
         if isoutage:
             s += " outage"
         else:
-            s += " issue"
+            s += " issue/outage/etc"
         return s
 
     def getBody(self):
