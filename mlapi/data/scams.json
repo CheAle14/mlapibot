@@ -106,7 +106,10 @@
             "ocr": [
                 "user is suspected to be part of an online terrorist organization",
                 "user is suspected to be apart of an online terrorist organization",
-                "please report any suspicious activity to discord staff"
+                "please report any suspicious activity to discord staff",
+                "this user is suspected to be a part of online terrorist organization",
+                "please report any suspicious activity to discord support",
+                "online terrorist organization"
             ]
         },
         {
