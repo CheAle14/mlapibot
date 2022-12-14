@@ -432,6 +432,8 @@ def determineScams(post: praw.models.Submission) -> ResponseBuilder:
 def checkPostForIncidentReport(post : Submission, wasBeforeStatus : bool):
     if not post.selftext: return
     if len(status_reporter.incidentsTracked) == 0: return
+    if post.subreddit.display_name != "mlapi": return
+
     keywords = {}
     for id, inc in status_reporter.incidentsTracked.items():
         for key, v in inc.getKeywords().items():
