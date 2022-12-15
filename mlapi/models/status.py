@@ -52,7 +52,8 @@ KEYWORDS = {
     "ptb": [],
     "client": [],
     "outage": ["not responding", "not loading", "down"],
-    "member list": ["members"]
+    "member list": ["members"],
+    "purchase": ["subscription", "tax"]
 }
 
 
