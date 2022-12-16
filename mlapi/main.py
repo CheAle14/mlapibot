@@ -228,6 +228,7 @@ def handleMentionMessage(comment : Comment, text : str, isAdmin : bool) -> bool:
     elif split[0] == "stats":
         perc = int((HISTORY_TOTAL / TOTAL_CHECKS) * 100)
         comment.reply(f"I have seen a total of {TOTAL_CHECKS} submissions with {HISTORY_TOTAL} detected as scams causing me to reply, which is approximately {perc}%")
+        return True
     return False
 
 def handleUserMsg(post : Union[Message, Comment], isAdmin: bool) -> bool:
