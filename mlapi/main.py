@@ -215,7 +215,10 @@ def handleInboxMessage(message : Message, text : str, isAdmin : bool) -> bool:
 def handleMentionMessage(comment : Comment, text : str, isAdmin : bool) -> bool:
     split = text.split()
     if split[0] == "send":
-        templateName = split[1]
+        try:
+            templateName = split[1]
+        except IndexError:
+            templateName = "default"
         if templateName in TEMPLATES:
             built = TEMPLATES[templateName]
             comment.reply(built)
