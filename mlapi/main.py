@@ -33,10 +33,11 @@ print(os.getcwd())
 os.chdir(os.path.join(os.getcwd(), "data"))
 
 ocr_scam_pattern = r"(?:\bhttps://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]"
-discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]{5,16})"
+#discord_invite_pattern = r"https:\/\/discord\.(?:gg|com\/invites)\/([A-Za-z0-9-]{5,16})"
 valid_extensions = [".png", ".jpeg", ".jpg"]
 
 MAX_SAVE_COUNT = 250
+SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
 
 subReddit: Subreddit # type hint
 
@@ -212,7 +213,16 @@ def handleInboxMessage(message : Message, text : str, isAdmin : bool) -> bool:
     return False
 
 def handleMentionMessage(comment : Comment, text : str, isAdmin : bool) -> bool:
-    pass
+    split = text.split()
+    if split[0] == "send":
+        templateName = split[1]
+        if templateName in TEMPLATES:
+            built = TEMPLATES[templateName]
+            comment.reply(built)
+        else:
+            comment.reply(f"No template exists by name '{split[0]}'")
+        return True
+    return False
 
 def handleUserMsg(post : Union[Message, Comment], isAdmin: bool) -> bool:
     text = post.body
@@ -287,7 +297,7 @@ def fixUrl(url):
 
 def extractURLS(post, pattern: str):
     any_url = []
-    if isinstance(post, praw.models.Submission):
+    if isinstance(post, Submission):
         if re.match(pattern, post.url) is not None:
             any_url.append(post.url)
         if post.is_self:
@@ -298,9 +308,9 @@ def extractURLS(post, pattern: str):
                 url = url.split("?")[0].replace("preview", "i")
                 if re.match(pattern, url) is not None:
                     any_url.append(url)
-    elif isinstance(post, praw.models.Message):
+    elif isinstance(post, Message):
         any_url.extend(extractURLSText(post.body, pattern))
-    elif isinstance(post, praw.models.Comment):
+    elif isinstance(post, Comment):
         any_url.extend(extractURLSText(post.body, pattern))
 
     return [fixUrl(x) for x in any_url if x is not None]
@@ -360,7 +370,7 @@ def handleUrl(url: str) -> List[str]:
             f.write(r.content)
         return getTextFromFileName(tempPath, filename)
 
-def determineScams(post: praw.models.Submission) -> ResponseBuilder:
+def determineScams(post: Submission) -> ResponseBuilder:
     scams = {}
     urls = extractURLS(post, ocr_scam_pattern)
     ocr_urls = [x for x in urls if validImage(x)]
@@ -466,8 +476,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
 
     
 
-    SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
-    IS_POST = isinstance(post, praw.models.Submission)
+    IS_POST = isinstance(post, Submission)
     DO_TEXT = post.author.name == author or \
               (not IS_POST and post.parent_id is None)
     builder = determineScams(post)
