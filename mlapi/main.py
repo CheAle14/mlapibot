@@ -519,61 +519,6 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             post.reply("No scams detected; text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText))
     return builder
 
-_fromcoded = {"guild": {"features": ["DISCOVERABLE", "FROM_HARDCODE"]}}
-def getHardCoded(code: str):
-    if code == "discord-testers":
-        return _fromcoded
-    return None
-
-def getInviteData(code: str):
-    hardcode = getHardCoded(code)
-    if hardcode is not None:
-        return hardcode
-    url = "https://discord.com/api/v8/invites/" + code
-    print("Fetching " + url)
-    try:
-        r = requests_retry_session(retries=5).get(url)
-    except Exception as x:
-        logging.error('Could not handle url: {0} {1}'.format(url, x.__class__.__name__))
-        print(str(x))
-        try:
-            e = webHook.getEmbed("Error with Discord Invite",
-                str(x), url, x.__class__.__name__)
-            logging.info(str(e))
-            webHook._sendWebhook(e)
-        except:
-            pass
-        return
-    if not r.ok:
-        logging.error("Url failed")
-        return
-    return json.loads(r.text)
-
-def handleNewComment(comment: praw.models.Comment):
-    return # the subreddit's automoderator does this already
-    discord_codes = extractURLS(comment, discord_invite_pattern)
-    print(discord_codes)
-    anyIllegal = False
-    for code in discord_codes:
-        data = getInviteData(code)
-        print(data)
-        features = data["guild"]["features"]
-        if  "DISCOVERABLE" not in features \
-        and "PARTNERED" not in features \
-        and "VERIFIED" not in features:
-            anyIllegal = True
-            break
-    if anyIllegal:
-        logging.info("Reporting " + comment.id)
-        comment.report("Possible self promotion; not verified/partnered/discoverable")
-        try:
-            url = "https://www.reddit.com/comments/{0}/comment/{1}/".format(comment.submission.id, comment.id)
-            e = webHook.getEmbed("Reported Comment",
-                comment.body, url, comment.author.name)
-            webHook._sendWebhook(e)
-        except:
-            pass
-
 def loopPosts():
     for post in subReddit.new(limit=25):
         if post.name in latest_done:
@@ -581,15 +526,6 @@ def loopPosts():
         logging.info("Post new: " + post.title)
         saveLatest(post.name)
         handlePost(post)
-        
-
-def loopComments():
-    for comment in subReddit.comments(limit=25):
-        if comment.id in latest_done:
-            break
-        logging.info("Comment new: " + comment.id + ", in " + comment.link_id)
-        saveLatest(comment.id)
-        handleNewComment(comment)
 
 def deleteBadHistory():
     for comment in reddit.user.me().comments.new(limit=10):
@@ -650,13 +586,6 @@ def start():
             time.sleep(5)
         if not doneOnce:
             logging.info("Checked posts loop")
-        #try:
-        #    loopComments()
-        #except Exception as e:
-        #    logging.error(e, exc_info=1)
-        #    time.sleep(5)
-        #if not doneOnce:
-        #    logging.info("Checked new subreddit comments")
         try:
             loopInbox()
         except Exception as e:
