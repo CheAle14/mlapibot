@@ -8,7 +8,7 @@ import os, sys, time
 
 from typing import List, Union
 from datetime import datetime
-from praw.models import Message, Comment, Submission, Subreddit
+from praw.models import Message, Comment, Submission, Subreddit, Redditor
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib.parse import urlparse
@@ -206,6 +206,14 @@ def addScam(content):
     SCAMS.append(scm)
     save_scams()
 
+def debugCheckForUrls(user : Redditor, submission : Submission):
+    builder = determineScams(submission)
+    msg = f"For [this submission]({submission.shortlink}), text seen was:\r\n\r\n"
+    msg += builder.FormattedText
+
+    user.message(subject="Debug analysis for manual response", message=msg)
+
+
 def handleInboxMessage(message : Message, text : str, isAdmin : bool) -> bool:
     if text.startswith("https"):
         handlePost(message)
@@ -224,6 +232,8 @@ def handleMentionMessage(comment : Comment, text : str, isAdmin : bool) -> bool:
             comment.reply(built)
         else:
             comment.reply(f"No template exists by name '{split[0]}'")
+        if isAdmin:
+            debugCheckForUrls(comment.author, comment.submission)
         return True
     elif split[0] == "stats":
         perc = int((HISTORY_TOTAL / TOTAL_CHECKS) * 100)
