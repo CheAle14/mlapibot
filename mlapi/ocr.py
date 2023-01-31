@@ -9,8 +9,6 @@ import pytesseract
 import cv2
 import os, tempfile, numpy
 from colorsys import rgb_to_hls, hls_to_rgb
-if os.name == 'nt':
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files (x86)\Tesseract-OCR\tesseract'
 
 def processImage(image):
     avg_color_per_row = numpy.average(image, axis=0)
@@ -41,4 +39,7 @@ def getTextFromPath(path, filename):
     with FileGuard(correctedPath):
         cv2.imwrite(correctedPath, processed)
         return pytesseract.image_to_string(Image.open(correctedPath))
+
+
+
 
