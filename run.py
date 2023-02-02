@@ -1,6 +1,6 @@
 import os
 import sys
-if sys.argv[1]:
+if len(sys.argv) == 2 and sys.argv[1]:
     import mlapi.ocr
     path = sys.argv[1]
     if os.path.exists(path):
