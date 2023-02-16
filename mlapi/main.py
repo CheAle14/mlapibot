@@ -550,7 +550,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             built += "\r\n - - -"
             if doSkip:
                 built += "Detected words indicating I should ignore this post, possibly legit.  "
-            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n> ".format(builder.Highlight.build())
+            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n> {0}\r\n".format(builder.Highlight.build())
             post.reply(built)
             replied = True
         elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
@@ -568,7 +568,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
         if builder is None:
             post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
         elif not replied:
-            post.reply("No scams detected; text I saw was:\r\n\r\n{0}\r\n".format(builder.Highlight.build()))
+            post.reply("No scams detected; text I saw was:\r\n\r\n> {0}\r\n".format(builder.Highlight.build()))
     return builder
 
 def loopPosts():
