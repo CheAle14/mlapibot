@@ -27,15 +27,40 @@ class Scam:
     def numWordsContain(self, words: List[str], testWords: List[str], builder: ResponseBuilder) -> int:
         count = 0
         for x in testWords:
-            if x in words:
-                escaped = r"(?<!_)" + re.escape(x) + r"(?!_)"
-                builder.TestGrounds = re.sub(escaped, "_" + x + "_", builder.TestGrounds)
+            try:
+                idx = words.index(x)
+
+                builder.Highlight.setItalic(idx)
                 count += 1
                 continue
+            except ValueError: pass
         return count
 
+    def newInOrder(self, detectedWords : List[str], testingWords : List[str], builder : ResponseBuilder):
+        detectedIndex = 0
+        testingIndex = 0
+        numWordsSeen = 0
+
+        consecutiveStartedAt = None
+
+        while detectedIndex < len(detectedWords) and testingIndex < len(testingWords):
+            if detectedWords[detectedIndex] == testingWords[testingIndex]:
+                numWordsSeen += 1
+                testingIndex += 1
+                if consecutiveStartedAt is None:
+                    consecutiveStartedAt = detectedIndex
+            elif consecutiveStartedAt is not None:
+                # not the next word and we've broken the streak.
+                builder.Highlight.autowrap(consecutiveStartedAt, detectedIndex - consecutiveStartedAt)
+                consecutiveStartedAt = None
+            detectedIndex += 1
+        if consecutiveStartedAt is not None:
+            builder.Highlight.autowrap(consecutiveStartedAt, min(detectedIndex, testingIndex))
+        return numWordsSeen
+
+
     def findPhraseInOrder(self, words, testWords, builder: ResponseBuilder, limY = 0, limTest = 0):
-        current = 0
+        numWordsSeen = 0
         phraseStart = limTest
         if self.__dbg:
             print("Looking for '" + " ".join(testWords[phraseStart:]), "' from " + str(limY) + " onwards")
@@ -51,22 +76,23 @@ class Scam:
                 if word == against:
                     if self.__dbg:
                         print(testing, y, limY, limTest, ":", word, against)
-                    current += 1
+                    numWordsSeen += 1
+                    builder.Highlight.wrapword(y, 1, "|", "|")
                     y += 1
                     limTest = testing + 1
                     limY = y
                     textSeen.append(word)
                     break
-                elif current > 0:
+                elif numWordsSeen > 0:
                     diff = y - limY
                     if diff > 3:
                         if self.__dbg:
                             print("Did find", testWords[testing], "vs", words[limY-1])
-                        return (current, limY + 1, phraseStart)
-            if current == 0:
+                        return (numWordsSeen, limY + 1, phraseStart)
+            if numWordsSeen == 0:
                 # havn't found the phrase at all
-                return (current, limY, phraseStart + 1)
-        if current > 0 and (len(textSeen) > (len(testWords)/2)):
+                return (numWordsSeen, limY, phraseStart + 1)
+        if numWordsSeen > 0 and (len(textSeen) > (len(testWords)/2)):
             sawWords = " ".join(textSeen)
 
             escaped = r"(?<!\*\*)" + re.escape(sawWords) + r"(?!\*\*)"
@@ -75,7 +101,7 @@ class Scam:
                 print("REGEX: " + escaped)
             builder.TestGrounds = re.sub(escaped, "**" + sawWords + "**", builder.TestGrounds)
 
-        return (current, limY, len(testWords))
+        return (numWordsSeen, limY, len(testWords))
 
     def phrasesInOrder(self, words: List[str], testWords: List[str], builder: ResponseBuilder) -> int:
         doneTest = 0
@@ -97,7 +123,7 @@ class Scam:
                 print("=======BREAK:  ")
             testArray = testString.split(' ')
             builder.CleanTest()
-            inOrder = self.phrasesInOrder(wordsPost, testArray, builder)
+            inOrder = self.newInOrder(wordsPost, testArray, builder) # self.phrasesInOrder(wordsPost, testArray, builder)
             contain = self.numWordsContain(wordsPost, testArray, builder)
             total = contain + inOrder
             perc = total / (len(testArray) * 2)

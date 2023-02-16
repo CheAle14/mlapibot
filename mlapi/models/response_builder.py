@@ -1,6 +1,7 @@
 import os, re
 from typing import List
 from json import JSONEncoder
+from mlapi.models.texthighlight import TextHighlight
 
 class ResponseBuilder:
     def __init__(self, threshold):
@@ -10,6 +11,7 @@ class ResponseBuilder:
         self.FormattedText = ""
         self.TestGrounds = ""
         self.Scams = {}
+        self.Highlight = None
 
     def getScamText(self):
         txt = ""

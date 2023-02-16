@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 
 from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
+from mlapi.models.texthighlight import TextHighlight
 
 # with open(summary.json, "r") as f:
 # debug = json.load(f)
@@ -208,8 +209,8 @@ def addScam(content):
 
 def debugCheckForUrls(user : Redditor, submission : Submission):
     builder = determineScams(submission)
-    msg = f"For [this submission]({submission.shortlink}), text seen was:\r\n\r\n"
-    msg += builder.FormattedText
+    msg = f"For [this submission]({submission.shortlink}), text seen was:\r\n\r\n> "
+    msg += builder.Highlight.build()
 
     user.message(subject="Debug analysis for manual response", message=msg)
 
@@ -435,6 +436,10 @@ def determineScams(post: Submission) -> ResponseBuilder:
     totalArray.extend(titleArray)
     totalArray.extend(bodyArray)
     totalArray.extend(ocrArray)
+    builder.Highlight = TextHighlight(" ".join(totalArray))
+    merged = []
+    italics = []
+    pairs = []
     for x in SCAMS:
         if hasattr(post, "is_self"):
             if x.IgnoreSelfPosts and post.is_self:
@@ -444,16 +449,34 @@ def determineScams(post: Submission) -> ResponseBuilder:
             logging.info(f"Skipping {x.Name} due to blacklisted")
             builder.Remove(x)
             continue
+        builder.Highlight.offset = 0
         tit = x.TestTitle(titleArray, builder)
+        builder.Highlight.wordOffset = len(titleArray)
         bod = x.TestBody(bodyArray, builder)
+        builder.Highlight.wordOffset += len(bodyArray)
         ocr = x.TestOCR(ocrArray, builder)
+        any = False
         if tit > THRESHOLD:
             builder.Add({x: tit})
+            any = True
         if bod > THRESHOLD:
             builder.Add({x: bod})
+            any = True
         if ocr > THRESHOLD:
             builder.Add({x: ocr})
-
+            any = True
+        if any:
+            merged.extend(builder.Highlight.nodes)
+            italics.extend(builder.Highlight.italic_words)
+            pairs.extend(builder.Highlight.pairs)
+        builder.Highlight.nodes = []
+        builder.Highlight.italic_words = []
+        builder.Highlight.pairs = []
+    builder.Highlight.nodes = merged
+    builder.Highlight.italic_words = italics
+    builder.Highlight.pairs = pairs
+    #with open(f"{post.fullname}.txt", "w") as f:
+    #    f.write(builder.Highlight.tofile())
     return builder
 
 def checkPostForIncidentReport(post : Submission, wasBeforeStatus : bool):
@@ -496,6 +519,9 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
     IS_POST = isinstance(post, Submission)
     DO_TEXT = post.author.name == author or \
               (not IS_POST and post.parent_id is None)
+    if IS_POST and post.subreddit.name == "mlapi":
+        DO_TEXT = True
+
     builder = determineScams(post)
     results = builder.Scams
     replied = False
@@ -524,7 +550,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             built += "\r\n - - -"
             if doSkip:
                 built += "Detected words indicating I should ignore this post, possibly legit.  "
-            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText)
+            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n{0}\r\n> ".format(builder.Highlight.build())
             post.reply(built)
             replied = True
         elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
@@ -542,7 +568,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
         if builder is None:
             post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
         elif not replied:
-            post.reply("No scams detected; text I saw was:\r\n\r\n{0}\r\n".format(builder.FormattedText))
+            post.reply("No scams detected; text I saw was:\r\n\r\n{0}\r\n".format(builder.Highlight.build()))
     return builder
 
 def loopPosts():
