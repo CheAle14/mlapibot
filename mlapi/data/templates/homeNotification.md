@@ -1,6 +1,6 @@
 Hi!  
 Your post appears to contain a screenshot of Discord's home icon with a notification showing.  
-If you are asking how to get rid of that notification and can't seem to get rid of it, then **click on the Nitro tab** as it may be due to a promotion there.
+If you can't seem to get rid of it, then **click on the Nitro tab** as it may be due to a promotion there.
 
 - - -
 
