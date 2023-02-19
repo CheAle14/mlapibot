@@ -2,11 +2,14 @@ import os, re
 from typing import List
 from json import JSONEncoder
 from .response_builder import ResponseBuilder
+from mlapi.ocr import checkForSubImage
+from glob import glob
 
 class Scam:
     def __init__(self, name: str, ocr: List[str], title: List[str],
                                     body: List[str],
                                     blackList: List[str],
+                                    images: List[str],
                                     ignoreSelfPosts: bool,
                                     templateName : str,
                                     report : bool):
@@ -15,6 +18,7 @@ class Scam:
         self.Title = title or []
         self.Body = body or []
         self.Blacklist = blackList or []
+        self.Images = images or []
         self.IgnoreSelfPosts = ignoreSelfPosts or False
         self.Template = templateName or "default"
         self.Report = report
@@ -147,3 +151,19 @@ class Scam:
 
     def TestOCR(self, words: List[str], builder: ResponseBuilder) -> float:
         return self.TestItem(words, self.OCR, builder)
+
+    def TestSubImages(self, imageFilePath, builder: ResponseBuilder) -> bool:
+        if len(self.Images) == 0: return False
+        for imgPattern in self.Images:
+            imgPath = os.path.join("images", imgPattern)
+            imgNames = None
+            if '*' in imgPattern:
+                imgNames = glob(imgPath)
+            else:
+                imgNames = [imgPath]
+            for imgName in imgNames:
+                outPath = os.path.join(os.path.dirname(imageFilePath), "result_" + os.path.basename(imgName))
+                if checkForSubImage(imageFilePath, imgName, outPath):
+                    return True
+        return False
+

@@ -2,6 +2,13 @@
     "scams": 
     [
         {
+            "name": "home notification nitro tab",
+            "images": ["home_notif*"],
+            "report": true,
+            "template": "homeNotification",
+            "ignore_self_posts": true
+        },
+        {
             "name": "Free Nitro/Boost",
             "ocr": [ 
                     "if you want to win a free discord nitro invite this bot to your server", 

@@ -68,9 +68,10 @@ def load_scams():
             title = scm.get("title" if upLow else "Title", [])
             body = scm.get("body" if upLow else "Body", [])
             blacklist = scm.get("blacklist" if upLow else "Blacklist", [])
+            images = scm.get("images" if upLow else "Images", [])
             selfposts = scm.get("ignore_self_posts", False)
             report = scm.get("report", False)
-            scam = Scam(name, ocr, title, body, blacklist, selfposts, template, report)
+            scam = Scam(name, ocr, title, body, blacklist, images, selfposts, template, report)
             SCAMS.append(scam)
     except Exception as e:
         logging.error(e)
@@ -333,23 +334,23 @@ def extractURLS(post, pattern: str):
 
     return [fixUrl(x) for x in any_url if x is not None]
 
-def getScams(array : List[str], isSelfPost, builder: ResponseBuilder) -> ResponseBuilder:
-    scamResults = {}
-    for x in SCAMS:
-        if x.IgnoreSelfPosts and isSelfPost:
-            logging.debug("Skipping {0} as self post".format(x.Name))
-            continue
-        if x.IsBlacklisted(array, builder):
-            logging.debug("Skipping {0} as blacklisted".format(x.Name))
-            continue
-        result = x.TestOCR(array, builder)
-        logging.debug("{0}: {1}".format(x, result))
-        if result > THRESHOLD:
-            scamResults[x] = result
-            builder.FormattedText = builder.TestGrounds
-            #print(builder.FormattedText)
-    builder.Add(scamResults)
-    return builder
+# def getScams(array : List[str], isSelfPost, builder: ResponseBuilder) -> ResponseBuilder:
+#     scamResults = {}
+#     for x in SCAMS:
+#         if x.IgnoreSelfPosts and isSelfPost:
+#             logging.debug("Skipping {0} as self post".format(x.Name))
+#             continue
+#         if x.IsBlacklisted(array, builder):
+#             logging.debug("Skipping {0} as blacklisted".format(x.Name))
+#             continue
+#         result = x.TestOCR(array, builder)
+#         logging.debug("{0}: {1}".format(x, result))
+#         if result > THRESHOLD:
+#             scamResults[x] = result
+#             builder.FormattedText = builder.TestGrounds
+#             #print(builder.FormattedText)
+#     builder.Add(scamResults)
+#     return builder
 
 def getTextFromFileName(path: str, filename: str) -> List[str]:
     text = ocr.getTextFromPath(path, filename)
@@ -360,7 +361,7 @@ def getTextFromFileName(path: str, filename: str) -> List[str]:
         logging.info("==============")
     return array
 
-def handleUrl(url: str) -> List[str]:
+def handleUrl(url: str):
     filename = getFileName(url)
     try:
         r = requests_retry_session(retries=5).get(url)
@@ -383,32 +384,43 @@ def handleUrl(url: str) -> List[str]:
         return
     tempPath = os.path.join(tempfile.gettempdir(), filename)
     print(tempPath)
-    with FileGuard(tempPath):
+    guard = FileGuard(tempPath)
+    try:
         with open(tempPath, "wb") as f:
             f.write(r.content)
-        return getTextFromFileName(tempPath, filename)
+        text = getTextFromFileName(tempPath, filename)
+        return (text, guard)
+    except Exception as e:
+        guard.__exit__(None, e, None)
+        raise e
 
 def determineScams(post: Submission) -> ResponseBuilder:
-    scams = {}
     urls = extractURLS(post, ocr_scam_pattern)
     ocr_urls = [x for x in urls if validImage(x)]
     ocrArray = []
     builder = None
     for url in ocr_urls:
-        wordArray = handleUrl(url)
-        if wordArray is None or len(wordArray) == 0:
-            continue
 
-        if builder is None:
-            builder = ResponseBuilder(THRESHOLD)
-            builder.RecognisedText = " ".join(wordArray)
-            builder.FormattedText = ">" + builder.RecognisedText.replace("\n", "\n>")
-        else:
-            text = " ".join(wordArray)
-            builder.RecognisedText += "\r\n---\r\n" + text
-            builder.FormattedText += "\r\n---\r\n>" + text.replace("\n", "\n>")
+        (wordArray, guard) = handleUrl(url)
+        with guard:
+            if wordArray is None or len(wordArray) == 0:
+                continue
 
-        ocrArray.extend(wordArray)
+            if builder is None:
+                builder = ResponseBuilder(THRESHOLD)
+                builder.RecognisedText = " ".join(wordArray)
+                builder.FormattedText = ">" + builder.RecognisedText.replace("\n", "\n>")
+            else:
+                text = " ".join(wordArray)
+                builder.RecognisedText += "\r\n---\r\n" + text
+                builder.FormattedText += "\r\n---\r\n>" + text.replace("\n", "\n>")
+            ocrArray.extend(wordArray)
+
+            scam:Scam = None
+            for scam in SCAMS:
+                if scam.TestSubImages(guard.path, builder):
+                    logging.info(f"Seen {scam.Name} via image template")
+                    builder.Add({scam: 1.5})
 
 
     if hasattr(post, "title"):
@@ -444,6 +456,7 @@ def determineScams(post: Submission) -> ResponseBuilder:
         if hasattr(post, "is_self"):
             if x.IgnoreSelfPosts and post.is_self:
                 logging.info(f'Skipping {x.Name} due to selfpost')
+                builder.Remove(x)
                 continue
         if x.IsBlacklisted(totalArray, builder):
             logging.info(f"Skipping {x.Name} due to blacklisted")
@@ -620,7 +633,9 @@ def start():
     if len(sys.argv) == 2:
         path = sys.argv[1]
         if path.startswith("http"):
-            print(handleUrl(path))
+            (words, guard) = handleUrl(path)
+            with guard:
+                print(words)
         else:
             print("That functionality has been temporarily removed")
             #fileName = getFileName(path)
