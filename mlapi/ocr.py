@@ -46,7 +46,7 @@ def checkForSubImage(testingPath, templatePath, outputPath = None):
     w, h = template.shape[:-1]
 
     res = cv2.matchTemplate(img_rgb, template, cv2.TM_CCOEFF_NORMED)
-    threshold = .8
+    threshold = 0.95
     loc = numpy.where(res >= threshold)
     hasMatch = False
     for pt in zip(*loc[::-1]):  # Switch columns and rows
@@ -56,6 +56,3 @@ def checkForSubImage(testingPath, templatePath, outputPath = None):
     if outputPath:
         cv2.imwrite(outputPath, img_rgb)
     return hasMatch
-
-
-
