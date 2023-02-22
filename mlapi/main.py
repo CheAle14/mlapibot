@@ -69,9 +69,10 @@ def load_scams():
             body = scm.get("body" if upLow else "Body", [])
             blacklist = scm.get("blacklist" if upLow else "Blacklist", [])
             images = scm.get("images" if upLow else "Images", [])
+            funcs = scm.get("functions" if upLow else "Functions", [])
             selfposts = scm.get("ignore_self_posts", False)
             report = scm.get("report", False)
-            scam = Scam(name, ocr, title, body, blacklist, images, selfposts, template, report)
+            scam = Scam(name, ocr, title, body, blacklist, images, funcs, selfposts, template, report)
             SCAMS.append(scam)
     except Exception as e:
         logging.error(e)
@@ -403,8 +404,8 @@ def determineScams(post: Submission) -> ResponseBuilder:
 
         (wordArray, guard) = handleUrl(url)
         with guard:
-            if wordArray is None or len(wordArray) == 0:
-                continue
+            if wordArray is None:
+                wordArray = []
 
             if builder is None:
                 builder = ResponseBuilder(THRESHOLD)
@@ -421,6 +422,9 @@ def determineScams(post: Submission) -> ResponseBuilder:
                 if scam.TestSubImages(guard.path, builder):
                     logging.info(f"Seen {scam.Name} via image template")
                     builder.Add({scam: 1.5})
+                if scam.TestFunctions(guard.path, builder):
+                    logging.info(f"Seen {scam.Name} via functions")
+                    builder.Add({scam: 2})
 
 
     if hasattr(post, "title"):

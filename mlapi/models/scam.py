@@ -2,7 +2,7 @@ import os, re
 from typing import List
 from json import JSONEncoder
 from .response_builder import ResponseBuilder
-from mlapi.ocr import checkForSubImage
+from mlapi.ocr import checkForSubImage, FUNCTIONS
 from glob import glob
 
 class Scam:
@@ -10,6 +10,7 @@ class Scam:
                                     body: List[str],
                                     blackList: List[str],
                                     images: List[str],
+                                    functions: List[str],
                                     ignoreSelfPosts: bool,
                                     templateName : str,
                                     report : bool):
@@ -19,6 +20,7 @@ class Scam:
         self.Body = body or []
         self.Blacklist = blackList or []
         self.Images = images or []
+        self.Functions = functions or []
         self.IgnoreSelfPosts = ignoreSelfPosts or False
         self.Template = templateName or "default"
         self.Report = report
@@ -166,4 +168,9 @@ class Scam:
                 if checkForSubImage(imageFilePath, imgName, outPath):
                     return True
         return False
-
+    def TestFunctions(self, imageFilePath, builder: ResponseBuilder) -> bool:
+        if len(self.Functions) == 0: return False
+        for funcName in self.Functions:
+            if FUNCTIONS[funcName](imageFilePath):
+                return True
+        return False

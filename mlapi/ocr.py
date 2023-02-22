@@ -56,3 +56,86 @@ def checkForSubImage(testingPath, templatePath, outputPath = None):
     if outputPath:
         cv2.imwrite(outputPath, img_rgb)
     return hasMatch
+
+
+def roundPixel(pixel):
+    opt = []
+    for v in list(pixel):
+        rem = v % 10
+        if rem < 5:
+            opt.append(v - rem)
+        else:
+            opt.append(v + (10 - rem))
+        if len(opt) == 3: break # discard alpha channel
+    return tuple(opt)
+    
+
+def _getDistinctColors(img : Image.Image, startX, startY, distance):
+    clrs = []
+    for offset in range(distance):
+        coord = (startX + offset, startY + offset)
+        if coord[0] >= img.size[0] or coord[1] >= img.size[1]:
+            break
+        pixel = img.getpixel(coord)
+        pixel = roundPixel(pixel)
+        if pixel not in clrs:
+            clrs.append(pixel)
+    return clrs
+
+def _drawDiagonal(img : Image.Image, startX, startY, distance, clr):
+    for offset in range(distance):
+        coord = (startX + offset, startY + offset)
+        if coord[0] >= img.size[0] or coord[1] >= img.size[1]:
+            break
+        img.putpixel(coord, clr)
+
+
+DISCORD_LOGO_APPROX = [[(30, 30, 40), (30, 30, 30)], # dark bg
+                       [(90, 100, 240)], # blurple
+                       [(240, 70, 70)] # red notif
+                      ]
+def _checkForLogoColors(img : Image.Image, index):
+    if index < 0:
+        x = -index
+        y = 0
+    else:
+        y = index
+        x = 0
+    dist = min(300, img.size[0])
+    colors = _getDistinctColors(img, x, y, dist)
+
+    seenIndex = 0
+    for clr in colors:
+        if clr in DISCORD_LOGO_APPROX[seenIndex]:
+            seenIndex += 1
+            if seenIndex == len(DISCORD_LOGO_APPROX):
+                break
+    to_draw = [(0, 0, 0), (0, 0, 255), (0, 255, 0), (255, 0, 0)]
+    _drawDiagonal(img, x, y, dist, to_draw[seenIndex])
+    if seenIndex == len(DISCORD_LOGO_APPROX):
+        #_drawDiagonal(img, x, y, dist, (255, 0, 0))
+        return True
+    return False
+
+
+
+def checkForDiscordLogo(testingPath):
+    # Idea is to scan a diagonal line in the top left of the image
+    # to try and find, in order, pixels of:
+    # (1) a dark background
+    # (2) the blurple color of the logo
+    # (3) the red color of the (1) notification.
+    
+    with Image.open(testingPath) as img:
+        w, h = img.size
+        f = False
+        for tester in range(-100, 250, 5):
+            if _checkForLogoColors(img, tester):
+                print("Found colors at diagonal", tester)
+                f = True
+        img.save("result.png", "PNG")
+        return f
+
+FUNCTIONS = {
+    "home_ds_logo": checkForDiscordLogo
+}

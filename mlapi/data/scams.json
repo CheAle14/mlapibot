@@ -3,7 +3,7 @@
     [
         {
             "name": "home notification nitro tab",
-            "images": ["home_notif*"],
+            "functions": ["home_ds_logo"],
             "report": true,
             "template": "homeNotification",
             "ignore_self_posts": true
