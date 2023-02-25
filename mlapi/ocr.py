@@ -92,7 +92,7 @@ def _drawDiagonal(img : Image.Image, startX, startY, distance, clr):
 
 DISCORD_LOGO_APPROX = [[(30, 30, 40), (30, 30, 30)], # dark bg
                        [(90, 100, 240)], # blurple
-                       [(240, 70, 70)] # red notif
+                       [(240, 70, 70), (240, 60, 70)] # red notif
                       ]
 def _checkForLogoColors(img : Image.Image, index):
     if index < 0:
