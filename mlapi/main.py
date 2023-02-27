@@ -462,11 +462,11 @@ def determineScams(post: Submission) -> ResponseBuilder:
                 logging.info(f'Skipping {x.Name} due to selfpost')
                 builder.Remove(x)
                 continue
+        builder.Highlight.wordOffset = 0
         if x.IsBlacklisted(totalArray, builder):
             logging.info(f"Skipping {x.Name} due to blacklisted")
             builder.Remove(x)
             continue
-        builder.Highlight.offset = 0
         tit = x.TestTitle(titleArray, builder)
         builder.Highlight.wordOffset = len(titleArray)
         bod = x.TestBody(bodyArray, builder)
