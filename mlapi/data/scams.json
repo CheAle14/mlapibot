@@ -6,7 +6,7 @@
             "functions": ["home_ds_logo"],
             "report": true,
             "template": "homeNotification",
-            "ignore_self_posts": true
+            "ignore_self_posts": false
         },
         {
             "name": "Free Nitro/Boost",
