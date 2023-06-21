@@ -33,7 +33,7 @@ KEYWORDS = {
     "emote": ["emoji"],
     "message send": [],
     "attachment": ["file", "media"],
-    "embed": ["link"],
+    "embed": ["link", "preview"],
     "purchase": [],
     "ban": [],
     "kick": [],
@@ -53,7 +53,8 @@ KEYWORDS = {
     "client": [],
     "outage": ["not responding", "not loading", "down"],
     "member list": ["members"],
-    "purchase": ["subscription", "tax"]
+    "purchase": ["subscription", "tax"],
+    "login": []
 }
 
 
@@ -342,15 +343,8 @@ class StatusReporter:
         try:
             anyMajorOrMore = False
             inc : StatusIncident = None
-            for inc in summary.incidents:
-                self.add(inc)
-                if inc.impact == "major":
-                    anyMajorOrMore = True
-                elif inc.impact == "critical":
-                    anyMajorOrMore = True
-                elif 'outage' in inc.name.lower():
-                    anyMajorOrMore = True
-                if anyMajorOrMore: break
+            (highestState, isoutage, involves, name) = self.getImpacts()
+            anyMajorOrMore = isoutage or (highestState in ['Critical', 'Major'])
 
             if len(self.incidentsTracked) > 0:
                 sendSub = mainSubreddit if anyMajorOrMore else testSubreddit
@@ -405,30 +399,42 @@ class StatusReporter:
         for x in drop:
             self.incidentsTracked.pop(x, None)
         
-
-    def getTitle(self):
-        s = "Discord Status "
+    def getImpacts(self):
         highestState = ""
         isoutage = False
         involves = []
+        name = ""
         for id, incident in self.incidentsTracked.items():
             if incident.impact == "critical":
                 highestState = "Critical"
+                name = incident.name
             elif incident.impact == "major" and highestState != "critical":
                 highestState = "Major"
+                name = incident.name
             elif incident.impact == "minor" and (highestState != "major" and highestState != "critical"):
                 highestState = "Minor"
+                name = incident.name
+            if name == "":
+                name = incident.name
             if "outage" in incident.name.lower():
                 isoutage = True
             for x in incident.components:
                 if x.name not in involves: involves.append(x.name)
+        return (highestState, isoutage, involves, name)
+
+    def getTitle(self):
+        s = ""
+        (highestState, isoutage, involves, name) = self.getImpacts()
         if highestState != "":
             s += highestState + " "
         s += ", ".join(involves)
         if isoutage:
             s += " outage"
         else:
-            s += " issue/problem reported"
+            s += " issue"
+        
+        if name != "":
+            s += ": " + name
         return s
 
     def getBody(self):
