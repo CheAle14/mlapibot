@@ -524,7 +524,6 @@ def uploadToImgur(group: OCRImage, album) -> str:
 
 
 def getImgurLink(builder: ResponseBuilder):
-    if len(builder.Scams) == 0: return None
     if len(builder.OCRGroups) == 0: return None
     if IMGUR is None: return None
     try:
@@ -588,11 +587,11 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
         TEMPLATE = TEMPLATES[scam.Template]
         built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
 
-        imgur = getImgurLink(builder)
-        if imgur is not None:
-            built += f" ^[[OCR]]({imgur})"
 
         if DO_TEXT:
+            imgur = getImgurLink(builder)
+            if imgur is not None:
+                built += f" ^[[OCR]]({imgur})"
             built += "\r\n - - -"
             if doSkip:
                 built += "Detected words indicating I should ignore this post, possibly legit.  "
@@ -601,6 +600,9 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             replied = True
         elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
             if not doSkip:
+                imgur = getImgurLink(builder)
+                if imgur is not None:
+                    built += f" ^[[OCR]]({imgur})"
                 post.reply(built)
                 if doReport:
                     post.report("Appears to be a common repost")
