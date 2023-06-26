@@ -31,15 +31,26 @@ class Scam:
         return self.Name
     def __repr__(self):
         return self.Name
-    def numWordsContain(self, words: List[BaseWord], testWords: List[str]) -> int:
+    def numWordsContain(self, words: List[BaseWord], testWords: List[str]) -> float:
         count = 0
         for word in words:
             if word.text in testWords:
                 count += 1
                 word.present = True
-        return count
+        percOfTest = count / len(testWords)
+        percOfWords = count / len(words)
+        if percOfWords < 0.25:
+            # e.g. if 0.2,
+            # perc * (1 - (0.25 - 0.2))
+            # perc * (1 - 0.05)
+            # perc * 0.95
+            # apply 1% deduction for every pp below 25% of seen words
+            ppBelow = (0.25 - percOfWords)
+            percOfTest *= (1 - ppBelow)
+        return percOfTest
+        
 
-    def newInOrder(self, words: List[BaseWord], testingWords : List[str]):
+    def newInOrder(self, words: List[BaseWord], testingWords : List[str]) -> float:
         detectedIndex = 0
         testingIndex = 0
         numWordsSeen = 0
@@ -61,7 +72,7 @@ class Scam:
         if consecutiveStartedAt is not None:
             for word in words[consecutiveStartedAt:min(detectedIndex, testingIndex)]:
                 word.consecutive = True
-        return numWordsSeen
+        return numWordsSeen / len(testingWords)
 
 
     def findPhraseInOrder(self, words, testWords, builder: ResponseBuilder, limY = 0, limTest = 0):
@@ -129,10 +140,10 @@ class Scam:
             if self.__dbg:
                 print("=======BREAK:  ")
             testArray = testString.split(' ')
-            inOrder = self.newInOrder(words, testArray) # self.phrasesInOrder(wordsPost, testArray, builder)
-            contain = self.numWordsContain(words, testArray)
-            total = contain + inOrder
-            perc = total / (len(testArray) * 2)
+            orderPerc = self.newInOrder(words, testArray) # self.phrasesInOrder(wordsPost, testArray, builder)
+            containPerc = self.numWordsContain(words, testArray)
+            # slight weight towards in-order phrases.
+            perc = ((orderPerc * 1.1) + (containPerc * 1)) / (1.1 + 1)
             if perc > highest:
                 highest = perc
                 high_str = testString
