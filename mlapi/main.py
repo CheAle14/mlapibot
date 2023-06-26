@@ -5,6 +5,7 @@ import requests
 import json
 import tempfile
 import os, sys, time
+import imgurpython
 
 from typing import List, Union
 from datetime import datetime
@@ -16,6 +17,7 @@ from urllib.parse import urlparse
 
 from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
 from mlapi.models.texthighlight import TextHighlight
+from mlapi.models.words import OCRImage, RedditGroup
 
 # with open(summary.json, "r") as f:
 # debug = json.load(f)
@@ -25,7 +27,7 @@ status_reporter = StatusReporter(StatusAPI("https://discordstatus.com/api/v2", d
 
 import mlapi.ocr as ocr
 from mlapi.models.response_builder import ResponseBuilder
-from mlapi.models.fileguard import FileGuard
+from mlapi.models.openthendelete import OpenThenDelete
 from mlapi.models.scam import Scam
 from mlapi.models.scam_encoder import ScamEncoder
 from mlapi.webhook import WebhookSender
@@ -41,6 +43,7 @@ MAX_SAVE_COUNT = 250
 SUFFIXES = {1: 'st', 2: 'nd', 3: 'rd'}
 
 subReddit: Subreddit # type hint
+IMGUR: imgurpython.ImgurClient = None
 
 def load_reddit():
     global reddit, subReddit, author, testReddit
@@ -51,6 +54,15 @@ def load_reddit():
         srName = "mlapi"
     subReddit = reddit.subreddit(srName)
     testReddit = reddit.subreddit("mlapi")
+def load_imgur():
+    global IMGUR
+    try:
+        with open("imgur.json") as f:
+            config = json.load(f)
+        IMGUR = imgurpython.ImgurClient(config["client_id"], config["client_secret"])
+    except Exception as e:
+        logging.error(e, exc_info=1)
+        IMGUR = None
 def load_scams():
     global SCAMS, THRESHOLD
     SCAMS = []
@@ -136,6 +148,7 @@ def setup():
 
     load_scams()
     load_reddit()
+    load_imgur()
     status_reporter.load()
 
     try:
@@ -212,7 +225,7 @@ def addScam(content):
 def debugCheckForUrls(user : Redditor, submission : Submission):
     builder = determineScams(submission)
     msg = f"For [this submission]({submission.shortlink}), text seen was:\r\n\r\n> "
-    msg += builder.Highlight.build()
+    msg += str(builder)
 
     user.message(subject="Debug analysis for manual response", message=msg)
 
@@ -353,14 +366,12 @@ def extractURLS(post, pattern: str):
 #     builder.Add(scamResults)
 #     return builder
 
-def getTextFromFileName(path: str, filename: str) -> List[str]:
-    text = ocr.getTextFromPath(path, filename)
-    text = text.lower()
-    array = re.findall(r"[\w']+", text)
+def readFromFileName(path: str, filename: str) -> ocr.OCRImage:
+    image = ocr.getTextFromPath(path, filename)
     if len(sys.argv) > 1:
-        logging.info(" ".join(array))
+        logging.info(str(image))
         logging.info("==============")
-    return array
+    return image
 
 def handleUrl(url: str):
     filename = getFileName(url)
@@ -385,116 +396,92 @@ def handleUrl(url: str):
         return
     tempPath = os.path.join(tempfile.gettempdir(), filename)
     print(tempPath)
-    guard = FileGuard(tempPath)
-    try:
-        with open(tempPath, "wb") as f:
-            f.write(r.content)
-        text = getTextFromFileName(tempPath, filename)
-        return (text, guard)
-    except Exception as e:
-        guard.__exit__(None, e, None)
-        raise e
+    with OpenThenDelete(tempPath, "wb") as f:
+        f.write(r.content)
+        return readFromFileName(tempPath, filename)
+
+def getScamsForUrl(url : str, scams) -> ResponseBuilder:
+    image = handleUrl(url)
+    if image is None:
+        return None
+
+    builder = ResponseBuilder()
+    builder.OCRGroups.append(image)
+
+    scam:Scam = None
+    for scam in scams:
+        if scam.IsBlacklisted(image, THRESHOLD): continue
+
+        conf = scam.TestOCR(image, THRESHOLD)
+        if conf > THRESHOLD:
+            logging.info(f"Seen {scam.Name} via OCR {conf*100}% of {url}")
+            builder.Add({scam: conf})
+        if scam.TestSubImages(image):
+            logging.info(f"Seen {scam.Name} via image template")
+            builder.Add({scam: 1.5})
+        if scam.TestFunctions(image):
+            logging.info(f"Seen {scam.Name} via functions")
+            builder.Add({scam: 2})
+
+    return builder
+
+
+def getScamsInTitle(title, scams) -> ResponseBuilder:
+    group = RedditGroup(title)
+    builder = ResponseBuilder()
+    builder.RedditGroups.append(group)
+    scam: Scam = None
+    for scam in scams:
+        if scam.IsBlacklisted(group, THRESHOLD): continue
+
+        conf = scam.TestTitle(group, THRESHOLD)
+        if conf > THRESHOLD:
+            builder.Add({scam: conf})
+    return builder
+
+def getScamsInBody(body, scams) -> ResponseBuilder:
+    group = RedditGroup(body)
+    builder = ResponseBuilder()
+    builder.RedditGroups.append(group)
+    scam: Scam = None
+    for scam in scams:
+        if scam.IsBlacklisted(group, THRESHOLD): continue
+
+        conf = scam.TestBody(group, THRESHOLD)
+        if conf > THRESHOLD:
+            builder.Add({scam: conf})
+    return builder
+
+def removeBlacklistedScams(builder: ResponseBuilder, scams) -> ResponseBuilder:
+    groups = [*builder.OCRGroups, *builder.RedditGroups]
+    for group in groups:
+        for scam in scams:
+            if scam.IsBlacklisted(group, THRESHOLD):
+                builder.Remove(scam)
+    return builder
 
 def determineScams(post: Submission) -> ResponseBuilder:
     urls = extractURLS(post, ocr_scam_pattern)
+    is_selfpost = hasattr(post, "is_self") and post.is_self
+    relevant_scams = []
+    for scam in SCAMS:
+        if is_selfpost and scam.IgnoreSelfPosts: continue
+        relevant_scams.append(scam)
     ocr_urls = [x for x in urls if validImage(x)]
-    ocrArray = []
-    builder = None
+    builder = ResponseBuilder()
     for url in ocr_urls:
-
-        (wordArray, guard) = handleUrl(url)
-        with guard:
-            if wordArray is None:
-                wordArray = []
-
-            if builder is None:
-                builder = ResponseBuilder(THRESHOLD)
-                builder.RecognisedText = " ".join(wordArray)
-                builder.FormattedText = ">" + builder.RecognisedText.replace("\n", "\n>")
-            else:
-                text = " ".join(wordArray)
-                builder.RecognisedText += "\r\n---\r\n" + text
-                builder.FormattedText += "\r\n---\r\n>" + text.replace("\n", "\n>")
-            ocrArray.extend(wordArray)
-
-            scam:Scam = None
-            for scam in SCAMS:
-                if scam.TestSubImages(guard.path, builder):
-                    logging.info(f"Seen {scam.Name} via image template")
-                    builder.Add({scam: 1.5})
-                if scam.TestFunctions(guard.path, builder):
-                    logging.info(f"Seen {scam.Name} via functions")
-                    builder.Add({scam: 2})
+        done = getScamsForUrl(url, relevant_scams)
+        if done is None: continue
+        builder = builder + done
 
 
-    if hasattr(post, "title"):
-        titleText = post.title.lower()
-    else:
-        titleText = post.subject.lower()
-    titleArray = re.findall(r"[\w']+", titleText)
+    builder += getScamsInTitle(post.title if hasattr(post, "title") else post.subject, relevant_scams)
 
     if hasattr(post, "selftext"):
-        bodyText = post.selftext.lower()
+        builder += getScamsInBody(post.selftext, relevant_scams)
     elif hasattr(post, "body"):
-        bodyText = post.body.lower()
-    else:
-        bodyText = ""
-    bodyArray = re.findall(r"[\w']+", bodyText)
-
-    if builder == None:
-        builder = ResponseBuilder(THRESHOLD)
-        builder.RecognisedText = titleText + "  \r\n" + bodyText
-        builder.FormattedText = ">" + builder.RecognisedText.replace("\n", "\n>")
-
-    logging.info("Saw: " + builder.RecognisedText)
-
-    totalArray = []
-    totalArray.extend(titleArray)
-    totalArray.extend(bodyArray)
-    totalArray.extend(ocrArray)
-    builder.Highlight = TextHighlight(" ".join(totalArray))
-    merged = []
-    italics = []
-    pairs = []
-    for x in SCAMS:
-        if hasattr(post, "is_self"):
-            if x.IgnoreSelfPosts and post.is_self:
-                logging.info(f'Skipping {x.Name} due to selfpost')
-                builder.Remove(x)
-                continue
-        builder.Highlight.wordOffset = 0
-        if x.IsBlacklisted(totalArray, builder):
-            logging.info(f"Skipping {x.Name} due to blacklisted")
-            builder.Remove(x)
-            continue
-        tit = x.TestTitle(titleArray, builder)
-        builder.Highlight.wordOffset = len(titleArray)
-        bod = x.TestBody(bodyArray, builder)
-        builder.Highlight.wordOffset += len(bodyArray)
-        ocr = x.TestOCR(ocrArray, builder)
-        any = False
-        if tit > THRESHOLD:
-            builder.Add({x: tit})
-            any = True
-        if bod > THRESHOLD:
-            builder.Add({x: bod})
-            any = True
-        if ocr > THRESHOLD:
-            builder.Add({x: ocr})
-            any = True
-        if any:
-            merged.extend(builder.Highlight.nodes)
-            italics.extend(builder.Highlight.italic_words)
-            pairs.extend(builder.Highlight.pairs)
-        builder.Highlight.nodes = []
-        builder.Highlight.italic_words = []
-        builder.Highlight.pairs = []
-    builder.Highlight.nodes = merged
-    builder.Highlight.italic_words = italics
-    builder.Highlight.pairs = pairs
-    #with open(f"{post.fullname}.txt", "w") as f:
-    #    f.write(builder.Highlight.tofile())
-    return builder
+        builder += getScamsInBody(post.body, relevant_scams)
+    return removeBlacklistedScams(builder, relevant_scams)
 
 def checkPostForIncidentReport(post : Submission, wasBeforeStatus : bool):
     if not post.selftext: return
@@ -521,6 +508,43 @@ def checkPostForIncidentReport(post : Submission, wasBeforeStatus : bool):
         subm.reply(body=body)
     
 
+def uploadToImgur(group: OCRImage, album) -> str:
+    seenCopy = group.getSeenCopy()
+    dir = os.path.dirname(group.path)
+    filename = os.path.basename(group.path)
+    seenpath = os.path.join(dir, "seen_" + filename)
+    seenCopy.save(seenpath)
+    scampath = os.path.join(dir, "scam_" + filename)
+    scamCopy = group.getScamCopy()
+    scamCopy.save(scampath)
+
+    first =  IMGUR.upload_from_path(seenpath, {'description': 'This shows all words detected through OCR.\nColours represent confidence:\nRed = very low\nOrange = low\nBlue = moderate\nGreen = high'})
+    second = IMGUR.upload_from_path(scampath, {'description': 'Red boxes are words that make up phrases previously seen. Blue boxes are standalone words not in phrases'})
+    return IMGUR.make_request("POST", 'album/%s/add' % album, {"deletehashes": first["deletehash"]  +"," + second["deletehash"]})
+
+
+def getImgurLink(builder: ResponseBuilder):
+    if len(builder.Scams) == 0: return None
+    if len(builder.OCRGroups) == 0: return None
+    if IMGUR is None: return None
+    try:
+        album = IMGUR.create_album({'title': '/u/mlapibot OCR'})
+    except Exception as e:
+        logging.error(e, exc_info=1)
+        return None
+
+    try:
+        for image in builder.OCRGroups:
+            uploadToImgur(image, album['deletehash'])
+    except Exception as e:
+        logging.error(e, exc_info=1)
+        try: 
+            IMGUR.album_delete(album["deletehash"])
+        except: pass
+        return None
+    
+    return "https://imgur.com/a/" + album['id']
+    
 
 
 
@@ -563,11 +587,16 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             suffix = SUFFIXES.get(HISTORY_TOTAL % 10, 'th')
         TEMPLATE = TEMPLATES[scam.Template]
         built = TEMPLATE.format(TOTAL_CHECKS, str(HISTORY_TOTAL) + suffix)
+
+        imgur = getImgurLink(builder)
+        if imgur is not None:
+            built += f" ^[[OCR]]({imgur})"
+
         if DO_TEXT:
             built += "\r\n - - -"
             if doSkip:
                 built += "Detected words indicating I should ignore this post, possibly legit.  "
-            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n> {0}\r\n".format(builder.Highlight.build())
+            built += "\r\nAfter character recognition, text I saw was:\r\n\r\n> {0}\r\n".format(str(builder))
             post.reply(built)
             replied = True
         elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
@@ -585,7 +614,7 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
         if builder is None:
             post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
         elif not replied:
-            post.reply("No scams detected; text I saw was:\r\n\r\n> {0}\r\n".format(builder.Highlight.build()))
+            post.reply("No scams detected; text I saw was:\r\n\r\n> {0}\r\n".format(str(builder)))
     return builder
 
 def loopPosts():
@@ -637,9 +666,8 @@ def start():
     if len(sys.argv) == 2:
         path = sys.argv[1]
         if path.startswith("http"):
-            (words, guard) = handleUrl(path)
-            with guard:
-                print(words)
+            image = handleUrl(path)
+            image.getSeenCopy().show()
         else:
             print("That functionality has been temporarily removed")
             #fileName = getFileName(path)

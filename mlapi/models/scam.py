@@ -3,6 +3,7 @@ from typing import List
 from json import JSONEncoder
 from .response_builder import ResponseBuilder
 from mlapi.ocr import checkForSubImage, FUNCTIONS
+from mlapi.models.words import BaseGroup, BaseWord, OCRImage
 from glob import glob
 
 class Scam:
@@ -30,38 +31,36 @@ class Scam:
         return self.Name
     def __repr__(self):
         return self.Name
-    def numWordsContain(self, words: List[str], testWords: List[str], builder: ResponseBuilder) -> int:
+    def numWordsContain(self, words: List[BaseWord], testWords: List[str]) -> int:
         count = 0
-        for x in testWords:
-            try:
-                idx = words.index(x)
-
-                builder.Highlight.setItalic(idx)
+        for word in words:
+            if word.text in testWords:
                 count += 1
-                continue
-            except ValueError: pass
+                word.present = True
         return count
 
-    def newInOrder(self, detectedWords : List[str], testingWords : List[str], builder : ResponseBuilder):
+    def newInOrder(self, words: List[BaseWord], testingWords : List[str]):
         detectedIndex = 0
         testingIndex = 0
         numWordsSeen = 0
 
         consecutiveStartedAt = None
 
-        while detectedIndex < len(detectedWords) and testingIndex < len(testingWords):
-            if detectedWords[detectedIndex] == testingWords[testingIndex]:
+        while detectedIndex < len(words) and testingIndex < len(testingWords):
+            if words[detectedIndex].text == testingWords[testingIndex]:
                 numWordsSeen += 1
                 testingIndex += 1
                 if consecutiveStartedAt is None:
                     consecutiveStartedAt = detectedIndex
             elif consecutiveStartedAt is not None:
                 # not the next word and we've broken the streak.
-                builder.Highlight.autowrap(consecutiveStartedAt, detectedIndex - consecutiveStartedAt)
+                for word in words[consecutiveStartedAt:detectedIndex]:
+                    word.consecutive = True
                 consecutiveStartedAt = None
             detectedIndex += 1
         if consecutiveStartedAt is not None:
-            builder.Highlight.autowrap(consecutiveStartedAt, min(detectedIndex, testingIndex))
+            for word in words[consecutiveStartedAt:min(detectedIndex, testingIndex)]:
+                word.consecutive = True
         return numWordsSeen
 
 
@@ -120,41 +119,45 @@ class Scam:
             total += current
         return current
 
-    def TestItem(self, wordsPost: List[str], textsJson: List[str],
-                             builder: ResponseBuilder) -> float:
+    def TestItem(self, group : BaseGroup, textsJson: List[str],
+                             threshold: float) -> float:
+        if len(textsJson) == 0: return 0
         highest = 0
         high_str = None
+        words = [word for word in group.words if (word.conf/100) >= threshold]
         for testString in textsJson:
             if self.__dbg:
                 print("=======BREAK:  ")
             testArray = testString.split(' ')
-            builder.CleanTest()
-            inOrder = self.newInOrder(wordsPost, testArray, builder) # self.phrasesInOrder(wordsPost, testArray, builder)
-            contain = self.numWordsContain(wordsPost, testArray, builder)
+            inOrder = self.newInOrder(words, testArray) # self.phrasesInOrder(wordsPost, testArray, builder)
+            contain = self.numWordsContain(words, testArray)
             total = contain + inOrder
             perc = total / (len(testArray) * 2)
             if perc > highest:
                 highest = perc
                 high_str = testString
-            if perc > builder.Threshold:
+            if perc > threshold:
+                group.lockin()
                 break # no need to continue any further if we've found at least one
+            else:
+                group.reset()
         if self.__dbg:
             print(str(int(highest * 100)).zfill(2) + "%", self.Name, high_str)
         return highest
 
-    def IsBlacklisted(self, words: List[str], builder: ResponseBuilder) -> bool:
-        return self.TestItem(words, self.Blacklist, builder) > 0.9
+    def IsBlacklisted(self, group: BaseGroup, threshold: float) -> bool:
+        return self.TestItem(group, self.Blacklist, threshold) > threshold
 
-    def TestTitle(self, words: List[str], builder: ResponseBuilder) -> float:
-        return self.TestItem(words, self.Title, builder)
+    def TestTitle(self, group: BaseGroup, threshold: float) -> float:
+        return self.TestItem(group, self.Title, threshold)
 
-    def TestBody(self, words: List[str], builder: ResponseBuilder) -> float:
-        return self.TestItem(words, self.Body, builder)
+    def TestBody(self, group: BaseGroup, threshold: float) -> float:
+        return self.TestItem(group, self.Body, threshold)
 
-    def TestOCR(self, words: List[str], builder: ResponseBuilder) -> float:
-        return self.TestItem(words, self.OCR, builder)
+    def TestOCR(self, group: BaseGroup, threshold: float) -> float:
+        return self.TestItem(group, self.OCR, threshold)
 
-    def TestSubImages(self, imageFilePath, builder: ResponseBuilder) -> bool:
+    def TestSubImages(self, image: OCRImage) -> bool:
         if len(self.Images) == 0: return False
         for imgPattern in self.Images:
             imgPath = os.path.join("images", imgPattern)
@@ -164,13 +167,13 @@ class Scam:
             else:
                 imgNames = [imgPath]
             for imgName in imgNames:
-                outPath = os.path.join(os.path.dirname(imageFilePath), "result_" + os.path.basename(imgName))
-                if checkForSubImage(imageFilePath, imgName, outPath):
+                outPath = os.path.join(os.path.dirname(image.path), "result_" + os.path.basename(imgName))
+                if checkForSubImage(image.path, imgName, outPath):
                     return True
         return False
-    def TestFunctions(self, imageFilePath, builder: ResponseBuilder) -> bool:
+    def TestFunctions(self, image: OCRImage) -> bool:
         if len(self.Functions) == 0: return False
         for funcName in self.Functions:
-            if FUNCTIONS[funcName](imageFilePath):
+            if FUNCTIONS[funcName](image):
                 return True
         return False

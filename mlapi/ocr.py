@@ -1,13 +1,17 @@
 import logging
 
-from mlapi.models.fileguard import FileGuard
+from mlapi.models.words import OCRImage
+
 try:
-    from PIL import Image
+    from PIL import Image, ImageDraw
 except ImportError:
     import Image
 import pytesseract
 import cv2
-import os, tempfile, numpy
+import os
+import tempfile
+import numpy
+import re
 from colorsys import rgb_to_hls, hls_to_rgb
 
 def processImage(image):
@@ -26,7 +30,8 @@ def processImage(image):
 
     return gray
 
-def getTextFromPath(path, filename):
+    
+def getTextFromPath(path: str, filename: str) -> OCRImage:
     image = cv2.imread(path, cv2.IMREAD_COLOR)
 
     processed = processImage(image)
@@ -36,10 +41,9 @@ def getTextFromPath(path, filename):
         filename = filename + ".png"
     correctedPath = os.path.join(tempfile.gettempdir(), filename)
     logging.info("Corrected -> " + correctedPath)
-    with FileGuard(correctedPath):
-        cv2.imwrite(correctedPath, processed)
-        return pytesseract.image_to_string(Image.open(correctedPath))
-
+    cv2.imwrite(correctedPath, processed)
+    return OCRImage(correctedPath)
+    
 def checkForSubImage(testingPath, templatePath, outputPath = None):
     img_rgb = cv2.imread(testingPath)
     template = cv2.imread(templatePath)
@@ -119,22 +123,21 @@ def _checkForLogoColors(img : Image.Image, index):
 
 
 
-def checkForDiscordLogo(testingPath):
+def checkForDiscordLogo(image: OCRImage):
     # Idea is to scan a diagonal line in the top left of the image
     # to try and find, in order, pixels of:
     # (1) a dark background
     # (2) the blurple color of the logo
     # (3) the red color of the (1) notification.
     
-    with Image.open(testingPath) as img:
-        w, h = img.size
-        f = False
-        for tester in range(-100, 250, 5):
-            if _checkForLogoColors(img, tester):
-                print("Found colors at diagonal", tester)
-                f = True
-        img.save("result.png", "PNG")
-        return f
+    img = image.copy().convert("RGB")
+    f = False
+    for tester in range(-100, 250, 5):
+        if _checkForLogoColors(img, tester):
+            print("Found colors at diagonal", tester)
+            f = True
+    img.save("result.png", "PNG")
+    return f
 
 FUNCTIONS = {
     "home_ds_logo": checkForDiscordLogo
