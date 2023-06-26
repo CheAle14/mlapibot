@@ -611,10 +611,12 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
         save_history()
         checkPostForIncidentReport(post, False)
     else:
-        if builder is None:
-            post.reply("Sorry, I was unable to find any image ocr_urls to examine.")
-        elif not replied:
-            post.reply("No scams detected; text I saw was:\r\n\r\n> {0}\r\n".format(str(builder)))
+        if not replied:
+            imgur = getImgurLink(builder)
+            link = "text I saw was"
+            if imgur is not None:
+                link = f"[{link}]({imgur})"
+            post.reply(f"No scams detected; {link}:\r\n\r\n> {str(builder)}\r\n")
     return builder
 
 def loopPosts():
