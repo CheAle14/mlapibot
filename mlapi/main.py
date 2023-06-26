@@ -599,15 +599,15 @@ def handlePost(post: Union[Submission, Message, Comment], printRawTextOnPosts = 
             post.reply(built)
             replied = True
         elif IS_POST and (os.name != "nt" or subReddit.display_name == "mlapi"):
+            imgur = getImgurLink(builder)
+            if imgur is not None:
+                built += f" ^[[OCR]]({imgur})"
             if not doSkip:
-                imgur = getImgurLink(builder)
-                if imgur is not None:
-                    built += f" ^[[OCR]]({imgur})"
                 post.reply(built)
                 if doReport:
                     post.report("Appears to be a common repost")
             replied = True
-            webHook.sendSubmission(post, builder.ScamText)
+            webHook.sendSubmission(post, builder.ScamText + (f"\n[OCR]({imgur})" if imgur else ''))
             logging.info("Replied to: " + post.title)
     if IS_POST:
         save_history()
