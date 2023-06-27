@@ -541,7 +541,7 @@ def uploadToImgur(group: OCRImage, album) -> str:
     scamCopy.save(scampath)
 
     first =  IMGUR.upload_from_path(seenpath, {'description': 'This shows all words detected through OCR.\nColours represent confidence:\nRed = very low\nOrange = low\nBlue = moderate\nGreen = high'})
-    second = IMGUR.upload_from_path(scampath, {'description': 'Red boxes are words that make up phrases previously seen. Blue boxes are standalone words not in phrases'})
+    second = IMGUR.upload_from_path(scampath, {'description': 'This shows the words that actually triggered a response. Colors represent their similarity to the trigger word.'})
     return IMGUR.make_request("POST", 'album/%s/add' % album, {"deletehashes": first["deletehash"]  +"," + second["deletehash"]})
 
 
