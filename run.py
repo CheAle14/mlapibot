@@ -1,15 +1,31 @@
 import os
 import sys
-if len(sys.argv) == 2 and sys.argv[1]:
-    import mlapi.ocr
+
+os.chdir(os.path.join(os.getcwd(), "mlapi"))
+if len(sys.argv) == 2:
     path = sys.argv[1]
-    if os.path.exists(path):
-        print(mlapi.ocr.getTextFromPath(path, os.path.basename(path)))
-        exit(0)
-    sys.stderr.write("Path does not exist")
-    exit(1)
+    import mlapi.main
+    if path.startswith("http"):
+        image = mlapi.main.handleUrl(path)
+        image.getSeenCopy().show()
+    else:
+        from mlapi.models.words import OCRImage
+        mlapi.main.load_scams()
+        try:
+            import mlapi.ocr
+            image = mlapi.ocr.getTextFromPath(path)
+        except Exception as e:
+            print("Error:", e)
+            exit(1)
+        builder = mlapi.main.getScamsForImage(image, mlapi.main.SCAMS)
+        print(builder.getScamText())
+        ocr: OCRImage = None
+        for ocr in builder.OCRGroups:
+            #ocr.dump()
+            ocr.getSeenCopy().show()
+            ocr.getScamCopy().show()
+    exit(0)
 else:
-    os.chdir(os.path.join(os.getcwd(), "mlapi"))
     import mlapi.main
     print("Running...")
     mlapi.main.start()

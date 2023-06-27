@@ -31,8 +31,13 @@ def processImage(image):
     return gray
 
     
-def getTextFromPath(path: str, filename: str) -> OCRImage:
+def getTextFromPath(path: str, filename: str = None) -> OCRImage:
+    if filename is None:
+        filename = os.path.basename(path)
+
     image = cv2.imread(path, cv2.IMREAD_COLOR)
+
+
 
     processed = processImage(image)
 

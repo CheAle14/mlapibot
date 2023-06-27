@@ -399,22 +399,23 @@ def handleUrl(url: str):
     with OpenThenDelete(tempPath, "wb") as f:
         f.write(r.content)
         return readFromFileName(tempPath, filename)
-
-def getScamsForUrl(url : str, scams) -> ResponseBuilder:
-    image = handleUrl(url)
-    if image is None:
-        return None
-
+    
+def getScamsForImage(image: OCRImage, scams) -> ResponseBuilder:
     builder = ResponseBuilder()
     builder.OCRGroups.append(image)
 
+    prefix = "ocr-"
+    selected = None
     scam:Scam = None
-    for scam in scams:
+    for i in range(len(scams)):
+        scam = scams[i]
+        image.push(prefix + str(i))
         if scam.IsBlacklisted(image, THRESHOLD): continue
 
         conf = scam.TestOCR(image, THRESHOLD)
         if conf > THRESHOLD:
-            logging.info(f"Seen {scam.Name} via OCR {conf*100}% of {url}")
+            selected = i
+            logging.info(f"Seen {scam.Name} via OCR {conf*100}%")
             builder.Add({scam: conf})
         if scam.TestSubImages(image):
             logging.info(f"Seen {scam.Name} via image template")
@@ -422,34 +423,55 @@ def getScamsForUrl(url : str, scams) -> ResponseBuilder:
         if scam.TestFunctions(image):
             logging.info(f"Seen {scam.Name} via functions")
             builder.Add({scam: 2})
-
+    image.keep_only(prefix, selected)
     return builder
 
+def getScamsForUrl(url : str, scams) -> ResponseBuilder:
+    image = handleUrl(url)
+    if image is None:
+        return None
+    return getScamsForImage(image, scams)
 
 def getScamsInTitle(title, scams) -> ResponseBuilder:
     group = RedditGroup(title)
     builder = ResponseBuilder()
     builder.RedditGroups.append(group)
-    scam: Scam = None
-    for scam in scams:
+    
+    prefix = "title-"
+    selected = None
+    scam:Scam = None
+    for i in range(len(scams)):
+        scam = scams[i]
+        group.push(prefix + str(i))
+
         if scam.IsBlacklisted(group, THRESHOLD): continue
 
         conf = scam.TestTitle(group, THRESHOLD)
         if conf > THRESHOLD:
+            selected = i
             builder.Add({scam: conf})
+    group.keep_only(prefix, selected)
     return builder
 
 def getScamsInBody(body, scams) -> ResponseBuilder:
     group = RedditGroup(body)
     builder = ResponseBuilder()
     builder.RedditGroups.append(group)
-    scam: Scam = None
-    for scam in scams:
+    
+    prefix = "body-"
+    selected = None
+    scam:Scam = None
+    for i in range(len(scams)):
+        scam = scams[i]
+        group.push(prefix + str(i))
+
         if scam.IsBlacklisted(group, THRESHOLD): continue
 
         conf = scam.TestBody(group, THRESHOLD)
         if conf > THRESHOLD:
+            selected = i
             builder.Add({scam: conf})
+    group.keep_only(prefix, selected)
     return builder
 
 def removeBlacklistedScams(builder: ResponseBuilder, scams) -> ResponseBuilder:
@@ -667,16 +689,6 @@ def start():
             logging.StreamHandler(sys.stdout)
         ]
     )
-    if len(sys.argv) == 2:
-        path = sys.argv[1]
-        if path.startswith("http"):
-            image = handleUrl(path)
-            image.getSeenCopy().show()
-        else:
-            print("That functionality has been temporarily removed")
-            #fileName = getFileName(path)
-            #print(handleFileName(path, fileName))
-        exit(0)
     setup()
     doneOnce = False
     while True:

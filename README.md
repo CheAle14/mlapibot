@@ -1,9 +1,12 @@
 ### What is this
-Source code for [/u/mlapibot](https://www.reddit.com/user/mlapibot) which uses OCR to determine text in images uploaded to /r/DiscordApp. Use a number of heurisitcs (lol jks, .Contains() 100%) to see if the text might be a scam
+Source code for [/u/mlapibot](https://www.reddit.com/user/mlapibot) which uses OCR to determine text in images uploaded to /r/DiscordApp. 
+
+Attempts to use the [weighted levenshtein](https://github.com/luozhouyang/python-string-similarity#weighted-levenshtein) algorithm to compare the detected text against the known scam/trigger phrases.
 
 ### How do I run this
 
-Good question
+Run `run.py`.  
+You can pass a filepath or URL to an image as an argument and it will just analyse that image, then exit.
 
 ### Data
 

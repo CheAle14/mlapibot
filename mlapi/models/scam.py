@@ -5,6 +5,17 @@ from .response_builder import ResponseBuilder
 from mlapi.ocr import checkForSubImage, FUNCTIONS
 from mlapi.models.words import BaseGroup, BaseWord, OCRImage
 from glob import glob
+from strsimpy.weighted_levenshtein import WeightedLevenshtein
+
+def ins_fn(c): return 1.0
+def del_fn(c): return 1.0
+def sub_fn(char_a, char_b):
+    return 1.0
+
+comparer = WeightedLevenshtein(substitution_cost_fn=sub_fn, insertion_cost_fn=ins_fn, deletion_cost_fn=del_fn)
+
+
+
 
 class Scam:
     def __init__(self, name: str, ocr: List[str], title: List[str],
@@ -73,7 +84,83 @@ class Scam:
             for word in words[consecutiveStartedAt:min(detectedIndex, testingIndex)]:
                 word.consecutive = True
         return numWordsSeen / len(testingWords)
+    
+    def leven_distance(self, startAt: int, testStartAt: int, words: List[BaseWord], testing: List[str]) -> float:
+        overallDistance = 0
+        maximumPossibleDistance = 0
 
+        tentativeCon = []
+        consecDistance = 0
+
+        current = startAt
+        testCurrent = testStartAt
+        while current < len(words) and testCurrent < len(testing):
+            distance = comparer.distance(words[current].text, testing[testCurrent])
+            maximumPossibleDistance += max(len(words[current].text), len(testing[testCurrent]))
+            overallDistance += distance
+            if distance <= 2 and (distance != len(testing[testCurrent])):
+                testCurrent += 1
+                words[current].seen_distance = distance
+                tentativeCon.append(current)
+            elif len(tentativeCon) > 0:
+                consecDistance += max(0, distance-2) # add up excess errors
+                if consecDistance > 10: # if too many errors, too much difference
+                    # so no longer consecutive
+                    #print(self.Name, "btentative:", tentativeCon)
+                    if len(tentativeCon) > max(2, len(testing) * 0.1):
+                        for idx in tentativeCon:
+                            words[idx].consecutive = True
+                    tentativeCon.clear()
+                    consecDistance = 0
+            current += 1
+
+        #print(self.Name, "tentative:", tentativeCon)
+        if len(tentativeCon) > max(2, len(testing) * 0.1):
+            for idx in tentativeCon:
+                words[idx].consecutive = True
+        #print(self.Name, (startAt, testStartAt),"->", (current, testCurrent), "got", overallDistance, "of", maximumPossibleDistance)
+        return 1 - (overallDistance / maximumPossibleDistance)
+            
+    def length(self, array) -> int:
+        l = len(array)
+        for word in array:
+            if isinstance(word, str):
+                l += len(word)
+            else:
+                l += len(word.text)
+        return l
+        
+    def best_leven_distance(self, group: BaseGroup, words: List[BaseWord], testing: List[str], threshold: float) -> float:
+        starts = []
+        for i in range(len(words)):
+            remain = len(words) - i - 1
+            if remain < len(testing): break # not enough words left to find the test string
+            # just in case the first word(s) are not seen, try and find the 
+            # first couple words in the string, and add that in
+            for start in range(min(len(testing), 5)):
+                remain = len(testing) - start - 1
+                if (remain / len(testing)) < 0.5: 
+                    # not enough left to test
+                    break
+
+                distance = comparer.distance(words[i].text, testing[start])
+                if distance < 2:
+                    starts.append((i, start))
+                    break
+        #print(self.Name, "found starts:", starts)
+        best = None
+        bestIdx = None
+        prefix = self.Name + "-leven-"
+        for i in range(len(starts)):
+            pair = starts[i]
+            group.push(prefix + str(i))
+            score = self.leven_distance(pair[0], pair[1], words, testing)
+            #print(self.Name, pair, "normalised:", score)
+            if best is None or score > best:
+                best = score
+                bestIdx = i
+        group.keep_only(prefix, bestIdx)
+        return best or 0
 
     def findPhraseInOrder(self, words, testWords, builder: ResponseBuilder, limY = 0, limTest = 0):
         numWordsSeen = 0
@@ -134,26 +221,31 @@ class Scam:
                              threshold: float) -> float:
         if len(textsJson) == 0: return 0
         highest = 0
+        highestIndex = None
         high_str = None
-        words = [word for word in group.words if (word.conf/100) >= threshold]
-        for testString in textsJson:
+        #group.dump()
+        words = [word for word in group.words if word.conf >= 80]
+        #print("Seen:", [str(word) for word in words])
+        prefix = self.Name + "-scam-"
+        for i in range(len(textsJson)):
+            testString = textsJson[i]
             if self.__dbg:
                 print("=======BREAK:  ")
             testArray = testString.split(' ')
-            orderPerc = self.newInOrder(words, testArray) # self.phrasesInOrder(wordsPost, testArray, builder)
-            containPerc = self.numWordsContain(words, testArray)
-            # slight weight towards in-order phrases.
-            perc = ((orderPerc * 1.1) + (containPerc * 1)) / (1.1 + 1)
+            #print(self.Name, "searching:", testString)
+            
+            group.push(prefix + str(i))
+            perc = self.best_leven_distance(group, words, testArray, threshold)
+            #print(self.Name, "best =", perc)
+
             if perc > highest:
                 highest = perc
                 high_str = testString
-            if perc > threshold:
-                group.lockin()
-                break # no need to continue any further if we've found at least one
-            else:
-                group.reset()
+                if perc > threshold:
+                    highestIndex = i
         if self.__dbg:
             print(str(int(highest * 100)).zfill(2) + "%", self.Name, high_str)
+        group.keep_only(prefix, highestIndex)
         return highest
 
     def IsBlacklisted(self, group: BaseGroup, threshold: float) -> bool:

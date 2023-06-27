@@ -6,26 +6,61 @@ import pytesseract
 
 class BaseWord:
     def __init__(self):
-        self._present = False
+        self._seen_distance = 2**16
         self._consecutive = False
+        self._stack = [(2**16, False, "Start")]
         self._o = {}
-        self.reset()
 
-    def reset(self):
-        self.consecutive = self._consecutive
-        self.present = self._present
-    def lockin(self):
-        self._consecutive = self._consecutive or self.consecutive
-        self._present = self._present or self.present
+    def push(self, name = None):
+        self._stack.append((self.seen_distance, self.consecutive, name))
+    def pop(self):
+        if len(self._stack) > 1:
+            return self._stack.pop()
+        return None
+    def keep_only(self, prefix, index):
+        remove = []
+        index = str(index)
+        selected = None
+        for item in self._stack:
+            if item[2].startswith(prefix):
+                remove.append(item)
+                if index is not None and item[2].endswith("-" + index):
+                    selected = item
+        for r in remove:
+            self._stack.remove(r)
+        if selected:
+            self.seen_distance = min(selected[0], self.seen_distance)
+            self.consecutive = self.consecutive or selected[1]
 
     def __str__(self):
         lr = ''
-        if self.present:
+        if self.seen_distance < 3:
             lr = '_'
         if self.consecutive:
             lr += '**'
         if len(lr) == 0: return self.text
         return lr + self.text + lr[::-1]
+    
+    @property
+    def seen_distance(self):
+        return self._stack[-1][0]
+    
+    @seen_distance.setter
+    def seen_distance(self, value):
+        self._stack[-1] = (value, self.consecutive, self.name)
+    
+    @property
+    def consecutive(self):
+        return self._stack[-1][1]
+    
+    @consecutive.setter
+    def consecutive(self, value):
+        self._stack[-1] = (self.seen_distance, value, self.name)
+
+    @property
+    def name(self):
+        return self._stack[-1][2]
+
     
     @property
     def text(self):
@@ -61,12 +96,22 @@ class BaseGroup:
         for word in self.words:
             s += str(word) + '\n' if lastLine != word.line else ' '
         return s
-    def reset(self):
+    def push(self, name = None):
+        #print("++", name or "None")
         for word in self.words:
-            word.reset()
-    def lockin(self):
+            word.push(name)
+    def pop(self):
+        #print("--")
         for word in self.words:
-            word.lockin()
+            word.pop()
+    def keep_only(self, prefix, index):
+        #print("==", prefix, "None" if index is None else index)
+        for word in self.words:
+            word.keep_only(prefix, index)
+    def dump(self):
+        print("line", "stack", "conf", "text", sep='\t')
+        for word in self.words:
+            print(word.line, word._stack, word.conf, word.text.encode(), sep='\t')
 
 class RedditWord(BaseWord):
     def __init__(self, word, line):
@@ -126,7 +171,7 @@ class OCRImageWord(BaseWord):
         else:
             outline = "green"
 
-        print(self.left, self.top, self.width, self.height, self.text.encode(), len(self.text))
+        #print(self.left, self.top, self.width, self.height, self.text.encode(), len(self.text))
 
         self.drawBoundaryBox(draw, outline, "white")
         textboundbox = draw.textbbox((self.left, self.top), self.text, align="center")
@@ -136,10 +181,28 @@ class OCRImageWord(BaseWord):
         textL = (self.width - textwidth) / 2
         textT = (self.height - textheight) / 2
         draw.text((self.left + textL, self.top + textT), self.text, fill=outline)
+
+    def drawScamBox(self, draw: ImageDraw):
+        if len(self.text) == 0: return
+        if self.seen_distance > len(self.text): return
+        normalised = 1-(self.seen_distance / len(self.text))
+        if normalised < 0.25:
+            outline = "red"
+        elif normalised <= 0.50:
+            outline = "orange"
+        elif normalised < 0.80:
+            outline = "blue"
+        else:
+            outline = "green"
+
+        if self.consecutive:
+            self.drawBoundaryBox(draw, outline, padding=2, width=2)
+        else:
+            self.drawBoundaryBox(draw, outline, padding=2)
     
-    def drawBoundaryBox(self, draw: ImageDraw, outline, fill = None, padding=0):
+    def drawBoundaryBox(self, draw: ImageDraw, outline, fill = None, padding=0, width=1):
         xy = [(self.left-padding, self.top-padding), (self.left + self.width+padding, self.top + self.height+padding)]
-        draw.rectangle(xy, fill=fill, outline=outline)
+        draw.rectangle(xy, fill=fill, outline=outline, width=width)
 
 
 
@@ -168,8 +231,5 @@ class OCRImage(BaseGroup):
         draw = ImageDraw.Draw(copy)
         word: OCRImageWord = None
         for word in self.words:
-            if word.consecutive:
-                word.drawBoundaryBox(draw, "red", padding=2)
-            elif word.present:
-                word.drawBoundaryBox(draw, "blue", padding=2)
+            word.drawScamBox(draw)
         return copy
