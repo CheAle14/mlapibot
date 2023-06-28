@@ -138,6 +138,16 @@
             ]
         },
         {
+            "name": "Join servers",
+            "template": "joinServers",
+            "title": [
+                "randomly added to servers",
+                "added to random servers",
+                "added to random discord servers",
+                "keep getting added to servers"
+            ]
+        },
+        {
             "name": "Invite Scam",
             "ocr": [
                 "you have to invite me to your servers",
