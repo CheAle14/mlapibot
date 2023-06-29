@@ -8,6 +8,8 @@ import requests
 import json
 import os
 import logging
+import re
+import yake
 
 pst = timezone("US/Pacific")
 utc = pytz.utc
@@ -51,30 +53,18 @@ KEYWORDS = {
     "canary": [],
     "ptb": [],
     "client": [],
-    "outage": ["not responding", "not loading", "down"],
+    "outage": ["not respond", "not load", "down", "unavailable", "error"],
     "member list": ["members"],
+    "user": ["member"],
+    "application": ["bot"],
     "purchase": ["subscription", "tax"],
-    "login": []
+    "login": ["auth", "authentication", "MFA", "2FA"]
 }
+#kw_extractor = yake.KeywordExtractor()
 
 
-def isKeyWord(word : str):
-    # Normalise the word.
-    word = word.lower()
-    # Remove 's' from end.
-    if word.endswith('s'):
-        word = word[:-1]
-    
-    # Remove -ing from end.
-    if word.endswith('ing'):
-        word = word[:-3]
-
-    if word in IGNORE_WORDS: return False
-
-    for key, ls in KEYWORDS.items():
-        if key == word: return True
-        if word in ls: return True
-    return False
+def isKeywordPresent(word: str, text: str) -> bool:
+    return re.search(f"\\b{word}(s|er|ing)?\\b", text, re.IGNORECASE)
 
 
 
@@ -127,22 +117,31 @@ class StatusIncident:
         self._cachekeywords = None
 
     def getKeywords(self):
-        if self._cachekeywords:
-            return self._cachekeywords
-        words = {}
-        for word in self.name.split():
-            if word not in words and isKeyWord(word):
-                words[word] = self.name
-        for updt in self.updates:
-            for word in updt.body.split():
-                if word not in words and isKeyWord(word):
-                    words[word] = updt.body
+        lines = []
+        if self.name:
+            lines.append(self.name)
+        #for component in self.components:
+        #    lines.append(component.name)
+        for update in self.updates:
+            if update.status == "resolved": continue
+            lines.append(update.body)
+        nl_keywords = [] # [kw[0].lower() for kw in kw_extractor.extract_keywords("\r\n".join(lines)) if kw[1] <= KEYWORD_THRESHOLD]
+        
         for comp in self.components:
-            for word in comp.name.split():
-                if word not in words and isKeyWord(word):
-                    words[word] = comp.name
-        self._cachekeywords = words
-        return words
+            lines.append(comp.name)
+            if comp.description:
+                lines.append(comp.description)
+
+        hardcoded_words = []
+        fulltext = "\n".join(lines).lower()
+        for key, array in KEYWORDS.items():
+            if key not in hardcoded_words and isKeywordPresent(key, fulltext):
+                hardcoded_words.append(key)
+            for wd in array:
+                if wd not in hardcoded_words and isKeywordPresent(wd, fulltext):
+                    hardcoded_words.append(wd)
+
+        return (nl_keywords, hardcoded_words)
 
 
     def getTitle(self):
@@ -175,7 +174,8 @@ class StatusIncident:
 
         return body + "\r\n".join(reversed(sections))
 
-
+    def __str__(self):
+        return f"{self.id} {self.name} {self.status} {self.startedAt} {self.resolvedAt}"
 
 
 
@@ -235,7 +235,7 @@ class StatusAPI:
 
 class StatusReporter:
     def __init__(self, api : StatusAPI):
-        self.postId = None
+        self.posts = {}
         self.incidentsTracked : Dict[str, StatusIncident] = {}
         self.lastUpdated : datetime = None
         self.lastSent : datetime = None
@@ -247,7 +247,7 @@ class StatusReporter:
                 data = json.load(f)
         except FileNotFoundError:
             return # nothing to load.
-        self.postId = data["postId"]
+        self.posts = data["posts"]
         self.lastUpdated = parseUtc(data["lastUpdated"])
         self.lastSent = parseUtc(data["lastSent"])
         self.incidentsTracked = {}
@@ -256,9 +256,9 @@ class StatusReporter:
         self.fetchAllIncidents()
 
     def save(self, path = "status.json"):
-        if self.postId:
+        if len(self.posts) > 0:
             data = {
-                "postId": self.postId,
+                "posts": self.posts,
                 "lastUpdated": self.lastUpdated.isoformat(),
                 "lastSent": self.lastSent.isoformat(),
                 "incidents": []
@@ -307,12 +307,14 @@ class StatusReporter:
         
     
     def getOrCreateSubmission(self, subreddit : Subreddit):
-        if self.postId:
-            return (Submission(subreddit._reddit, self.postId), False)
+        postId = self.posts.get(subreddit.fullname, None)
+        if postId:
+            return (Submission(subreddit._reddit, postId), False)
         else:
             post = subreddit.submit(title=self.getTitle(), selftext=self.getBody(), send_replies=False)
             if subreddit.display_name == "mlapi":
                 self.replyDebugInfo(post)
+            self.posts[subreddit.fullname] = post.id
             return (post, True)
 
     def shouldUpdate(self):
@@ -347,34 +349,31 @@ class StatusReporter:
             anyMajorOrMore = isoutage or (highestState in ['Critical', 'Major'])
 
             if len(self.incidentsTracked) > 0:
-                sendSub = mainSubreddit if anyMajorOrMore else testSubreddit
-                if self.shouldSend():
-                    rtn_post = self.sendToPost(sendSub)
-                elif self.areAllResolved() and self.postId is not None:
-                    rtn_post = self.sendToPost(sendSub)
+                sendTo = [testSubreddit]
+                if anyMajorOrMore:
+                    sendTo.append(mainSubreddit)
+                for sendSub in sendTo:
+                    if self.shouldSend():
+                        rtn_post = self.sendToPost(sendSub)
+                    elif self.areAllResolved() and self.posts.get(sendSub.fullname, None) is not None:
+                        rtn_post = self.sendToPost(sendSub)
+                        self.posts.pop(sendSub.fullname)
+                if self.areAllResolved():
                     self.incidentsTracked = {}
                     self.lastSent = None
-                    self.postId = None
+                    self.posts.clear()
         finally:
             self.save()    
         return rtn_post
 
     def sendToPost(self, subreddit : Subreddit) -> Union[Submission, None]:
         (post, newlyCreated) = self.getOrCreateSubmission(subreddit)
-        if newlyCreated:
-            self.postId = post.id
-        else:
+        if not newlyCreated:
             post.edit(body=self.getBody())
         self.lastSent = datetime.now(utc)
         if newlyCreated: return post
         return None
         
-
-
-    
-    def setPost(self, submission : Submission):
-        self.postId = submission.id
-
     def isTracked(self, incident : StatusIncident):
         return incident.id in self.incidentsTracked
     
@@ -443,3 +442,23 @@ class StatusReporter:
             s += incident.getBody()
             s += "\r\n\r\n---\r\n\r\n"
         return s
+    
+
+if __name__ == "__main__":
+    api = StatusAPI("https://discordstatus.com/api/v2")
+
+    incidents = api.incidents()
+    seen_keywords = {}
+    seen_hardcoded = {}
+    for inc in incidents.incidents:
+        nl, hc  = inc.getKeywords()
+        for word in nl:
+            seen_keywords[word] = seen_keywords.get(word, 0) + 1
+        for word in hc:
+            seen_hardcoded[word] = seen_hardcoded.get(word, 0) + 1
+    for key, value in seen_keywords.items():
+        if value == 1: continue
+        print(key, "=", value)
+    for key, value in seen_hardcoded.items():
+        if value == 1: continue
+        print(key, ":", value)

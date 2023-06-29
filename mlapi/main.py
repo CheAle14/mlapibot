@@ -507,27 +507,23 @@ def determineScams(post: Submission) -> ResponseBuilder:
 
 def checkPostForIncidentReport(post : Submission, wasBeforeStatus : bool):
     if not post.selftext: return
-    if len(status_reporter.incidentsTracked) == 0: return
-    if post.subreddit.display_name != "mlapi": return
 
-    keywords = {}
     for id, inc in status_reporter.incidentsTracked.items():
-        for key, v in inc.getKeywords().items():
-            keywords[key] = v
-    words = [x.lower() for x in post.selftext.split()] + [x.lower() for x in post.title.split()]
-    match = None
-    for word in words:
-        if word in keywords:
-            match = (word, keywords[word])
-            break
-    if match:
-        body = "Detected a"
-        body += ("n old " if wasBeforeStatus else " new ")
-        body += "post which might be talking about this incident:\r\n\r\n"
-        body += "[Link here](" + post.shortlink + ")\r\n\r\n"
-        body += "**" + match[0] + "** matches in\r\n\r\n>" + match[1]
-        (subm, created) = status_reporter.getOrCreateSubmission(testReddit)
-        subm.reply(body=body)
+        nl, keywords = inc.getKeywords()
+        words = [x.lower() for x in post.selftext.split()] + [x.lower() for x in post.title.split()]
+        match = None
+        for word in words:
+            if word in keywords:
+                match = word
+                break
+        if match:
+            body = "Detected a"
+            body += ("n old " if wasBeforeStatus else " new ")
+            body += "post which might be talking about this incident:\r\n\r\n"
+            body += "[Link here](" + post.shortlink + ")\r\n\r\n"
+            body += "**" + match + "** matches incident keywords."
+            (subm, created) = status_reporter.getOrCreateSubmission(testReddit)
+            subm.reply(body=body)
     
 
 def uploadToImgur(group: OCRImage, album) -> str:
@@ -658,7 +654,7 @@ def deleteBadHistory():
             comment.delete()
 
 def handleStatusChecks():
-    noPreviousSubmission = status_reporter.postId is None
+    noPreviousSubmission = len(status_reporter.posts) == 0
     subm = status_reporter.checkStatus(testReddit, subReddit)
     if subm and noPreviousSubmission:
         logging.info("Made new status incident submission " + subm.shortlink + "; sending webhook..")
