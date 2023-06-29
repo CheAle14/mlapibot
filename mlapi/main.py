@@ -335,11 +335,13 @@ def extractURLS(post, pattern: str):
             any_url.append(post.url)
         if post.is_self:
             any_url.extend(extractURLSText(post.selftext, pattern))
-        if hasattr(post, "media_metadata"):
-            for i in post.media_metadata.items():
-                url = i[1]['p'][0]['u']
-                url = url.split("?")[0].replace("preview", "i")
-                if re.match(pattern, url) is not None:
+        if post.gallery_data:
+            for item in post.gallery_data["items"]:
+                media_id = item["media_id"]
+                media = post.media_metadata[media_id]
+                if media["e"] == "Image":
+                    url = media["s"]["u"]
+                    url = url.split("?")[0].replace("preview", "i")
                     any_url.append(url)
     elif isinstance(post, Message):
         any_url.extend(extractURLSText(post.body, pattern))
