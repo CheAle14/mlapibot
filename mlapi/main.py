@@ -335,7 +335,7 @@ def extractURLS(post, pattern: str):
             any_url.append(post.url)
         if post.is_self:
             any_url.extend(extractURLSText(post.selftext, pattern))
-        if post.gallery_data:
+        if hasattr(post, "gallery_data"):
             for item in post.gallery_data["items"]:
                 media_id = item["media_id"]
                 media = post.media_metadata[media_id]
