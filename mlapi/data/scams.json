@@ -151,6 +151,14 @@
             ]
         },
         {
+            "name": "Age Restricted",
+            "report": true,
+            "template": "ageRestricted",
+            "ocr": [
+                "age restricted servers are blocked on the ios platform per app store guidelines"
+            ]
+        },
+        {
             "name": "Invite Scam",
             "ocr": [
                 "you have to invite me to your servers",
