@@ -9,7 +9,7 @@ import json
 import os
 import logging
 import re
-import yake
+#import yake
 
 pst = timezone("US/Pacific")
 utc = pytz.utc

@@ -697,6 +697,7 @@ def start():
         except Exception as e:
             logging.error(e, exc_info=1)
             time.sleep(5)
+        time.sleep(1)
         if not doneOnce:
             logging.info("Checked posts loop")
         try:
@@ -704,6 +705,7 @@ def start():
         except Exception as e:
             logging.error(e, exc_info=1)
             time.sleep(5)
+        time.sleep(1)
         if not doneOnce:
             logging.info("Checked inbox first loop")
         try:
@@ -711,6 +713,7 @@ def start():
         except Exception as e:
             logging.error(e, exc_info=1)
             time.sleep(5)
+        time.sleep(1)
 
         if not doneOnce:
             logging.info("Deleted bad history.")
