@@ -96,8 +96,7 @@ class Scam:
         testCurrent = testStartAt
         while current < len(words) and testCurrent < len(testing):
             distance = comparer.distance(words[current].text, testing[testCurrent])
-            maximumPossibleDistance += max(len(words[current].text), len(testing[testCurrent]))
-            overallDistance += distance
+            pendingMaximum = max(len(words[current].text), len(testing[testCurrent]))
             if distance <= 2 and (distance != len(testing[testCurrent])):
                 testCurrent += 1
                 words[current].seen_distance = distance
@@ -112,8 +111,34 @@ class Scam:
                             words[idx].consecutive = True
                     tentativeCon.clear()
                     consecDistance = 0
+                else:
+                    assume_missing = 0
+                    find_later_on = 0
+                    if (len(words) - current) >= (len(testing) - testCurrent - 1):
+                        # if there's enough words to find the rest of the string
+                        assume_missing = self.leven_distance(current, testCurrent + 1, words, testing)
+                    if assume_missing < 0.9 and (len(words) - current - 1) >= (len(testing) - testCurrent):
+                        # if there's enough words 
+                        find_later_on = self.leven_distance(current + 1, testCurrent, words, testing)
+                    if assume_missing == 0 and find_later_on == 0:
+                        pass # we can't do any recursive as there's not enough words, just let normal algo continue
+                    elif assume_missing > find_later_on:
+                        # assume that the test word is missing, and skip it.
+                        distance = min(len(testing[testCurrent]), distance)
+                        pendingMaximum = len(testing[testCurrent])
+                        testCurrent += 2 # skip this word and move to next
+                    else:
+                        # otherwise, try and find the testing word later in the string
+                        pendingMaximum = len(words[current].text)
+                        distance = min(pendingMaximum, distance)
+
+            overallDistance += distance
+            maximumPossibleDistance += pendingMaximum
             current += 1
 
+        if maximumPossibleDistance == 0:
+            #print(self.Name, "found nothing")
+            return 0
         #print(self.Name, "tentative:", tentativeCon)
         if len(tentativeCon) > max(2, len(testing) * 0.1):
             for idx in tentativeCon:
@@ -143,10 +168,10 @@ class Scam:
                     # not enough left to test
                     break
 
+                # compare each word to try and find a start point
                 distance = comparer.distance(words[i].text, testing[start])
                 if distance < 2:
                     starts.append((i, start))
-                    break
         #print(self.Name, "found starts:", starts)
         best = None
         bestIdx = None

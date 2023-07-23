@@ -7,7 +7,6 @@ if len(sys.argv) == 2:
     import mlapi.main
     if path.startswith("http"):
         image = mlapi.main.handleUrl(path)
-        image.getSeenCopy().show()
     else:
         from mlapi.models.words import OCRImage
         mlapi.main.load_scams()
@@ -17,13 +16,12 @@ if len(sys.argv) == 2:
         except Exception as e:
             print("Error:", e)
             exit(1)
-        builder = mlapi.main.getScamsForImage(image, mlapi.main.SCAMS)
-        print(builder.getScamText())
-        ocr: OCRImage = None
-        for ocr in builder.OCRGroups:
-            #ocr.dump()
-            ocr.getSeenCopy().show()
-            ocr.getScamCopy().show()
+    builder = mlapi.main.getScamsForImage(image, mlapi.main.SCAMS)
+    print(builder.getScamText())
+    for ocr in builder.OCRGroups:
+        #ocr.dump()
+        ocr.getSeenCopy().show()
+        ocr.getScamCopy().show()
     exit(0)
 else:
     import mlapi.main

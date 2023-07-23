@@ -19,7 +19,7 @@
             "program": "${workspaceFolder}/run.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "args": []
+            "args": ["https://external-preview.redd.it/e0w_l4czfl8V__z5wpucp0KXMz0-KoawyFY7xlWv5Qw.jpg?width=431&auto=webp&s=575b65731ad958e449b3fdf2e70f58e62cca9161"]
         }
     ]
 }
