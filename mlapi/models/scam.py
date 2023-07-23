@@ -288,7 +288,7 @@ class Scam:
             
             group.push(prefix + str(i))
             perc = self.best_leven_distance(group, words, testArray, threshold)
-            print(self.Name, "best =", perc)
+            #print(self.Name, "best =", perc)
 
             if perc > highest:
                 highest = perc
