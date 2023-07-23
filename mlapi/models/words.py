@@ -41,6 +41,8 @@ class BaseWord:
         if len(lr) == 0: return self.text
         return lr + self.text + lr[::-1]
     
+    def __repr__(self): return f"{self.text} {self.conf}"
+    
     @property
     def seen_distance(self):
         return self._stack[-1][0]

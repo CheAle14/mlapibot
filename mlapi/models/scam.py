@@ -1,5 +1,5 @@
 import os, re
-from typing import List
+from typing import List, Tuple
 from json import JSONEncoder
 from .response_builder import ResponseBuilder
 from mlapi.ocr import checkForSubImage, FUNCTIONS
@@ -85,66 +85,94 @@ class Scam:
                 word.consecutive = True
         return numWordsSeen / len(testingWords)
     
-    def leven_distance(self, startAt: int, testStartAt: int, words: List[BaseWord], testing: List[str]) -> float:
+
+    def is_similar_word(self, wordA, wordB, distance = None):
+        if distance is None:
+            distance = comparer.distance(wordA, wordB)
+        return distance <= 2 and (distance / max(len(wordA), len(wordB)) < 0.5)
+
+    def leven_distance(self, startAt: int, testStartAt: int, words: List[BaseWord], testing: List[str], _depth = 0) -> Tuple[float, float, float]:
         overallDistance = 0
         maximumPossibleDistance = 0
 
         tentativeCon = []
-        consecDistance = 0
+
 
         current = startAt
         testCurrent = testStartAt
         while current < len(words) and testCurrent < len(testing):
             distance = comparer.distance(words[current].text, testing[testCurrent])
-            pendingMaximum = max(len(words[current].text), len(testing[testCurrent]))
-            if distance <= 2 and (distance != len(testing[testCurrent])):
-                testCurrent += 1
+            if self.is_similar_word(words[current].text, testing[testCurrent], distance):
                 words[current].seen_distance = distance
                 tentativeCon.append(current)
-            elif len(tentativeCon) > 0:
-                consecDistance += max(0, distance-2) # add up excess errors
-                if consecDistance > 10: # if too many errors, too much difference
-                    # so no longer consecutive
-                    #print(self.Name, "btentative:", tentativeCon)
-                    if len(tentativeCon) > max(2, len(testing) * 0.1):
-                        for idx in tentativeCon:
-                            words[idx].consecutive = True
-                    tentativeCon.clear()
-                    consecDistance = 0
-                else:
-                    assume_missing = 0
-                    find_later_on = 0
-                    if (len(words) - current) >= (len(testing) - testCurrent - 1):
-                        # if there's enough words to find the rest of the string
-                        assume_missing = self.leven_distance(current, testCurrent + 1, words, testing)
-                    if assume_missing < 0.9 and (len(words) - current - 1) >= (len(testing) - testCurrent):
-                        # if there's enough words 
-                        find_later_on = self.leven_distance(current + 1, testCurrent, words, testing)
-                    if assume_missing == 0 and find_later_on == 0:
-                        pass # we can't do any recursive as there's not enough words, just let normal algo continue
-                    elif assume_missing > find_later_on:
-                        # assume that the test word is missing, and skip it.
-                        distance = min(len(testing[testCurrent]), distance)
-                        pendingMaximum = len(testing[testCurrent])
-                        testCurrent += 2 # skip this word and move to next
-                    else:
-                        # otherwise, try and find the testing word later in the string
-                        pendingMaximum = len(words[current].text)
-                        distance = min(pendingMaximum, distance)
+                overallDistance += distance
+                maximumPossibleDistance += max(len(words[current].text), len(testing[testCurrent]))
+                testCurrent += 1
+            else:
+                #print("    ", " " * _depth, self.Name, "cannot find", testCurrent, testing[testCurrent], "at", current, words[current])
+                # we are missing a word.
+                # two methods we consider:
+                # 1) pretending the test word doesn't exist and attempting to find the next test word
+                # 2) pretending the group word doesn't exist and attempting to find the same test word within the next few words
+                
+                # so we'll start with (1):
+                best_next_test = (1000, None)
+                for tryIndex in range(testCurrent+1, min(testCurrent+1 + 5, len(testing))):
+                    distance = comparer.distance(words[current].text, testing[tryIndex])
+                    if self.is_similar_word(words[current].text, testing[tryIndex], distance):
+                        best_next_test = (distance, tryIndex)
+                
+                best_next_group = (1001, None)
+                for tryIndex in range(current+1, min(current+1 + 5, len(words))):
+                    distance = comparer.distance(words[tryIndex].text, testing[testCurrent])
+                    if self.is_similar_word(words[tryIndex].text, testing[testCurrent], distance):
+                        best_next_group = (distance, tryIndex)
+                
+                if best_next_test[1] is None and best_next_group[1] is None:
+                    # hidden achievement (3): unable to find either next test or next group.
+                    # so our consecutive searching ends here.
+                    # calculate all the remaining missing distance
+                    remaining_test_sum = sum([len(x) for x in testing[testCurrent:]])
+                    remaining_group_sum = 0 # sum([len(x.text) for x in words[current:]])
+                    distance = max(remaining_test_sum, remaining_group_sum)
+                    overallDistance += distance
+                    maximumPossibleDistance += distance
+                    #print("    ", " " * _depth, self.Name, "unable to relock", remaining_test_sum, remaining_group_sum)
+                    break
+                elif best_next_group[1] is None or best_next_test[0] < best_next_group[0]:
+                    # scenario (1): we've found the test word later on, maybe.
+                    skipped_test_sum = sum([len(x) for x in testing[testCurrent:best_next_test[1]]])
+                    distance = max(distance, skipped_test_sum)
+                    overallDistance += distance
+                    maximumPossibleDistance += distance
+                    testCurrent = best_next_test[1] + 1
+                    current += 1
 
-            overallDistance += distance
-            maximumPossibleDistance += pendingMaximum
+                    #print("    ", " " * _depth, self.Name, "found text word again", best_next_test)
+                    continue
+                else:
+                    # scenario (2):
+                    skipped_group_sum = sum([len(x.text) for x in words[current:best_next_group[1]]])
+                    distance = max(distance, skipped_group_sum)
+                    overallDistance += distance
+                    maximumPossibleDistance += distance
+                    current = best_next_group[1] + 1
+                    testCurrent += 1
+                    #print("    ", " " * _depth, self.Name, "found next current", best_next_group)
+                    continue
+
+
             current += 1
 
         if maximumPossibleDistance == 0:
-            #print(self.Name, "found nothing")
-            return 0
-        #print(self.Name, "tentative:", tentativeCon)
+            #print("    ", " "*_depth, self.Name, "found nothing")
+            return (0, 0, 0)
+        #print("    ", " "*_depth, self.Name, "tentative:", tentativeCon)
         if len(tentativeCon) > max(2, len(testing) * 0.1):
             for idx in tentativeCon:
                 words[idx].consecutive = True
-        #print(self.Name, (startAt, testStartAt),"->", (current, testCurrent), "got", overallDistance, "of", maximumPossibleDistance)
-        return 1 - (overallDistance / maximumPossibleDistance)
+        #print("    ", " "*_depth, self.Name, (startAt, testStartAt),"->", (current, testCurrent), "got", overallDistance, "of", maximumPossibleDistance)
+        return (1 - (overallDistance / maximumPossibleDistance), overallDistance, maximumPossibleDistance)
             
     def length(self, array) -> int:
         l = len(array)
@@ -169,17 +197,16 @@ class Scam:
                     break
 
                 # compare each word to try and find a start point
-                distance = comparer.distance(words[i].text, testing[start])
-                if distance < 2:
+                if self.is_similar_word(words[i].text, testing[start]):
                     starts.append((i, start))
-        #print(self.Name, "found starts:", starts)
+        #print("    ", self.Name, "found starts:", starts)
         best = None
         bestIdx = None
         prefix = self.Name + "-leven-"
         for i in range(len(starts)):
             pair = starts[i]
             group.push(prefix + str(i))
-            score = self.leven_distance(pair[0], pair[1], words, testing)
+            score, _, _ = self.leven_distance(pair[0], pair[1], words, testing)
             #print(self.Name, pair, "normalised:", score)
             if best is None or score > best:
                 best = score
@@ -249,8 +276,8 @@ class Scam:
         highestIndex = None
         high_str = None
         #group.dump()
-        words = [word for word in group.words if word.conf >= 80]
-        #print("Seen:", [str(word) for word in words])
+        words = [word for word in group.words if word.conf >= 70]
+        #print("Seen:", [f"{i}:\"{words[i]}\"" for i in range(len(words))])
         prefix = self.Name + "-scam-"
         for i in range(len(textsJson)):
             testString = textsJson[i]
@@ -261,7 +288,7 @@ class Scam:
             
             group.push(prefix + str(i))
             perc = self.best_leven_distance(group, words, testArray, threshold)
-            #print(self.Name, "best =", perc)
+            print(self.Name, "best =", perc)
 
             if perc > highest:
                 highest = perc

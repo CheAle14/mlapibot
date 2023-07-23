@@ -222,7 +222,8 @@
             ],
             "template": "malwareLink",
             "report": true
-        }, {
+        }, 
+        {
 			"name": "discord support",
 			"ocr": [
 				"you have successfully completed the test period on the discord testers server",
@@ -243,7 +244,12 @@
                 "hype squad is recruiting new moderators",
                 "this time we come with a new chance for people who want to create events and have an animated badge on their profile",
                 "our team will be making an annual nitro available to all new hype squad moderators",
-                "if you do not follow the necessary steps within 30 minutes of receiving this notice your account will be suspended as a violation of our Guidelines"
+                "if you do not follow the necessary steps within 30 minutes of receiving this notice your account will be suspended as a violation of our Guidelines",
+                "if you do not take the necessary steps outlined below within 6 hours of receiving this notice your account will be suspended",
+                "this notice is being sent to all users who have recently access the server your account has been flagged for the following reasons",
+                "your account has joined the server during an ongoing investigation",
+                "your account has accessed the server's channels where the content was being distributed within the past 10 minutes",
+                "your account may have been involved in the server for a longer period of time"
 			],
             "report": true
 		}, {
@@ -437,56 +443,11 @@
         {
             "name": "AnarchyGrabber",
             "ocr": [
-                "library application support discord 0 0 257 modules discord_desktop_core index js'",
-                "library application support discord 0 0 257 modules discord_desktop_core index js",
                 "library application support discord 0 0 257 modules discord_desktop_core indexjs",
-                "library application support discord 0 0 modules discord_desktop_core index js'",
-                "library application support discord 0 0 modules discord_desktop_core index js",
-                "library application support discord 0 0 modules discord_desktop_core indexjs",
-                "appdata roaming discord 0 0 306 modules discord_desktop_core indexjs",
-                "appdata roaming discord 0 0 modules discord_desktop_core indexjs",
-                "appdata roaming discord 0 0 306 modules discord_desktop_core index.js",
-                "appdata roaming discord 0 0 modules discord_desktop_core index.js",
-                "library application support discord 0 0 257 modules discord desktop_core index js'",
-                "library application support discord 0 0 257 modules discord desktop_core index js",
-                "library application support discord 0 0 257 modules discord desktop_core indexjs",
-                "library application support discord 0 0 modules discord desktop_core index js'",
-                "library application support discord 0 0 modules discord desktop_core index js",
-                "library application support discord 0 0 modules discord desktop_core indexjs",
-                "appdata roaming discord 0 0 306 modules discord desktop_core indexjs",
-                "appdata roaming discord 0 0 modules discord desktop_core indexjs",
-                "appdata roaming discord 0 0 306 modules discord desktop_core index.js",
-                "appdata roaming discord 0 0 modules discord desktop_core index.js",
-                "library application support discord 0 0 257 modules discord desktop core index js'",
-                "library application support discord 0 0 257 modules discord desktop core index js",
-                "library application support discord 0 0 257 modules discord desktop core indexjs",
-                "library application support discord 0 0 modules discord desktop core index js'",
-                "library application support discord 0 0 modules discord desktop core index js",
-                "library application support discord 0 0 modules discord desktop core indexjs",
-                "appdata roaming discord 0 0 306 modules discord desktop core indexjs",
-                "appdata roaming discord 0 0 modules discord desktop core indexjs",
-                "appdata roaming discord 0 0 306 modules discord desktop core index.js",
-                "appdata roaming discord 0 0 modules discord desktop core index.js",
-                "library application support discord 0 0 257 modules discord _desktop_core index js'",
-                "library application support discord 0 0 257 modules discord _desktop_core index js",
                 "library application support discord 0 0 257 modules discord _desktop_core indexjs",
-                "library application support discord 0 0 modules discord _desktop_core index js'",
-                "library application support discord 0 0 modules discord _desktop_core index js",
-                "library application support discord 0 0 modules discord _desktop_core indexjs",
                 "appdata roaming discord 0 0 306 modules discord _desktop_core indexjs",
-                "appdata roaming discord 0 0 modules discord _desktop_core indexjs",
-                "appdata roaming discord 0 0 306 modules discord _desktop_core index.js",
-                "appdata roaming discord 0 0 modules discord _desktop_core index.js",
-                "library application support discord 0 0 257 modules discord _desktop _core index js'",
-                "library application support discord 0 0 257 modules discord _desktop _core index js",
                 "library application support discord 0 0 257 modules discord _desktop _core indexjs",
-                "library application support discord 0 0 modules discord _desktop _core index js'",
-                "library application support discord 0 0 modules discord _desktop _core index js",
-                "library application support discord 0 0 modules discord _desktop _core indexjs",
-                "appdata roaming discord 0 0 306 modules discord _desktop _core indexjs",
-                "appdata roaming discord 0 0 modules discord _desktop _core indexjs",
-                "appdata roaming discord 0 0 306 modules discord _desktop _core index.js",
-                "appdata roaming discord 0 0 modules discord _desktop _core index.js"
+                "appdata roaming discord 0 0 306 modules discord _desktop _core indexjs"
             ],
             "template": "anarchy"
         },
