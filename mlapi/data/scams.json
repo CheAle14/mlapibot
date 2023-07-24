@@ -9,7 +9,7 @@
             "ignore_self_posts": false
         },
         {
-            "name": "Free Nitro/Boost",
+            "name": "Free NitroBoost",
             "ocr": [ 
                     "if you want to win a free discord nitro invite this bot to your server", 
                     "free discord nitro",
@@ -19,7 +19,7 @@
                     "steam is giving out discord ntiro",
                     "you have win the nitro so add the bot",
                     "click on the nitro link and add the bot in all servers",
-                    "you've been gifted a 1 month nitro games",
+                    "you've been gifted a 1 month nitro !games",
                     "you won 1 month nitro",
                     "claim your nitro",
                     "nitro gift sender",
@@ -30,7 +30,7 @@
                     "1 month nitro for free take it",
                     "yo got some nitro left over here",
                     "giveaway sponsored by discord",
-                    "discord has gifted you nitro for 1 month",
+                    "!discord has gifted you nitro for 1 month",
                     "i got a nitro left over incase you want it because my friends didnt want it",
                     "you won 10 nitro gift congratulations",
                     "you have won 10 nitro gift code",
@@ -56,16 +56,17 @@
                     "christmas is almost here to celebrate we are doing a limited time christmas free boosts event",
                     "congratulations you won the free 28x boosts giveaway",
                     "congrats you have been selected as the winner for the 30x boosts giveaway",
-                    "has gifted you 14x boosts",
+                    "has gifted you 14x !boosts",
                     "wait 1 day and your server will have 14 boosts",
-                    "discord has gifted you nitro boosts for 1 year",
-                    "giveaway bot you've been gifted a subscription",
+                    "discord has gifted you nitro !boosts for 1 year",
+                    "!giveaway !bot you've been gifted a subscription",
                     "discord gift event",
                     "discord has chose you as the winner of the event",
                     "offical new years discord bot",
                     "you've been gifted 1 year of nitro",
-                    "has gifted you nitro boosts for 1 year",
+                    "has gifted you nitro !boosts for 1 year",
                     "you have won 99 99 nitro",
+                    "!!events nitro",
 
                     "you've won the discord snowsgiving event",
                     "to claim your prize select your prize below",
@@ -155,8 +156,8 @@
             "report": true,
             "template": "ageRestricted",
             "ocr": [
-                "age restricted servers are blocked on the ios platform per app store guidelines",
-                "if you're over 18 you acn join on the desktop app or website"
+                "sorry age restricted servers are blocked on the ios platform per app store guidelines",
+                "if you're over 18 you can join on the desktop app or website"
             ]
         },
         {
