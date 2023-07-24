@@ -1,56 +1,72 @@
-import ocr
+from typing import List
 import unittest
-import main
 import os, sys
 import re
 import logging
 from os import listdir
 from os.path import isfile, join
 
-def test_file(filename):
-    text = ocr.getTextFromPath(
-    os.path.join(path, filename), filename)
-    text = text.lower()
-    array =  re.findall(r"[\w']+", text)
-    logging.info(array)
-    builder = main.getScams(array)
-    logging.info(builder.ScamText)
-    return len(builder.Scams) > 0
+from mlapi.main import MLAPIData
+from mlapi.ocr import getTextFromPath
 
-def test_files_name(iFrom, iTo):
-    failed = []
-    for file in files:
-        if not main.validImage(file):
-            continue
-        number = file[:file.find('.')]
-        number = int(number)
-        if number >= iFrom <= iTo:
-            r = test_file(file)
-            if not r:
-                failed.append(file)
-    return failed
+NO_SCAMS_KEYWORD = "none"
 
-class TestImages(unittest.TestCase):
-    def test_batch(self):
-        files = [f for f in listdir(path) if isfile(join(path,f))]
-        for file in files:
-            with self.subTest(file=file):
-                if not main.validImage(file):
-                    continue
-                logging.debug("====== Start {0} ======".format(file))
-                r = test_file(file)
-                if "n" in file[:file.find('.')]:
-                    self.assertFalse(r)
-                else:
-                    self.assertTrue(r)
-                logging.debug("====== End {0} ======".format(file))
 
+
+def do_test(image: str, expecting: List[str], data: MLAPIData):
+
+    response = data.getScamsForImage(getTextFromPath(image), data.SCAMS)
+    
+    error = False
+    seen = []
+    for scam, conf in response.Scams.items():
+        if scam.Name in expecting:
+            seen.append(scam.Name)
+        else:
+            error = True
+            print("[FAILED]", image, "had unexpected", scam.Name, "at", conf)
+    
+    unseen = [name for name in expecting if name not in seen]
+    if unseen:
+        error = True
+        print("[FAILED]", image, "was missing", unseen, "it has instead:", [key.Name for key, v in response.Scams.items()])
+        for ocr in response.OCRGroups:
+            #ocr.dump()
+            ocr.getSeenCopy().show()
+            ocr.getScamCopy().show()
+    if not error:
+        print(image, "okay.")
+    return error
+
+    
+
+def do_tests(folder, data: MLAPIData, names = None):
+    error = False
+    for name in os.listdir(folder):
+        path = os.path.join(folder, name)
+        child_names = [x for x in os.path.basename(name).split('_') if x != NO_SCAMS_KEYWORD] if names == None else names
+        if os.path.isfile(path):
+            error = do_test(path, child_names, data) or error
+        else:
+            error = do_tests(path, data, child_names) or error
+    return error
+
+
+def run_all_tests(dir = None):
+    datadir = os.path.join(dir or os.getcwd(), "mlapi", "data")
+    data = MLAPIData(datadir)
+    testdir = os.path.join(dir or os.getcwd(), "tests")
+    try:
+        error = do_tests(testdir, data)
+    except Exception as e:
+        print(e)
+        exit(2)
+    if error:
+        print("Tests failed.")
+        exit(1)
+    else:
+        print("Tests passed")
+        exit(0)
 
 if __name__ == '__main__':
-    main.load_scams()
-    path = os.getcwd()
-    path = os.path.join(path, "tests")
-    os.chdir(path)
-    logging.basicConfig(filename='test.log', level=logging.DEBUG)
-    unittest.main()
-
+    run_all_tests()
