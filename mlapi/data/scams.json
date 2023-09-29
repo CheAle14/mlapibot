@@ -487,6 +487,16 @@
                 "does not matter if it is real or not the important"
             ],
             "template": "chainspam"
+        },
+        {
+            "name": "cloudflareblock",
+            "ocr": [
+                "sorry you have been blocked",
+                "you are unable to access discordcom",
+                "you are unable to access discord com"
+            ],
+            "report": true,
+            "template": "cloudflareblock"
         }
     ]
 }
