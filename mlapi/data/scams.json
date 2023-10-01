@@ -489,14 +489,13 @@
             "template": "chainspam"
         },
         {
-            "name": "cloudflareblock",
+            "name": "messageError",
             "ocr": [
-                "sorry you have been blocked",
-                "you are unable to access discordcom",
-                "you are unable to access discord com"
+                "field 'id' is required for type with serial name",
+                "field 'id is required for type with serial name",
+                "field id is required for type with serial name"
             ],
-            "report": true,
-            "template": "cloudflareblock"
+            "template": "messageError"
         }
     ]
 }
