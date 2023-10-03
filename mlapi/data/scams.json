@@ -493,7 +493,8 @@
             "ocr": [
                 "field 'id' is required for type with serial name",
                 "field 'id is required for type with serial name",
-                "field id is required for type with serial name"
+                "field id is required for type with serial name",
+                "something went wrong here"
             ],
             "template": "messageError"
         }
