@@ -238,16 +238,13 @@ class OCRImage(BaseGroup):
             word.drawScamBox(draw)
         return copy
     def __enter__(self):
-        print(">", self.path)
-        print(">", self.original_path)
+        pass
     def __exit__(self, type, value, tb):
         try:
-            print("<", self.path)
             os.remove(self.path)
         except FileNotFoundError:
             pass
         try:
-            print("<", self.original_path)
             os.remove(self.original_path)
         except FileNotFoundError:
             pass
