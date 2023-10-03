@@ -19,12 +19,13 @@ if len(sys.argv) == 2:
             except Exception as e:
                 print("Error:", e)
                 exit(1)
-        builder = data.getScamsForImage(image, data.SCAMS)
-        print(builder.getScamText())
-        for ocr in builder.OCRGroups:
-            #ocr.dump()
-            ocr.getSeenCopy().show()
-            ocr.getScamCopy().show()
+        with image:
+            builder = data.getScamsForImage(image, data.SCAMS)
+            print(builder.getScamText())
+            for ocr in builder.OCRGroups:
+                #ocr.dump()
+                ocr.getSeenCopy().show()
+                ocr.getScamCopy().show()
         exit(0)
 else:
     print("Running...")

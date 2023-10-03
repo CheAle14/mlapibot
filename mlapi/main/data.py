@@ -126,9 +126,9 @@ class MLAPIData:
             return
         tempPath = os.path.join(tempfile.gettempdir(), filename)
         print(tempPath)
-        with OpenThenDelete(tempPath, "wb") as f:
+        with open(tempPath, "wb") as f:
             f.write(r.content)
-            return self.readFromFileName(tempPath, filename)
+        return self.readFromFileName(tempPath, filename)
 
     def getScamsForImage(self, image: OCRImage, scams) -> ResponseBuilder:
         builder = ResponseBuilder()
@@ -160,7 +160,8 @@ class MLAPIData:
         image = self.handleUrl(url)
         if image is None:
             return None
-        return self.getScamsForImage(image, scams)
+        with image:
+            return self.getScamsForImage(image, scams)
 
 
     def removeBlacklistedScams(self, builder: ResponseBuilder, scams) -> ResponseBuilder:
