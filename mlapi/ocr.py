@@ -47,7 +47,7 @@ def getTextFromPath(path: str, filename: str = None) -> OCRImage:
     correctedPath = os.path.join(tempfile.gettempdir(), filename)
     logging.info("Corrected -> " + correctedPath)
     cv2.imwrite(correctedPath, processed)
-    return OCRImage(correctedPath)
+    return OCRImage(correctedPath, path)
     
 def checkForSubImage(testingPath, templatePath, outputPath = None):
     img_rgb = cv2.imread(testingPath)
@@ -135,13 +135,13 @@ def checkForDiscordLogo(image: OCRImage):
     # (2) the blurple color of the logo
     # (3) the red color of the (1) notification.
     
-    img = image.copy().convert("RGB")
+    img = Image.open(image.original_path).convert("RGB")
     f = False
     for tester in range(-100, 250, 5):
         if _checkForLogoColors(img, tester):
             print("Found colors at diagonal", tester)
             f = True
-    img.save("result.png", "PNG")
+    #img.save("result.png", "PNG")
     return f
 
 FUNCTIONS = {

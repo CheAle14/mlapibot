@@ -210,9 +210,10 @@ class OCRImageWord(BaseWord):
 
 
 class OCRImage(BaseGroup):
-    def __init__(self, path):
+    def __init__(self, path, original_path = None):
         super().__init__()
         self.path = path
+        self.original_path = original_path
         self.image = Image.open(path)
         self.rawlines = str(pytesseract.image_to_data(self.image)).strip().splitlines()
         self.keys = self.rawlines[0].split('\t')
