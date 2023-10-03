@@ -225,19 +225,7 @@ class MLAPIReddit(MLAPIData):
                 if not done:
                     x.reply("Sorry! I'm not sure what you wanted me to do.")
 
-    def getFileName(self, url):
-        parsed = urlparse(url)
-        if parsed.scheme != "https":
-            return None
-        path = parsed.path
-        index = path.rfind('/')
-        if index == -1:
-            index = path.rfind('\\')
-        filename = path[index+1:]
-        thing = filename.find('?')
-        if thing != -1:
-            filename = filename[:thing]
-        return filename
+    
 
     def validImage(self, url):
         filename = self.getFileName(url)

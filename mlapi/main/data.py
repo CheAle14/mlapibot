@@ -9,7 +9,7 @@ from mlapi.models.words import OCRImage
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
+from urllib.parse import urlparse
 
 import json
 import logging
@@ -95,6 +95,20 @@ class MLAPIData:
     #             #print(builder.FormattedText)
     #     builder.Add(scamResults)
     #     return builder
+
+    def getFileName(self, url):
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            return None
+        path = parsed.path
+        index = path.rfind('/')
+        if index == -1:
+            index = path.rfind('\\')
+        filename = path[index+1:]
+        thing = filename.find('?')
+        if thing != -1:
+            filename = filename[:thing]
+        return filename
 
     def readFromFileName(self, path: str, filename: str) -> ocr.OCRImage:
         image = ocr.getTextFromPath(path, filename)

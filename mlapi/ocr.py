@@ -141,7 +141,7 @@ def checkForDiscordLogo(image: OCRImage):
         if _checkForLogoColors(img, tester):
             print("Found colors at diagonal", tester)
             f = True
-    #img.save("result.png", "PNG")
+    img.save("result.png", "PNG")
     return f
 
 FUNCTIONS = {
