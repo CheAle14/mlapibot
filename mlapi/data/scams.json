@@ -497,6 +497,13 @@
                 "something went wrong here"
             ],
             "template": "messageError"
+        },
+        {
+            "name": "steamReported",
+            "ocr": [
+                "may i ask if you are the owner of this steam profile account"
+            ],
+            "template": "steam"
         }
     ]
 }
