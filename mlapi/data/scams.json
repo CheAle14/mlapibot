@@ -178,7 +178,9 @@
         {
             "name": "Steam report",
             "ocr": [
-                "just wanna confirm something this account belongs to you"
+                "just wanna confirm something this account belongs to you",
+                "i just want to say sorry because i filed tickets on your account",
+                "you still have time to prove your innocence i hope you can get in time"
             ],
             "ignore_self_posts": true,
             "report": true
