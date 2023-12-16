@@ -349,19 +349,24 @@ class StatusReporter:
             anyMajorOrMore = isoutage or (highestState in ['Critical', 'Major'])
 
             if len(self.incidentsTracked) > 0:
+                logging.info(f"{len(self.incidentsTracked)} incidents tracked; with {anyMajorOrMore} major+")
                 sendTo = [testSubreddit]
                 if anyMajorOrMore:
                     sendTo.append(mainSubreddit)
                 for sendSub in sendTo:
                     if self.shouldSend():
+                        logging.info(f"Sending/updating post in /r/{sendSub.display_name}")
                         rtn_post = self.sendToPost(sendSub)
                     elif self.areAllResolved() and self.posts.get(sendSub.fullname, None) is not None:
                         rtn_post = self.sendToPost(sendSub)
                         self.posts.pop(sendSub.fullname)
                 if self.areAllResolved():
+                    logging.info(f"All incidents are resolved.")
                     self.incidentsTracked = {}
                     self.lastSent = None
                     self.posts.clear()
+            else:
+                logging.info("No incidents tracked.")
         finally:
             self.save()    
         return rtn_post
