@@ -193,7 +193,8 @@
                 "our discord support team can be found under the username"
             ],
             "ignore_self_posts": true,
-            "report": true
+            "report": true,
+            "template": "discordreport"
         },
         {
             "name": "Mac Keybind Perms",
