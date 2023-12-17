@@ -186,6 +186,16 @@
             "report": true
         },
         {
+            "name": "Discord report",
+            "ocr": [
+                "while our team investigates this please read through the following points",
+                "the complainant has also submitted to us a federal law report",
+                "our discord support team can be found under the username"
+            ],
+            "ignore_self_posts": true,
+            "report": true
+        },
+        {
             "name": "Mac Keybind Perms",
             "ocr": [
                 "would like to receive keystrokes from any application",
