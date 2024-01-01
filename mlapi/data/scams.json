@@ -183,6 +183,7 @@
                 "you still have time to prove your innocence i hope you can get in time"
             ],
             "ignore_self_posts": true,
+            "template": "steamreport",
             "report": true
         },
         {
