@@ -150,7 +150,9 @@
                 "keep getting added to servers",
                 "keep getting into servers",
                 "keep getting into random servers",
-                "keep getting invited to other servers"
+                "keep getting invited to other servers",
+                "automatically joining servers",
+                "automatically join servers"
             ]
         },
         {
