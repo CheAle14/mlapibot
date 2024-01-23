@@ -182,7 +182,8 @@
             "ocr": [
                 "just wanna confirm something this account belongs to you",
                 "i just want to say sorry because i filed tickets on your account",
-                "you still have time to prove your innocence i hope you can get in time"
+                "you still have time to prove your innocence i hope you can get in time",
+                "may i ask if you are the owner of this steam profile account"
             ],
             "ignore_self_posts": true,
             "template": "steamreport",
@@ -511,23 +512,6 @@
                 "does not matter if it is real or not the important"
             ],
             "template": "chainspam"
-        },
-        {
-            "name": "messageError",
-            "ocr": [
-                "field 'id' is required for type with serial name",
-                "field 'id is required for type with serial name",
-                "field id is required for type with serial name",
-                "something went wrong here"
-            ],
-            "template": "messageError"
-        },
-        {
-            "name": "steamReported",
-            "ocr": [
-                "may i ask if you are the owner of this steam profile account"
-            ],
-            "template": "steam"
         }
     ]
 }
