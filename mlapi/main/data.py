@@ -1,4 +1,5 @@
 import mlapi.ocr as ocr
+from mlapi import __version__
 from mlapi.models.openthendelete import OpenThenDelete
 from mlapi.models.response_builder import ResponseBuilder
 from mlapi.models.scam import Scam
@@ -201,6 +202,7 @@ class MLAPIData:
             backoff_factor=backoff_factor,
             status_forcelist=status_forcelist,
         )
+        session.headers.update({"User-Agent": f"mlapibot v{__version__} via requests/{requests.__version__}"})
         adapter = HTTPAdapter(max_retries=retry)
         session.mount('http://', adapter)
         session.mount('https://', adapter)

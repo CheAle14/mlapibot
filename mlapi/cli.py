@@ -36,3 +36,6 @@ def check():
 def test() -> int:
     import mlapi.test
     return mlapi.test.run_all_tests()
+
+if __name__ == "__main__":
+    watch()

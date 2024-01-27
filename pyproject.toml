@@ -3,8 +3,8 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
+dynamic = ["version"]
 name = "mlapibot"
-version = "1.0.0"
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
@@ -27,3 +27,6 @@ mlapibot-test = "mlapi.cli:test"
 
 [tool.setuptools.package-data]
 mlapi = ["data/scams.json", "data/templates/*.md"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mlapi.__version__"}

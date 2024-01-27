@@ -16,7 +16,7 @@
             "name": "Run mlapibot",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/run.py",
+            "program": "${workspaceFolder}/mlapi/cli.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": []
