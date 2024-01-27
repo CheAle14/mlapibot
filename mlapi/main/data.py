@@ -29,6 +29,7 @@ class MLAPIData:
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
+        print("Loading scams from", self.data_dir)
 
         self.load_scams()
 
