@@ -1,6 +1,5 @@
 import os, re
 from typing import List, Tuple
-from json import JSONEncoder
 from .response_builder import ResponseBuilder
 from mlapi.ocr import checkForSubImage, FUNCTIONS
 from mlapi.models.words import BaseGroup, BaseWord, OCRImage
@@ -13,9 +12,6 @@ def sub_fn(char_a, char_b):
     return 1.0
 
 comparer = WeightedLevenshtein(substitution_cost_fn=sub_fn, insertion_cost_fn=ins_fn, deletion_cost_fn=del_fn)
-
-
-
 
 class Scam:
     def __init__(self, name: str, ocr: List[str], title: List[str],
@@ -364,3 +360,4 @@ class Scam:
             if FUNCTIONS[funcName](image):
                 return True
         return False
+    

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlapibot"
+version = "1.0.0"
+readme = "README.md"
+license = {file = "LICENSE"}
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "praw==7.7.*",
+    "pytesseract",
+    "python-dateutil",
+    "pytz",
+    "requests",
+    "urllib3",
+    "imgurpython",
+    "strsimpy"
+]
+
+[project.scripts]
+mlapibot-watch = "mlapi.cli:watch"
+mlapibot-check = "mlapi.cli:check"
+mlapibot-test = "mlapi.cli:test"
+
+[tool.setuptools.package-data]
+mlapi = ["data/scams.json", "data/templates/*.md"]

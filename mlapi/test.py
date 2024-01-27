@@ -52,7 +52,7 @@ def do_tests(folder, data: MLAPIData, names = None):
     return error
 
 
-def run_all_tests(dir = None):
+def run_all_tests(dir = None) -> int:
     datadir = os.path.join(dir or os.getcwd(), "mlapi", "data")
     data = MLAPIData(datadir)
     testdir = os.path.join(dir or os.getcwd(), "tests")
@@ -60,13 +60,13 @@ def run_all_tests(dir = None):
         error = do_tests(testdir, data)
     except Exception as e:
         print(e)
-        exit(2)
+        return 2
     if error:
         print("Tests failed.")
-        exit(1)
+        return 1
     else:
         print("Tests passed")
-        exit(0)
+        return 0
 
 if __name__ == '__main__':
     run_all_tests()
