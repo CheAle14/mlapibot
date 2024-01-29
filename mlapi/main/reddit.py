@@ -294,8 +294,8 @@ class MLAPIReddit(MLAPIData):
         body = post.selftext if hasattr(post, "selftext") else post.body
 
         with ScamContext(self, post, title, body, ocr_images) as context:
-            builder = self.getScamsForContext(context, relevant_scams)
-            return self.removeBlacklistedScams(builder, relevant_scams)
+            return self.getScamsForContext(context, relevant_scams)
+            #return self.removeBlacklistedScams(builder, relevant_scams)
 
     def checkPostForIncidentReport(self, post : Submission, wasBeforeStatus : bool):
         if not post.selftext: return
@@ -384,15 +384,15 @@ class MLAPIReddit(MLAPIData):
                 self.HISTORY[scam.name] += 1
                 if scam.name == "IgnorePost":
                     doSkip = True
-                doReport = doReport or scam.Report
-                print(scam.name, confidence, scam.Report)
+                doReport = doReport or scam.report
+                print(scam.name, confidence, scam.report)
             if IS_POST:
                 self.HISTORY_TOTAL += 1
             if 10 <= self.HISTORY_TOTAL % 100 <= 20:
                 suffix = 'th'
             else:
                 suffix = self.SUFFIXES.get(self.HISTORY_TOTAL % 10, 'th')
-            TEMPLATE = self.TEMPLATES[scam.Template]
+            TEMPLATE = self.TEMPLATES[scam.template]
             built = TEMPLATE.format(self.TOTAL_CHECKS, str(self.HISTORY_TOTAL) + suffix)
 
 
