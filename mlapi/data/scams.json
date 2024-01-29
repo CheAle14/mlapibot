@@ -4,14 +4,14 @@
         {
             "type": "img",
             "name": "home notification nitro tab",
-            "img": ["homeicon.png", "homeicon_blue.png"],
+            "img": "homeicon*.png",
             "report": true,
             "template": "homeNotification",
             "ignore_self_posts": false
         },
         {
             "type": "img",
-            "img": "custom_status.jpeg",
+            "img": "custom_status*.jpeg",
             "name": "Custom status icon",
             "report": true,
             "template": "customStatusIcon"
