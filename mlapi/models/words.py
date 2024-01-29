@@ -1,8 +1,9 @@
-from typing import List
-from PIL import Image, ImageDraw
-import re
-import pytesseract
 import os
+import re
+from typing import List
+
+import pytesseract
+from PIL import Image, ImageDraw
 
 
 class BaseWord:
@@ -130,7 +131,8 @@ class RedditGroup(BaseGroup):
             for word in line.split(' '):
                 self.words.append(RedditWord(word, lineNo))
             lineNo += 1
-         
+
+        
 
 class OCRImageWord(BaseWord):
     def __init__(self, image, line):
@@ -211,7 +213,7 @@ class OCRImageWord(BaseWord):
 
 
 class OCRImage(BaseGroup):
-    def __init__(self, path, original_path = None):
+    def __init__(self, path: str, original_path = None):
         super().__init__()
         self.path = path
         self.original_path = original_path
@@ -219,6 +221,7 @@ class OCRImage(BaseGroup):
         self.rawlines = str(pytesseract.image_to_data(self.image)).strip().splitlines()
         self.keys = self.rawlines[0].split('\t')
         self.words = []
+        self.rectangles = []
         for i in range(1, len(self.rawlines)):
             word = OCRImageWord(self, self.rawlines[i])
             self.words.append(word)
@@ -236,6 +239,8 @@ class OCRImage(BaseGroup):
         word: OCRImageWord = None
         for word in self.words:
             word.drawScamBox(draw)
+        for rect in self.rectangles:
+            draw.rectangle(rect, outline="red")
         return copy
     def __enter__(self):
         pass

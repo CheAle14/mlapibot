@@ -2,11 +2,19 @@
     "scams": 
     [
         {
+            "type": "img",
             "name": "home notification nitro tab",
-            "functions": ["home_ds_logo"],
+            "img": ["homeicon.png", "homeicon_blue.png"],
             "report": true,
             "template": "homeNotification",
             "ignore_self_posts": false
+        },
+        {
+            "type": "img",
+            "img": "custom_status.jpeg",
+            "name": "Custom status icon",
+            "report": true,
+            "template": "customStatusIcon"
         },
         {
             "name": "Free NitroBoost",
@@ -141,6 +149,7 @@
             ]
         },
         {
+            "type": "text",
             "name": "Join servers",
             "template": "joinServers",
             "title": [
@@ -295,6 +304,7 @@
             "template": "trojan"
         },
         {
+            "type": "text",
             "name": "Server Ban Appeal",
             "template": "serverBanAppeal",
             "title": [ "banned from minecraft discord server", "ban from minecraft discord server", "ban minecraft discord server", "banned minecraft discord server", "banned from minecraft server", "banned minecraft server", "banned from the minecraft discord" ]

@@ -1,7 +1,10 @@
-import os, re
-from typing import List
+import os
+import re
 from json import JSONEncoder
+from typing import List
+
 from mlapi.models.texthighlight import TextHighlight
+
 
 class ResponseBuilder:
     def __init__(self):
@@ -25,7 +28,7 @@ class ResponseBuilder:
     def getScamText(self):
         txt = ""
         for scam, confidence in self.Scams.items():
-            txt += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
+            txt += "{0}: {1}%  \r\n".format(scam.name, round(confidence * 100))
         return txt
 
     def Load(self, results):
@@ -33,7 +36,7 @@ class ResponseBuilder:
         self.ScamText = self.getScamText()
     def Add(self, results):
         for scam, confidence in results.items():
-            self.ScamText += "{0}: {1}%  \r\n".format(scam.Name, round(confidence * 100))
+            self.ScamText += "{0}: {1}%  \r\n".format(scam.name, round(confidence * 100))
             self.Scams[scam] = confidence
     def Remove(self, scam):
         item = None

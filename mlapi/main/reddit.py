@@ -1,24 +1,25 @@
-import praw
-import logging
-import re
 import json
-import os, sys, time
-import imgurpython
-
-from typing import List, Union
+import logging
+import os
+import re
+import sys
+import time
 from datetime import datetime
-from praw.models import Message, Comment, Submission, Subreddit, Redditor
+from typing import List, Union
 from urllib.parse import urlparse
+
+import imgurpython
+import praw
+from praw.models import Comment, Message, Redditor, Submission, Subreddit
+
 from mlapi.main.data import MLAPIData
-
-
+from mlapi.models.response_builder import ResponseBuilder
+from mlapi.models.scams import ScamContext
 from mlapi.models.status import StatusAPI, StatusReporter, StatusSummary
 from mlapi.models.texthighlight import TextHighlight
 from mlapi.models.words import OCRImage, RedditGroup
-
-from mlapi.models.response_builder import ResponseBuilder
-from mlapi.models.scam import Scam
 from mlapi.webhook import WebhookSender
+
 
 class MLAPIReddit(MLAPIData):
     subReddit: Subreddit # type hint
@@ -66,47 +67,47 @@ class MLAPIReddit(MLAPIData):
             raise ValueError(self.TEMPLATES, "templates is empty")
         self.load_history()
 
-    def getScamsInTitle(self, title, scams) -> ResponseBuilder:
-        group = RedditGroup(title)
-        builder = ResponseBuilder()
-        builder.RedditGroups.append(group)
+    # def getScamsInTitle(self, title, scams) -> ResponseBuilder:
+    #     group = RedditGroup(title)
+    #     builder = ResponseBuilder()
+    #     builder.RedditGroups.append(group)
         
-        prefix = "title-"
-        selected = None
-        scam:Scam = None
-        for i in range(len(scams)):
-            scam = scams[i]
-            group.push(prefix + str(i))
+    #     prefix = "title-"
+    #     selected = None
+    #     scam:Scam = None
+    #     for i in range(len(scams)):
+    #         scam = scams[i]
+    #         group.push(prefix + str(i))
 
-            if scam.IsBlacklisted(group, self.THRESHOLD): continue
+    #         if scam.IsBlacklisted(group, self.THRESHOLD): continue
 
-            conf = scam.TestTitle(group, self.THRESHOLD)
-            if conf > self.THRESHOLD:
-                selected = i
-                builder.Add({scam: conf})
-        group.keep_only(prefix, selected)
-        return builder
+    #         conf = scam.TestTitle(group, self.THRESHOLD)
+    #         if conf > self.THRESHOLD:
+    #             selected = i
+    #             builder.Add({scam: conf})
+    #     group.keep_only(prefix, selected)
+    #     return builder
 
-    def getScamsInBody(self, body, scams) -> ResponseBuilder:
-        group = RedditGroup(body)
-        builder = ResponseBuilder()
-        builder.RedditGroups.append(group)
+    # def getScamsInBody(self, body, scams) -> ResponseBuilder:
+    #     group = RedditGroup(body)
+    #     builder = ResponseBuilder()
+    #     builder.RedditGroups.append(group)
         
-        prefix = "body-"
-        selected = None
-        scam:Scam = None
-        for i in range(len(scams)):
-            scam = scams[i]
-            group.push(prefix + str(i))
+    #     prefix = "body-"
+    #     selected = None
+    #     scam:Scam = None
+    #     for i in range(len(scams)):
+    #         scam = scams[i]
+    #         group.push(prefix + str(i))
 
-            if scam.IsBlacklisted(group, self.THRESHOLD): continue
+    #         if scam.IsBlacklisted(group, self.THRESHOLD): continue
 
-            conf = scam.TestBody(group, self.THRESHOLD)
-            if conf > self.THRESHOLD:
-                selected = i
-                builder.Add({scam: conf})
-        group.keep_only(prefix, selected)
-        return builder
+    #         conf = scam.TestBody(group, self.THRESHOLD)
+    #         if conf > self.THRESHOLD:
+    #             selected = i
+    #             builder.Add({scam: conf})
+    #     group.keep_only(prefix, selected)
+    #     return builder
 
     def load_history(self):
         self.HISTORY = {}
@@ -145,6 +146,7 @@ class MLAPIReddit(MLAPIData):
             srName = "mlapi"
         self.subReddit = self.reddit.subreddit(srName)
         self.testReddit = self.reddit.subreddit("mlapi")
+    
     def load_imgur(self):
         try:
             with open(os.path.join(self.data_dir, "imgur.json")) as f:
@@ -153,7 +155,6 @@ class MLAPIReddit(MLAPIData):
         except Exception as e:
             logging.error(e, exc_info=1)
             self.IMGUR = None
-
     
     def saveLatest(self, thingId):
         self.latest_done.append(thingId)
@@ -225,8 +226,6 @@ class MLAPIReddit(MLAPIData):
                 if not done:
                     x.reply("Sorry! I'm not sure what you wanted me to do.")
 
-    
-
     def validImage(self, url):
         filename = self.getFileName(url)
         if filename is None:
@@ -284,23 +283,19 @@ class MLAPIReddit(MLAPIData):
         is_selfpost = hasattr(post, "is_self") and post.is_self
         relevant_scams = []
         for scam in self.SCAMS:
-            if is_selfpost and scam.IgnoreSelfPosts: continue
+            if is_selfpost and scam.ignore_self_posts: continue
             relevant_scams.append(scam)
         ocr_urls = [x for x in urls if self.validImage(x)]
-        builder = ResponseBuilder()
-        for url in ocr_urls:
-            done = self.getScamsForUrl(url, relevant_scams)
-            if done is None: continue
-            builder = builder + done
 
+        ocr_images = [self.download_url(url) for url in ocr_urls]
+        ocr_images = [x for x in ocr_images if x is not None]
 
-        builder += self.getScamsInTitle(post.title if hasattr(post, "title") else post.subject, relevant_scams)
+        title = post.title if hasattr(post, "title") else post.subject
+        body = post.selftext if hasattr(post, "selftext") else post.body
 
-        if hasattr(post, "selftext"):
-            builder += self.getScamsInBody(post.selftext, relevant_scams)
-        elif hasattr(post, "body"):
-            builder += self.getScamsInBody(post.body, relevant_scams)
-        return self.removeBlacklistedScams(builder, relevant_scams)
+        with ScamContext(self, post, title, body, ocr_images) as context:
+            builder = self.getScamsForContext(context, relevant_scams)
+            return self.removeBlacklistedScams(builder, relevant_scams)
 
     def checkPostForIncidentReport(self, post : Submission, wasBeforeStatus : bool):
         if not post.selftext: return
@@ -384,13 +379,13 @@ class MLAPIReddit(MLAPIData):
             doSkip = False
             doReport = True
             for scam, confidence in results.items():
-                if scam.Name not in self.HISTORY:
-                    self.HISTORY[scam.Name] = 0
-                self.HISTORY[scam.Name] += 1
-                if scam.Name == "IgnorePost":
+                if scam.name not in self.HISTORY:
+                    self.HISTORY[scam.name] = 0
+                self.HISTORY[scam.name] += 1
+                if scam.name == "IgnorePost":
                     doSkip = True
                 doReport = doReport or scam.Report
-                print(scam.Name, confidence, scam.Report)
+                print(scam.name, confidence, scam.Report)
             if IS_POST:
                 self.HISTORY_TOTAL += 1
             if 10 <= self.HISTORY_TOTAL % 100 <= 20:

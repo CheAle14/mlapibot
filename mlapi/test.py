@@ -1,12 +1,14 @@
-from typing import List
-import unittest
-import os, sys
-import re
 import logging
+import os
+import re
+import sys
+import unittest
 from os import listdir
 from os.path import isfile, join
+from typing import List
 
 from mlapi.main import MLAPIData
+from mlapi.models.scams import ScamContext
 from mlapi.ocr import getTextFromPath
 
 NO_SCAMS_KEYWORD = "none"
@@ -14,22 +16,22 @@ NO_SCAMS_KEYWORD = "none"
 
 
 def do_test(image: str, expecting: List[str], data: MLAPIData):
-
-    response = data.getScamsForImage(getTextFromPath(image), data.SCAMS)
+    context = ScamContext(data, None, "", "", [getTextFromPath(image)])
+    response = data.getScamsForContext(context, data.SCAMS)
     
     error = False
     seen = []
     for scam, conf in response.Scams.items():
-        if scam.Name in expecting:
-            seen.append(scam.Name)
+        if scam.name in expecting:
+            seen.append(scam.name)
         else:
             error = True
-            print("[FAILED]", image, "had unexpected", scam.Name, "at", conf)
+            print("[FAILED]", image, "had unexpected", scam.name, "at", conf)
     
     unseen = [name for name in expecting if name not in seen]
     if unseen:
         error = True
-        print("[FAILED]", image, "was missing", unseen, "it has instead:", [key.Name for key, v in response.Scams.items()])
+        print("[FAILED]", image, "was missing", unseen, "it has instead:", [key.name for key, v in response.Scams.items()])
         for ocr in response.OCRGroups:
             #ocr.dump()
             ocr.getSeenCopy().show()
@@ -59,8 +61,7 @@ def run_all_tests(dir = None) -> int:
     try:
         error = do_tests(testdir, data)
     except Exception as e:
-        print(e)
-        return 2
+        raise
     if error:
         print("Tests failed.")
         return 1

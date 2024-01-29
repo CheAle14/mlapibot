@@ -1,18 +1,22 @@
 import logging
 
+from mlapi.models.scams import ScamContext
 from mlapi.models.words import OCRImage
 
 try:
     from PIL import Image, ImageDraw
 except ImportError:
     import Image
-import pytesseract
-import cv2
+
 import os
-import tempfile
-import numpy
 import re
-from colorsys import rgb_to_hls, hls_to_rgb
+import tempfile
+from colorsys import hls_to_rgb, rgb_to_hls
+
+import cv2
+import numpy
+import pytesseract
+
 
 def processImage(image):
     avg_color_per_row = numpy.average(image, axis=0)
@@ -128,21 +132,24 @@ def _checkForLogoColors(img : Image.Image, index):
 
 
 
-def checkForDiscordLogo(image: OCRImage):
+def checkForDiscordLogo(context: ScamContext) -> bool:
     # Idea is to scan a diagonal line in the top left of the image
     # to try and find, in order, pixels of:
     # (1) a dark background
     # (2) the blurple color of the logo
     # (3) the red color of the (1) notification.
-    
-    img = Image.open(image.original_path).convert("RGB")
-    f = False
-    for tester in range(-100, 250, 5):
-        if _checkForLogoColors(img, tester):
-            print("Found colors at diagonal", tester)
-            f = True
-    img.save("result.png", "PNG")
-    return f
+
+    for image in context.images:
+        img = Image.open(image.original_path).convert("RGB")
+        f = False
+        for tester in range(-100, 250, 5):
+            if _checkForLogoColors(img, tester):
+                print("Found colors at diagonal", tester)
+                f = True
+        img.save("result.png", "PNG")
+        if f:
+            return True
+    return False
 
 FUNCTIONS = {
     "home_ds_logo": checkForDiscordLogo

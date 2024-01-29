@@ -1,22 +1,26 @@
-import mlapi.ocr as ocr
-from mlapi import __version__
-from mlapi.models.openthendelete import OpenThenDelete
-from mlapi.models.response_builder import ResponseBuilder
-from mlapi.models.scam import Scam
-from mlapi.models.scam_encoder import ScamEncoder
-from mlapi.models.words import OCRImage
-
-
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from urllib.parse import urlparse
-
 import json
 import logging
 import os
 import sys
 import tempfile
+from typing import List, Union
+from urllib.parse import urlparse
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+import mlapi.ocr as ocr
+from mlapi import __version__
+from mlapi.models.openthendelete import OpenThenDelete
+from mlapi.models.response_builder import ResponseBuilder
+from mlapi.models.scam_encoder import ScamEncoder
+from mlapi.models.scams import BaseScamChecker, ScamContext
+from mlapi.models.scams.funcscam import FunctionScamChecker
+from mlapi.models.scams.imgscam import ImgScamChecker
+from mlapi.models.scams.ocrscam import OCRScamChecker
+from mlapi.models.scams.textscam import TextScamChecker
+from mlapi.models.words import OCRImage
 
 
 class MLAPIData:
@@ -30,9 +34,30 @@ class MLAPIData:
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
+        self.SCAMS: List[BaseScamChecker] = []
         print("Loading scams from", self.data_dir)
 
         self.load_scams()
+
+    def _scam_object_hook(self, dct):
+        if "name" not in dct:
+            return dct
+        try:
+            type = dct.get("type", "ocr")
+            if type == "text":
+                return TextScamChecker.from_json(dct)
+            if type == "function":
+                return FunctionScamChecker.from_json(dct)
+            if type == "ocr":
+                return OCRScamChecker.from_json(dct)
+            if type == "img":
+                return ImgScamChecker.from_json(dct)
+            
+            raise ValueError(f"Checker type {type} is unknown")
+        except Exception as e:
+            print("Failed to parse", e)
+            print(dct)
+            raise
 
     def load_scams(self):
         self.SCAMS = []
@@ -40,25 +65,15 @@ class MLAPIData:
         try:
             with open(os.path.join(self.data_dir, "scams.json")) as f:
                 rawText = f.read()
-            obj = json.loads(rawText)
-            for scm in obj["scams"]:
-                template = scm.get("template", "default")
-                upLow = "name" in scm
-                name = scm["name" if upLow else "Name"]
-                ocr = scm.get("ocr" if upLow else "OCR", [])
-                title = scm.get("title" if upLow else "Title", [])
-                body = scm.get("body" if upLow else "Body", [])
-                blacklist = scm.get("blacklist" if upLow else "Blacklist", [])
-                images = scm.get("images" if upLow else "Images", [])
-                funcs = scm.get("functions" if upLow else "Functions", [])
-                selfposts = scm.get("ignore_self_posts", False)
-                report = scm.get("report", False)
-                scam = Scam(name, ocr, title, body, blacklist, images, funcs, selfposts, template, report)
+            obj = json.loads(rawText, object_hook=self._scam_object_hook)
+            for scam in obj["scams"]:
+                assert isinstance(scam, BaseScamChecker)
                 self.SCAMS.append(scam)
         except Exception as e:
             logging.error(e)
             print(e)
             self.SCAMS = []
+            raise
 
         if len(self.SCAMS) == 0:
             raise ValueError(self.SCAMS)
@@ -79,24 +94,6 @@ class MLAPIData:
                 name = x[:-3]
                 with open(os.path.join(self.data_dir, "templates", x), "r") as f:
                     self.TEMPLATES[name] = f.read()
-
-    # def getScams(array : List[str], isSelfPost, builder: ResponseBuilder) -> ResponseBuilder:
-    #     scamResults = {}
-    #     for x in SCAMS:
-    #         if x.IgnoreSelfPosts and isSelfPost:
-    #             logging.debug("Skipping {0} as self post".format(x.Name))
-    #             continue
-    #         if x.IsBlacklisted(array, builder):
-    #             logging.debug("Skipping {0} as blacklisted".format(x.Name))
-    #             continue
-    #         result = x.TestOCR(array, builder)
-    #         logging.debug("{0}: {1}".format(x, result))
-    #         if result > THRESHOLD:
-    #             scamResults[x] = result
-    #             builder.FormattedText = builder.TestGrounds
-    #             #print(builder.FormattedText)
-    #     builder.Add(scamResults)
-    #     return builder
 
     def getFileName(self, url):
         parsed = urlparse(url)
@@ -119,7 +116,7 @@ class MLAPIData:
             logging.info("==============")
         return image
 
-    def handleUrl(self, url: str):
+    def download_url(self, url: str) -> Union[OCRImage, None]:
         filename = self.getFileName(url)
         try:
             r = self.requests_retry_session(retries=5).get(url)
@@ -146,46 +143,27 @@ class MLAPIData:
             f.write(r.content)
         return self.readFromFileName(tempPath, filename)
 
-    def getScamsForImage(self, image: OCRImage, scams) -> ResponseBuilder:
+    def getScamsForContext(self, context: ScamContext, scams: List[BaseScamChecker]) -> ResponseBuilder:
         builder = ResponseBuilder()
-        builder.OCRGroups.append(image)
+        if len(context.images) > 0:
+            builder.OCRGroups.extend(context.images)
+        if context.title:
+            builder.RedditGroups.append(context.title)
+        if context.body:
+            builder.RedditGroups.append(context.title)
 
-        prefix = "ocr-"
         selected = None
-        scam:Scam = None
-        for i in range(len(scams)):
-            scam = scams[i]
-            image.push(prefix + str(i))
-            if scam.IsBlacklisted(image, self.THRESHOLD): continue
+        prefix = "ocr-"
+        for i, scam in enumerate(scams):
+            context.push(f"{prefix}{i}")
+            if scam.is_blacklisted(context, self.THRESHOLD):
+                continue
 
-            conf = scam.TestOCR(image, self.THRESHOLD)
-            if conf > self.THRESHOLD:
+            result = scam.matches(context, self.THRESHOLD)
+            if result >= self.THRESHOLD:
                 selected = i
-                logging.info(f"Seen {scam.Name} via OCR {conf*100}%")
-                builder.Add({scam: conf})
-            if scam.TestSubImages(image):
-                logging.info(f"Seen {scam.Name} via image template")
-                builder.Add({scam: 1.5})
-            if scam.TestFunctions(image):
-                logging.info(f"Seen {scam.Name} via functions")
-                builder.Add({scam: 2})
-        image.keep_only(prefix, selected)
-        return builder
-
-    def getScamsForUrl(self, url : str, scams) -> ResponseBuilder:
-        image = self.handleUrl(url)
-        if image is None:
-            return None
-        with image:
-            return self.getScamsForImage(image, scams)
-
-
-    def removeBlacklistedScams(self, builder: ResponseBuilder, scams) -> ResponseBuilder:
-        groups = [*builder.OCRGroups, *builder.RedditGroups]
-        for group in groups:
-            for scam in scams:
-                if scam.IsBlacklisted(group, self.THRESHOLD):
-                    builder.Remove(scam)
+                builder.Add({scam: result})
+        context.keep_only(prefix, selected)
         return builder
 
     def requests_retry_session(self,
