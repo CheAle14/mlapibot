@@ -17,7 +17,7 @@ dependencies = [
     "requests",
     "urllib3",
     "imgurpython",
-    "strsimpy"
+    "strsimpy",
     "typing_extensions"
 ]
 
