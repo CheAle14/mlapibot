@@ -18,6 +18,7 @@ dependencies = [
     "urllib3",
     "imgurpython",
     "strsimpy"
+    "typing_extensions"
 ]
 
 [project.scripts]
