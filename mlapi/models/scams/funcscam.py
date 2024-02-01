@@ -23,6 +23,8 @@ class FunctionScamChecker(BaseScamChecker):
         )
     
     def matches(self, context: ScamContext, THRESHOLD: float) -> float:
+        if self.function not in FUNCTIONS:
+            raise ValueError(f"Invalid function name '{self.function}', expected:", FUNCTIONS.keys())
         f = FUNCTIONS.get(self.function, None)
         if f is not None and f(context):
             return 1.0

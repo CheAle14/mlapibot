@@ -2,9 +2,9 @@
     "scams": 
     [
         {
-            "type": "img",
+            "type": "function",
+            "function": "home_ds_logo",
             "name": "home notification nitro tab",
-            "img": "homeicon*.png",
             "report": true,
             "template": "homeNotification",
             "ignore_self_posts": false
