@@ -27,7 +27,55 @@ class ImgScamChecker(BaseScamChecker):
             json.get("img")
         )
     
+    def _orb_feature_match(self, context: ScamContext, name, img1, img2):
+        # Initiate SIFT detector
+        orb = cv.ORB_create(firstLevel=2, edgeThreshold = 15, fastThreshold = 10)
 
+        # find the keypoints and descriptors with ORB
+        kp1, des1 = orb.detectAndCompute(img1,None)
+        kp2, des2 = orb.detectAndCompute(img2,None)
+        assert des1 is not None, "should compute template"
+        if des2 is None:
+            print("failed to describe image")
+            return None
+        # create BFMatcher object
+        bf = cv.BFMatcher(cv.NORM_HAMMING, crossCheck=True)
+
+        # Match descriptors.
+        matches = bf.match(des1,des2)
+
+        matches = [x for x in matches if x.distance <= 32]
+
+        # Sort them in the order of their distance.
+        matches = sorted(matches, key = lambda x:x.distance)
+        if len(matches) < 10:
+            print("insufficient matches", [x.distance for x in matches])
+            return None
+        good_matches = matches[:10]
+        print([x.distance for x in good_matches])
+
+        src_pts = np.float32([ kp1[m.queryIdx].pt for m in good_matches     ]).reshape(-1,1,2)
+        dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good_matches ]).reshape(-1,1,2)
+        M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC,5.0)
+        matchesMask = mask.ravel().tolist()
+        h,w = img1.shape[:2]
+        pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+
+        dst = cv.perspectiveTransform(pts,M)
+        #dst += (w, 0)  # adding offset
+
+        # draw_params = dict(matchColor = (0,255,0), # draw matches in green color
+        #             singlePointColor = None,
+        #             matchesMask = matchesMask, # draw only inliers
+        #             flags = 2)
+        #img3 = cv.drawMatches(img1,kp1,img2,kp2,good_matches, None,**draw_params)
+        # Draw bounding box in Red
+        # arr = [np.int32(dst)]
+        # print("arr:", arr)
+        # img3 = cv.polylines(img3, arr, True, (0,0,255),3, cv.LINE_AA)
+        # cv.imwrite(f"output_{name}", img3)
+        print(dst)
+        return np.int32(dst)
 
     def _sift_feature_match(self, context, name, img1, img2):
         MIN_MATCH_COUNT = 10
