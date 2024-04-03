@@ -187,20 +187,12 @@
             "report": true
         },  
         {
-            "name": "Steam report",
+            "name": "Account report",
             "ocr": [
                 "just wanna confirm something this account belongs to you",
                 "i just want to say sorry because i filed tickets on your account",
                 "you still have time to prove your innocence i hope you can get in time",
-                "may i ask if you are the owner of this steam profile account"
-            ],
-            "ignore_self_posts": true,
-            "template": "steamreport",
-            "report": true
-        },
-        {
-            "name": "Discord report",
-            "ocr": [
+                "may i ask if you are the owner of this steam profile account",
                 "while our team investigates this please read through the following points",
                 "the complainant has also submitted to us a federal law report",
                 "our discord support team can be found under the username",
@@ -220,11 +212,12 @@
                 "would you be able to help me explain to discord support that the reports on your account were a mistake",
                 "we have identified the account that you have been reported for as it has violated our terms of service or community guidelines",
                 "failure to validate the legality of an account within a specific time frame 12 hours may result in account suspension restrictions",
-                "by implementing this process we can assure that your discord account is not susceptible to fraudulent"
+                "by implementing this process we can assure that your discord account is not susceptible to fraudulent",
+                "your ip will be blocked on discord if there is no action taken from you"
             ],
             "ignore_self_posts": true,
             "report": true,
-            "template": "discordreport"
+            "template": "accountreport"
         },
         {
             "name": "Mac Keybind Perms",
