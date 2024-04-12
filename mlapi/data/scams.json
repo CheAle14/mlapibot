@@ -213,7 +213,8 @@
                 "we have identified the account that you have been reported for as it has violated our terms of service or community guidelines",
                 "failure to validate the legality of an account within a specific time frame 12 hours may result in account suspension restrictions",
                 "by implementing this process we can assure that your discord account is not susceptible to fraudulent",
-                "your ip will be blocked on discord if there is no action taken from you"
+                "your ip will be blocked on discord if there is no action taken from you",
+                "could you help me explain to discord support that reports on your account were false"
             ],
             "ignore_self_posts": true,
             "report": true,
