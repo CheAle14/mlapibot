@@ -1,109 +1,112 @@
 {
-    "scams": 
-    [
+    "scams": [
         {
-            "type": "function",
             "function": "home_ds_logo",
+            "ignore_self_posts": false,
             "name": "home notification nitro tab",
             "report": true,
             "template": "homeNotification",
-            "ignore_self_posts": false
+            "type": "function"
         },
         {
-            "type": "img",
             "img": "custom_status*.jpeg",
             "name": "Custom status icon",
             "report": true,
-            "template": "customStatusIcon"
+            "template": "customStatusIcon",
+            "type": "img"
         },
         {
-            "name": "Free NitroBoost",
-            "ocr": [ 
-                    "if you want to win a free discord nitro invite this bot to your server", 
-                    "free discord nitro",
-                    "discord nitro free",
-                    "when you added the bot you have to wait 24 hours and our bot will come and send you your reward in private message",
-                    "get 3 months of discord nitro free from steam",
-                    "steam is giving out discord ntiro",
-                    "you have win the nitro so add the bot",
-                    "click on the nitro link and add the bot in all servers",
-                    "you've been gifted a 1 month nitro !games",
-                    "you won 1 month nitro",
-                    "claim your nitro",
-                    "nitro gift sender",
-                    "click link to accept you've got this message because a friend awarded you nitro",
-                    "you've been gifted a 1 month nitro games by discord for events",
-                    "click on the link for accept add the bot",
-                    "click on the link to accept add the bot hello for our anniversary we decided to gift to all discord users",
-                    "1 month nitro for free take it",
-                    "yo got some nitro left over here",
-                    "giveaway sponsored by discord",
-                    "!discord has gifted you nitro for 1 month",
-                    "i got a nitro left over incase you want it because my friends didnt want it",
-                    "you won 10 nitro gift congratulations",
-                    "you have won 10 nitro gift code",
-                    "congratulations you have won a nitro",
-                    "selected as the lucky winner for the nitro giveaway",
-                    
-                    
-                    "free boost",
-                    "invite this bot to your server, wait 1 day and your server will have 30 boosts!.",
-                    "click here for invite the bot",
-                    "invite for free boost",
-                    "discord boosting official",
-                    "free boosting event",
-                    "discord offical & legit boosting event.",
-                    "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!",
-                    "free boosting event",
-                    "discord nitro event",
-                    "free discord boosting",
-                    "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend",
-                    "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer",
-                    "new giveaway server free nitro need join to receive boost nitro",
-                    "to claim your x30 boost and nitro you have to click on the blue link",
-                    "christmas is almost here to celebrate we are doing a limited time christmas free boosts event",
-                    "congratulations you won the free 28x boosts giveaway",
-                    "congrats you have been selected as the winner for the 30x boosts giveaway",
-                    "has gifted you 14x !boosts",
-                    "wait 1 day and your server will have 14 boosts",
-                    "discord has gifted you nitro !boosts for 1 year",
-                    "!giveaway !bot you've been gifted a subscription",
-                    "discord gift event",
-                    "discord has chose you as the winner of the event",
-                    "offical new years discord bot",
-                    "you've been gifted 1 year of nitro",
-                    "has gifted you nitro !boosts for 1 year",
-                    "you have won 99 99 nitro",
-                    "!!events nitro",
-
-                    "you've won the discord snowsgiving event",
-                    "to claim your prize select your prize below",
-                    "you won the 30x server boosts discord event to redeem your boosts add me to your server",
-                    "you've won 15x boosts congratulations",
-		            "you won the 26x server boosts discord event",
-                    "you've been gifted 14x boosts",
-                    "click here to claim your 14x boosts",
-                    "congratulations you won the free 14x boosts giveaway hosted by",
-                    "you've been gifted 15x discord server boosts from the arkazi development team",
-                    "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
-					"you have been gifted 14x boosts for your server",
-					"you won the 14x boosts giveaway",
-                    "you won x1 nitro classic x14 server boost",
-					"you've won a giveaway you just won a 10 discord nitro", 
-					"follow these steps to claim the 10 nitro gift code",
-                    "you won 15x boosts",
-                    "you were randomly selected to win 15x discord boosts from spooked"
-                ],
             "blacklist": [
-                "epic games", "epic game", "t-mobile",
+                "epic games",
+                "epic game",
+                "t-mobile",
                 "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to",
                 "just waiting here until you choose a server to give it to",
                 "get a free boost for inviting each of these contacts when they sign up for discord"
             ],
             "ignore_self_posts": true,
+            "name": "Free NitroBoost",
+            "ocr": [
+                "if you want to win a free discord nitro invite this bot to your server",
+                "free discord nitro",
+                "discord nitro free",
+                "when you added the bot you have to wait 24 hours and our bot will come and send you your reward in private message",
+                "get 3 months of discord nitro free from steam",
+                "steam is giving out discord ntiro",
+                "you have win the nitro so add the bot",
+                "click on the nitro link and add the bot in all servers",
+                "you've been gifted a 1 month nitro !games",
+                "you won 1 month nitro",
+                "claim your nitro",
+                "nitro gift sender",
+                "click link to accept you've got this message because a friend awarded you nitro",
+                "you've been gifted a 1 month nitro games by discord for events",
+                "click on the link for accept add the bot",
+                "click on the link to accept add the bot hello for our anniversary we decided to gift to all discord users",
+                "1 month nitro for free take it",
+                "yo got some nitro left over here",
+                "giveaway sponsored by discord",
+                "!discord has gifted you nitro for 1 month",
+                "i got a nitro left over incase you want it because my friends didnt want it",
+                "you won 10 nitro gift congratulations",
+                "you have won 10 nitro gift code",
+                "congratulations you have won a nitro",
+                "selected as the lucky winner for the nitro giveaway",
+                "free boost",
+                "invite this bot to your server, wait 1 day and your server will have 30 boosts!.",
+                "click here for invite the bot",
+                "invite for free boost",
+                "discord boosting official",
+                "free boosting event",
+                "discord offical & legit boosting event.",
+                "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros!",
+                "free boosting event",
+                "discord nitro event",
+                "free discord boosting",
+                "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend",
+                "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer",
+                "new giveaway server free nitro need join to receive boost nitro",
+                "to claim your x30 boost and nitro you have to click on the blue link",
+                "christmas is almost here to celebrate we are doing a limited time christmas free boosts event",
+                "congratulations you won the free 28x boosts giveaway",
+                "congrats you have been selected as the winner for the 30x boosts giveaway",
+                "has gifted you 14x !boosts",
+                "wait 1 day and your server will have 14 boosts",
+                "discord has gifted you nitro !boosts for 1 year",
+                "!giveaway !bot you've been gifted a subscription",
+                "discord gift event",
+                "discord has chose you as the winner of the event",
+                "offical new years discord bot",
+                "you've been gifted 1 year of nitro",
+                "has gifted you nitro !boosts for 1 year",
+                "you have won 99 99 nitro",
+                "!!events nitro",
+                "you've won the discord snowsgiving event",
+                "to claim your prize select your prize below",
+                "you won the 30x server boosts discord event to redeem your boosts add me to your server",
+                "you've won 15x boosts congratulations",
+                "you won the 26x server boosts discord event",
+                "you've been gifted 14x boosts",
+                "click here to claim your 14x boosts",
+                "congratulations you won the free 14x boosts giveaway hosted by",
+                "you've been gifted 15x discord server boosts from the arkazi development team",
+                "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
+                "you have been gifted 14x boosts for your server",
+                "you won the 14x boosts giveaway",
+                "you won x1 nitro classic x14 server boost",
+                "you've won a giveaway you just won a 10 discord nitro",
+                "follow these steps to claim the 10 nitro gift code",
+                "you won 15x boosts",
+                "you were randomly selected to win 15x discord boosts from spooked"
+            ],
             "report": true
-        }, 
+        },
         {
+            "blacklist": [
+                "registered games",
+                "activity settings"
+            ],
+            "ignore_self_posts": true,
             "name": "verify scam",
             "ocr": [
                 "we're doing a lot of giveaways first 100 members to join and verify will be sent nitro",
@@ -119,15 +122,11 @@
                 "i dont want creeps on my friends list",
                 "im blocking you sorry if its a misunderstanding"
             ],
-            "ignore_self_posts": true,
             "report": true,
-            "template": "verifyscam",
-            "blacklist": ["registered games", "activity settings"]
+            "template": "verifyscam"
         },
         {
             "name": "Custom status text",
-            "report": true,
-            "template": "status",
             "ocr": [
                 "user is suspected to be part of an online terrorist organization",
                 "user is suspected to be apart of an online terrorist organization",
@@ -138,18 +137,30 @@
                 "active terrorist group",
                 "learn about discord's safety policy at",
                 "this user may be a part of an active terrorist group contact discord immediately if any suspicious activities are detected"
-            ]
+            ],
+            "report": true,
+            "template": "status"
+        },
+        {
+            "name": "jokeMessage",
+            "ocr": [
+                "this user is under survellience by the fbi",
+                "this user is under survellience by the us fbi",
+                "do not contact this user he is the subject of a criminal case",
+                "18 usc 2332b"
+            ],
+            "report": true,
+            "template": "jokeMessage"
         },
         {
             "name": "s/e/d",
-            "report": true,
-            "template": "sed",
             "ocr": [
                 "discord sex hack"
-            ]
+            ],
+            "report": true,
+            "template": "sed"
         },
         {
-            "type": "text",
             "name": "Join servers",
             "template": "joinServers",
             "title": [
@@ -162,18 +173,20 @@
                 "keep getting invited to other servers",
                 "automatically joining servers",
                 "automatically join servers"
-            ]
+            ],
+            "type": "text"
         },
         {
             "name": "Age Restricted",
-            "report": true,
-            "template": "ageRestricted",
             "ocr": [
                 "sorry age restricted servers are blocked on the ios platform per app store guidelines",
                 "if you're over 18 you can join on the desktop app or website"
-            ]
+            ],
+            "report": true,
+            "template": "ageRestricted"
         },
         {
+            "ignore_self_posts": true,
             "name": "Invite Scam",
             "ocr": [
                 "you have to invite me to your servers",
@@ -183,10 +196,10 @@
                 "invite the bot to your server",
                 "invite this bot on your biggest server wait 1 day and you will receive the prizes listed above on your account"
             ],
-            "ignore_self_posts": true,
             "report": true
-        },  
+        },
         {
+            "ignore_self_posts": true,
             "name": "Account report",
             "ocr": [
                 "just wanna confirm something this account belongs to you",
@@ -221,7 +234,6 @@
                 "accidentally reported your discord account instead of someone else",
                 "would you please help me to prove your innocence"
             ],
-            "ignore_self_posts": true,
             "report": true,
             "template": "accountreport"
         },
@@ -232,15 +244,17 @@
                 "grant access to this application in security privacy preferences located in system preferences"
             ],
             "template": "macKeybinds"
-        }, {
+        },
+        {
             "name": "promotions link",
             "ocr": [
                 "i know this might be a bit random but i still have many discord nitro codes from the promotion",
                 "ill give you one for free if u need it",
                 "i still got a spare nitro code from the epic games promotion"
             ],
-			"template": "malwareLink"
-        }, {
+            "template": "malwareLink"
+        },
+        {
             "name": "image malware",
             "ocr": [
                 "the nature of this attack appears to be auth token based",
@@ -248,31 +262,32 @@
                 "there's anew scam going around so exercise extreme caution"
             ],
             "template": "imageMalware"
-        }, {
+        },
+        {
             "name": "Verification",
             "ocr": [
                 "verification required",
                 "we've detected something out of the ordinary going on"
             ],
-            "template": "phone",
-            "report": true
-        }, {
+            "report": true,
+            "template": "phone"
+        },
+        {
             "name": "bitly game malware",
             "ocr": [
                 "hi bro i made a game please rate it",
                 "i am making a game can you rate it",
                 "i created a new game rate tried very hard",
                 "i create game rate it"
-                
             ],
-            "template": "malwareLink",
-            "report": true
-        }, 
+            "report": true,
+            "template": "malwareLink"
+        },
         {
-			"name": "discord support",
-			"ocr": [
-				"you have successfully completed the test period on the discord testers server",
-				"to complete the process of becoming a discord moderator you will need to take a",
+            "name": "discord support",
+            "ocr": [
+                "you have successfully completed the test period on the discord testers server",
+                "to complete the process of becoming a discord moderator you will need to take a",
                 "we are pleased to announce that we are starting the moderator program again but now we're releasing it to people who've been using discord for a while and this app is just for selected people and you were one of those selected congratulations",
                 "however to participate you must register to start the analysis procedure as a first step you must fill in a form the observation are below",
                 "fill out the form carefully and be formal as it is very important that our team make your assessment",
@@ -282,8 +297,8 @@
                 "we are here to present you a new update of our launcher discord we are experiencing updates improvements performances and more we want to hear from you what do you think we should improve in our discord beta",
                 "you were one of those chosen in our system to be able to participate in our launcher beta",
                 "we want to launch a new discord one hundred percent good and that's why we need your help we need your help to find bugs",
-				"your account is receiving this notice due to your approval as a discord beta user",
-				"specifically discord beta has been released to a few users and you have been selected",
+                "your account is receiving this notice due to your approval as a discord beta user",
+                "specifically discord beta has been released to a few users and you have been selected",
                 "first we wish you congratulations and thank you for being in our platform",
                 "get an exclusive hypesquad badge for your profile and make all your friends jelly",
                 "hype squad is recruiting new moderators",
@@ -295,15 +310,17 @@
                 "your account has joined the server during an ongoing investigation",
                 "your account has accessed the server's channels where the content was being distributed within the past 10 minutes",
                 "your account may have been involved in the server for a longer period of time"
-			],
+            ],
             "report": true
-		}, {
+        },
+        {
             "name": "Copyright",
             "ocr": [
                 "when we share your account copyright is in your account in your account",
                 "your account has been reviewed by our team and found to contain copyright"
             ]
-        }, {
+        },
+        {
             "name": "TrojanImage",
             "ocr": [
                 "trojandownloaderhtml",
@@ -312,32 +329,58 @@
             "template": "trojan"
         },
         {
-            "type": "text",
             "name": "Server Ban Appeal",
             "template": "serverBanAppeal",
-            "title": [ "banned from minecraft discord server", "ban from minecraft discord server", "ban minecraft discord server", "banned minecraft discord server", "banned from minecraft server", "banned minecraft server", "banned from the minecraft discord" ]
+            "title": [
+                "banned from minecraft discord server",
+                "ban from minecraft discord server",
+                "ban minecraft discord server",
+                "banned minecraft discord server",
+                "banned from minecraft server",
+                "banned minecraft server",
+                "banned from the minecraft discord"
+            ],
+            "type": "text"
         },
         {
             "name": "GenericChainSpam",
-            "ocr": [ "those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims" ],
+            "ocr": [
+                "those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"
+            ],
             "template": "chainspam"
         },
         {
             "name": "GameTestersMalware",
-            "template": "libraryMalware",
-            "ocr": [ "you've been invited to test discord’s game testers", "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration" ]
+            "ocr": [
+                "you've been invited to test discord’s game testers",
+                "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"
+            ],
+            "template": "libraryMalware"
         },
         {
             "name": "Twitch Nitro",
-            "ocr": [ "we are super happy to announce that discord has partnered with twitch", "to show some love to our super great users from march 26 2020 until march 31 2020", "all ours users will have access to a nitro games", "© 2020 twitch interactive inc", "©2020 twitch interactive inc", "2020 twitch interactive inc." ]
+            "ocr": [
+                "we are super happy to announce that discord has partnered with twitch",
+                "to show some love to our super great users from march 26 2020 until march 31 2020",
+                "all ours users will have access to a nitro games",
+                "© 2020 twitch interactive inc",
+                "©2020 twitch interactive inc",
+                "2020 twitch interactive inc."
+            ]
         },
         {
             "name": "Partnership Autobot",
-            "ocr": [ "partnership autobox", "make your partnership automatically thanks to this bot use the command *help to see the menu" ]
+            "ocr": [
+                "partnership autobox",
+                "make your partnership automatically thanks to this bot use the command *help to see the menu"
+            ]
         },
         {
             "name": "MEE6 Premium",
-            "ocr": [ "mee6 premium", "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium" ]
+            "ocr": [
+                "mee6 premium",
+                "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"
+            ]
         },
         {
             "name": "Discord Shutdown",
@@ -352,13 +395,31 @@
         },
         {
             "name": "Partner Bot",
-            "ocr": [ "partner bot", "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started !", "link: https://discord.gg/ekajbfx", "https://i.imgur.com/tmwigun.gif", "want to gain members fast & see your advert here?", "partner bot's info below", "gain 2,000 members in a week time by adding me to your server than using the command", "/partner [description here]" ]
+            "ocr": [
+                "partner bot",
+                "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started !",
+                "link: https://discord.gg/ekajbfx",
+                "https://i.imgur.com/tmwigun.gif",
+                "want to gain members fast & see your advert here?",
+                "partner bot's info below",
+                "gain 2,000 members in a week time by adding me to your server than using the command",
+                "/partner [description here]"
+            ]
         },
         {
             "name": "Xbox Partnership",
-            "ocr": [ "partnership: xbox & discord", "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do ! claim when you have add the bot", "step one add me on your servers", "2020 xbox interactive, inc.", "exclusive partnership", "2?? : step one you have to invite me to yur servers (click here)", "1?? : step one join our official discord event and wait a few moments (click here)" ]            
+            "ocr": [
+                "partnership: xbox & discord",
+                "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do ! claim when you have add the bot",
+                "step one add me on your servers",
+                "2020 xbox interactive, inc.",
+                "exclusive partnership",
+                "2?? : step one you have to invite me to yur servers (click here)",
+                "1?? : step one join our official discord event and wait a few moments (click here)"
+            ]
         },
         {
+            "ignore_self_posts": true,
             "name": "Discord Rewards",
             "ocr": [
                 "discord rewarding service",
@@ -378,7 +439,6 @@
                 "you won a nitro gift as part of a limited time event",
                 "discord official event"
             ],
-            "ignore_self_posts": true,
             "report": true
         },
         {
@@ -394,7 +454,6 @@
                 "3. Pick what kind of Nitro you want the Generator to generate.",
                 "4. Then press on GENERATE!",
                 "Please do NOT generate more than one Nitro Gift Code, so others can also get Nitro."
-
             ]
         },
         {
@@ -517,13 +576,13 @@
                 "jan 1 1970",
                 "dec 31 1969"
             ],
-            "template": "timestamp",
-            "report": true
+            "report": true,
+            "template": "timestamp"
         },
         {
             "name": "CyberAttack",
-            "ocr": [ 
-                "tomorrow is a cyber attack event on all social media platforms including discord" ,
+            "ocr": [
+                "tomorrow is a cyber attack event on all social media platforms including discord",
                 "tomorrow there will be a cyber attack event",
                 "there will be people trying to send you gore racist insults unholy lewd pictures",
                 "send this to your friends as well to spread the message",
