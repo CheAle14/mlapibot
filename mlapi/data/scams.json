@@ -147,7 +147,8 @@
                 "this user is under survellience by the fbi",
                 "this user is under survellience by the us fbi",
                 "do not contact this user he is the subject of a criminal case",
-                "18 usc 2332b"
+                "18 usc 2332b",
+                "user is the subject of a criminal case"
             ],
             "report": true,
             "template": "jokeMessage"
