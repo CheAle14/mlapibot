@@ -1,4 +1,4 @@
-use max_many::max_many;
+use ord_many::max_many;
 use serde::Deserialize;
 
 use crate::analysis::Detection;

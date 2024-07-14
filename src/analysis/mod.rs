@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use func_analyzer::FuncAnalyzer;
 use image::DynamicImage;
-use max_many::{max_many, partial_max_iter};
+use ord_many::{max_many, partial_max_iter};
 use pattern_analyzer::PatternAnalyzer;
 use serde::Deserialize;
 use str_analyzer::{get_words, StrAnalzyer, WordMatcher};

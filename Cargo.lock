@@ -1141,10 +1141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "max-many"
-version = "0.1.0"
-
-[[package]]
 name = "maybe-async"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1214,7 +1210,7 @@ dependencies = [
  "image",
  "imageproc",
  "leptess",
- "max-many",
+ "ord-many",
  "regex",
  "reqwest 0.12.5",
  "roux",
@@ -1422,6 +1418,11 @@ dependencies = [
  "pkg-config",
  "vcpkg",
 ]
+
+[[package]]
+name = "ord-many"
+version = "0.1.0"
+source = "git+https://github.com/CheAle14/ord-many.git#28515a12e737b21ccdcdfb4e147f597a383edd95"
 
 [[package]]
 name = "owned_ttf_parser"
