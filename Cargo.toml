@@ -1,0 +1,21 @@
+[package]
+name = "mlapibot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ab_glyph = "0.2.28"
+anyhow = "1.0.86"
+image = "0.25.1"
+imageproc = "0.25.0"
+leptess = "0.14.0"
+regex = "1.10.5"
+roux = { version = "2.2.12", features = ["blocking"] }
+url = "2.5.2"
+max-many = { path = "../max-many" }
+stringzilla = "3.8.4"
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.120"
+clap = { version = "4.5.9", features = ["derive"] }
+reqwest = { version = "0.12.5", features = ["blocking"] }
+tempfile = "3.10.1"
