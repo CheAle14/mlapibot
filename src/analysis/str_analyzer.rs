@@ -7,7 +7,7 @@ use super::DetectedItem;
 
 const THRESHOLD: f32 = 0.8;
 const MATCH: i32 = 5;
-const MISMATCH: i32 = -5;
+const MISMATCH: i32 = -MATCH;
 const BOUNDED_DISTANCE: usize = (MATCH - MISMATCH) as usize;
 const INDEL: i32 = MISMATCH;
 
@@ -71,7 +71,7 @@ pub fn score(arr: &Alignment, i: &[&str], j: &[&str]) -> f32 {
     }
 
     let selected = &mapped[first_match..=last_match];
-    let total = selected.len() as f32;
+    let total = std::cmp::max(selected.len(), i.len() / 2) as f32;
     let mut sum = 0.0;
     for (i, j) in selected {
         match (i, j) {
@@ -322,12 +322,12 @@ mod tests {
         let ctx = Context {
             kind: ContextKind::CliPath(PathBuf::new()),
             images: Vec::new(),
-            title: Some(String::from(
-                "some prefix the quick brown fox middle jump over the lazy dog some suffix",
-            )),
+            title: Some(String::from("the quick brown fox jumps over the lazy dog")),
             body: None,
         };
 
-        println!("{:?}", analyzer.analyze(&ctx));
+        let result = analyzer.analyze(&ctx).unwrap();
+        let result = result.unwrap();
+        assert!(result.best_score() >= THRESHOLD);
     }
 }
