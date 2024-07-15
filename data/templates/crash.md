@@ -1,5 +1,7 @@
-Hi!  
-I am responding because your post title and/or description indicate(s) your Discord is crashing.  
+{% extends "base.md" %}
+
+{% block content %}
+I am responding because your post title and/or description indicate(s) your Discord is crashing.
 
 Performing a clean re-install as below may fix these issues:
 
@@ -10,7 +12,4 @@ Performing a clean re-install as below may fix these issues:
 
 If the issue still persists, you can [search this subreddit](https://reddit.com/r/discordapp/search?q=&restrict_sr=on&include_over_18=on&sort=relevance&t=all) to see if anyone is experiencing similar issues, or wait for someone else to respond, or [reach out to Discord support](https://dis.gd/support)
 
-
-- - -
-
-^(I am a bot; if this comment was made in error, please correct and downvote me.)
+{% endblock content %}

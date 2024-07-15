@@ -1,4 +1,6 @@
-Hi!  
+{% extends "base.md" %}
+
+{% block content %}
 I am responding because your image appears to contain an error assosciated with AnarchyGrabber, a malware that targets Discord.
 
 ### What is it?
@@ -12,7 +14,7 @@ AnarchyGrabber is a virus that attempts to gain access to your account and its i
 
 ### What platforms are affected?
 
-So far, only Windows and macOS.  
+So far, only Windows and macOS.
 
 ### How do I know if I'm infected?
 
@@ -28,7 +30,7 @@ If there is an `4n4rchy` folder, then you've been infected.
 
 If you've been infected, you'll first want to make sure the 2FA on your account is yours, and redownload the backup codes to be sure you don't get locked out. Then change your password
 
-1. Uninstall Discord using its proper uninstaller. 
+1. Uninstall Discord using its proper uninstaller.
 2. Remove the `%appdata/discord%` or `~/Library/Application Support/discord` folder, depending on platform
 3. Reinstall Discord
 
@@ -43,6 +45,4 @@ If you've removed and reinstalled as per above, and thus have a clean installati
 
 This appears to be happening with Avast mainly, with it detecting even on the clean `index.js` file
 
-- - -
-
-^(I am a bot; if this comment was made in error, please correct and downvote me.)
+{% endblock content %}

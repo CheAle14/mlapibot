@@ -14,19 +14,18 @@ const INDEL: i32 = MISMATCH;
 fn string_similiarity(a: &str, b: &str) -> f32 {
     let distance = stringzilla::sz::edit_distance_utf8_bounded(a, b, BOUNDED_DISTANCE);
     let max_len = std::cmp::max(a.len(), b.len());
-    (max_len - distance) as f32 / max_len as f32
+    1.0 - (distance as f32 / max_len as f32)
 }
 
 fn match_or_mismatch(top: &str, side: &str) -> i32 {
     let perc = string_similiarity(top, side);
     let interpolate = perc * (BOUNDED_DISTANCE as f32);
     let match_mismatch = MISMATCH + (interpolate.ceil() as i32);
-
     match_mismatch
 }
 
 pub enum AlignmentKind {
-    Matches { i: usize, j: usize },
+    Matches { i: usize, j: usize, ratio: i32 },
     MissingI { j: usize },
     MissingJ { i: usize },
 }
@@ -34,7 +33,7 @@ pub enum AlignmentKind {
 impl AlignmentKind {
     pub fn is_match(&self) -> bool {
         match self {
-            Self::Matches { .. } => true,
+            Self::Matches { ratio, .. } => *ratio >= 4,
             _ => false,
         }
     }
@@ -57,10 +56,10 @@ impl AlignmentKind {
 
 type Alignment = Vec<AlignmentKind>;
 
-pub fn score(arr: &Alignment, i: &[&str], j: &[&str]) -> f32 {
+pub fn score(arr: &Alignment, i: &[&str], j: &[&str], debug: bool) -> f32 {
     let mut first_match = arr.len();
     let mut last_match = 0;
-    let mut mapped = Vec::with_capacity(arr.len());
+    let mut mapped: Vec<(Option<&str>, Option<&str>)> = Vec::with_capacity(arr.len());
 
     for (idx, item) in arr.iter().enumerate() {
         if item.is_match() {
@@ -75,13 +74,128 @@ pub fn score(arr: &Alignment, i: &[&str], j: &[&str]) -> f32 {
     }
 
     let selected = &mapped[first_match..=last_match];
-    let total = std::cmp::max(selected.len(), i.len() / 2) as f32;
+
+    if debug {
+        let words: String = selected
+            .iter()
+            .map(|(i, j)| format!("{}/{},", i.unwrap_or("?"), j.unwrap_or("?")))
+            .collect();
+        println!("    Matches between {first_match} -> {last_match}: {words:?}");
+    }
+
+    #[derive(Debug)]
+    enum RunKind {
+        Match(usize, usize),
+        NonMatch(usize, usize),
+    }
+
+    impl RunKind {
+        pub fn bounds(&self) -> (usize, usize) {
+            match self {
+                RunKind::Match(s, e) | RunKind::NonMatch(s, e) => (*s, *e),
+            }
+        }
+    }
+
+    let mut all_runs = Vec::new();
+    let mut longest_match_run: Option<(usize, usize)> = None;
+
+    let mut match_start = Some(0);
+    let mut nonmatch_start = None;
+
+    let mut current = 0;
+    while current < selected.len() {
+        let here = &selected[current];
+        if let (Some(_), Some(_)) = here {
+            // match
+            if let Some(start) = nonmatch_start {
+                all_runs.push(RunKind::NonMatch(start, current));
+
+                nonmatch_start = None;
+                match_start = Some(current);
+            }
+        } else {
+            // not match
+            if let Some(start) = match_start {
+                let size = start.abs_diff(current);
+                if longest_match_run.is_none() || longest_match_run.as_ref().unwrap().0 < size {
+                    longest_match_run = Some((size, all_runs.len()));
+                }
+                all_runs.push(RunKind::Match(start, current));
+
+                match_start = None;
+                nonmatch_start = Some(current);
+            }
+        }
+        current += 1;
+    }
+    if let Some(start) = match_start {
+        let size = start.abs_diff(current);
+        if longest_match_run.is_none() || longest_match_run.as_ref().unwrap().0 < size {
+            longest_match_run = Some((size, all_runs.len()));
+        }
+        all_runs.push(RunKind::Match(start, current));
+    } else if let Some(start) = nonmatch_start {
+        all_runs.push(RunKind::NonMatch(start, current));
+    }
+
+    let (length, run_idx) = longest_match_run.unwrap();
+    if debug {
+        println!("    Longest matching run is {length}: {all_runs:?}");
+    }
+    let (mut selected_start, mut selected_end) = &all_runs[run_idx].bounds();
+
+    let mut current = run_idx.saturating_sub(1);
+    let mut allowed_length = length;
+    while current > 0 {
+        match &all_runs[current] {
+            RunKind::NonMatch(s, e) => {
+                if allowed_length.saturating_sub(s.abs_diff(*e)) == 0 {
+                    break;
+                }
+            }
+            RunKind::Match(s, e) => {
+                allowed_length += s.abs_diff(*e);
+                selected_start = std::cmp::min(selected_start, *s);
+            }
+        }
+        current -= 1;
+    }
+
+    let mut current = run_idx + 1;
+    let mut allowed_length = length;
+    while current < all_runs.len() {
+        match &all_runs[current] {
+            RunKind::NonMatch(s, e) => {
+                if allowed_length.saturating_sub(s.abs_diff(*e)) == 0 {
+                    break;
+                }
+            }
+            RunKind::Match(s, e) => {
+                allowed_length += s.abs_diff(*e);
+                selected_end = std::cmp::max(selected_end, *e);
+            }
+        }
+        current += 1;
+    }
+
+    if debug {
+        println!("    Reselected as {selected_start} -> {selected_end}");
+    }
+
+    let selected = &selected[selected_start..selected_end];
+
+    let total = i.len() as f32;
     let mut sum = 0.0;
     for (i, j) in selected {
         match (i, j) {
             (Some(i), Some(j)) => sum += string_similiarity(i, j),
             _ => (),
         }
+    }
+
+    if debug {
+        println!("    {sum} out of {sum}");
     }
 
     sum / total
@@ -91,7 +205,13 @@ fn _pretty_print_alignment(al: &Alignment) {
     print!("[");
     for item in al {
         match item {
-            AlignmentKind::Matches { i, j } => print!("M({i}/{j})"),
+            AlignmentKind::Matches { i, j, ratio } => {
+                if *ratio >= 4 {
+                    print!("M({i}/{j})")
+                } else {
+                    print!("N({i}/{j})")
+                }
+            }
             AlignmentKind::MissingI { j } => print!("_?/{j}_"),
             AlignmentKind::MissingJ { i } => print!("_{i}/?_"),
         }
@@ -130,7 +250,11 @@ pub fn needleman_wunsch<'a, 'b>(a: &[&'a str], b: &[&'b str]) -> Alignment {
             && j > 0
             && matrix[i][j] == (matrix[i - 1][j - 1] + match_or_mismatch(a[i - 1], b[j - 1]))
         {
-            alignment.push(AlignmentKind::Matches { i: i - 1, j: j - 1 });
+            alignment.push(AlignmentKind::Matches {
+                i: i - 1,
+                j: j - 1,
+                ratio: match_or_mismatch(a[i - 1], b[j - 1]),
+            });
             i -= 1;
             j -= 1;
         } else if i > 0 && matrix[i][j] == (matrix[i - 1][j] + INDEL) {
@@ -213,12 +337,18 @@ impl WordMatcher {
         let mapped = uncleaned.iter().map(|s| get_words(&s)).collect();
         Self(mapped)
     }
-    pub fn matches(&self, haystack: &[&str]) -> Option<DetectedItem> {
+    pub fn matches(&self, haystack: &[&str], debug: bool) -> Option<DetectedItem> {
         let mut best: Option<(f32, Alignment)> = None;
         for text in &self.0 {
             let words: Vec<_> = as_ref(text);
+            if debug {
+                println!("  Looking for {:?}", text.join(" "))
+            }
             let alignment = needleman_wunsch(&words, haystack);
-            let score = score(&alignment, &words, haystack);
+            let score = score(&alignment, &words, haystack, debug);
+            if debug {
+                println!("  Score: {score}");
+            }
             if best.is_none() || best.as_ref().unwrap().0 < score {
                 best = Some((score, alignment));
             }
@@ -241,19 +371,19 @@ impl WordMatcher {
     pub fn any_matches(&self, ctx: &crate::context::Context) -> bool {
         for img in &ctx.images {
             let words = img.words();
-            if self.matches(&words).is_some() {
+            if self.matches(&words, ctx.debug).is_some() {
                 return true;
             }
         }
-        if let Some(ctx) = &ctx.title {
-            let words = get_words(&ctx);
-            if self.matches(&as_ref(&words)).is_some() {
+        if let Some(title) = &ctx.title {
+            let words = get_words(&title);
+            if self.matches(&as_ref(&words), ctx.debug).is_some() {
                 return true;
             }
         }
-        if let Some(ctx) = &ctx.body {
-            let words = get_words(&ctx);
-            if self.matches(&as_ref(&words)).is_some() {
+        if let Some(body) = &ctx.body {
+            let words = get_words(&body);
+            if self.matches(&as_ref(&words), ctx.debug).is_some() {
                 return true;
             }
         }
@@ -278,7 +408,10 @@ impl StrAnalzyer {
         if let Some(ocr) = &self.ocr {
             for (idx, image) in context.images.iter().enumerate() {
                 let words = image.words();
-                if let Some(result) = ocr.matches(&words) {
+                if context.debug {
+                    println!("OCR Image {idx}:");
+                }
+                if let Some(result) = ocr.matches(&words, context.debug) {
                     detection.add_image(idx, result);
                 }
             }
@@ -286,7 +419,7 @@ impl StrAnalzyer {
         if let Some(title) = &self.title {
             if let Some(ctx) = &context.title {
                 let words = get_words(&ctx);
-                if let Some(value) = title.matches(&as_ref(&words)) {
+                if let Some(value) = title.matches(&as_ref(&words), context.debug) {
                     detection.set_title(value);
                 }
             }
@@ -294,7 +427,7 @@ impl StrAnalzyer {
         if let Some(body) = &self.body {
             if let Some(ctx) = &context.body {
                 let words = get_words(&ctx);
-                if let Some(value) = body.matches(&as_ref(&words)) {
+                if let Some(value) = body.matches(&as_ref(&words), context.debug) {
                     detection.set_body(value);
                 }
             }
@@ -312,11 +445,17 @@ mod tests {
     use super::*;
 
     #[test]
+    pub fn string_sim() {
+        assert!(string_similiarity("15x", "1pumngutjqwevvqweuyg7") < THRESHOLD);
+        assert!(string_similiarity("get", "1pumngutjqwevvqweuyg7") < THRESHOLD);
+    }
+
+    #[test]
     pub fn works() {
         assert_eq!(match_or_mismatch("hello", "hello"), MATCH);
         assert_eq!(match_or_mismatch("abcdf", "hello"), MISMATCH);
 
-        let phrase = "the quick brown fox somethingelse jumps over the lazy dog";
+        let phrase = "the quick brown fox jumps over the lazy dog";
         let analyzer = StrAnalzyer {
             ocr: None,
             title: Some(WordMatcher::new(vec![phrase.to_string()])),
@@ -326,8 +465,9 @@ mod tests {
         let ctx = Context {
             kind: ContextKind::CliPath(PathBuf::new()),
             images: Vec::new(),
-            title: Some(String::from("the quick brown fox jumps over the lazy dog")),
+            title: Some(String::from("some other words like lots of words on either side but the phrase is still there in the picture somewhere the quick brown fox jumps over the lazy and even more words go on this side of the picture it is unbelievable that it is so long over here dog")),
             body: None,
+            debug: true,
         };
 
         let result = analyzer.analyze(&ctx).unwrap();

@@ -196,6 +196,7 @@ pub struct Context<'a> {
     pub images: Vec<OcrImage>,
     pub title: Option<String>,
     pub body: Option<String>,
+    pub debug: bool,
 }
 
 impl<'a> Context<'a> {
@@ -208,6 +209,7 @@ impl<'a> Context<'a> {
             images,
             title,
             body,
+            debug: false,
         })
     }
     pub fn from_cli_path(path: impl AsRef<Path>) -> anyhow::Result<Self> {

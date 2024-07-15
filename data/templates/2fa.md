@@ -1,4 +1,6 @@
-Hi!  
+{% extends "base.md" %}
+
+{% block content %}
 I'm responding because I think this post is about Two-Factor Authentication; the following are some frequently asked questions that may help help:
 
 ### How to setup 2FA?
@@ -19,11 +21,8 @@ If a code cannot be gotten through any of the above means, then your account is 
 
 Resetting your password by email requires either a 6-digit code or 8-digit backup code. As with logging in, if you're unable to get one of these codes, your account is likely lost.
 
-
 ### I've been locked out, how do I delete the account?
 
 You can submit an Account Deletion Request at [dis.gd/support](https://dis.gd/support)
 
-- - -
-
-^(I am a bot; if this comment was made in error, please correct and downvote me.)
+{% endblock content %}

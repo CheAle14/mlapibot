@@ -33,9 +33,10 @@ impl Ratelimiter {
             .unwrap_or(Duration::from_secs(0))
             .as_secs();
 
-        if inbox >= Self::REDDIT_SECONDS && subreddits >= 5 {
+        /*if inbox >= Self::REDDIT_SECONDS && subreddits >= 5 {
             Rate::InboxReady
-        } else if subreddits >= Self::REDDIT_SECONDS && inbox >= 5 {
+        } else */
+        if subreddits >= Self::REDDIT_SECONDS && inbox >= 5 {
             Rate::SubredditsReady
         } else {
             let max = std::cmp::max(inbox, subreddits);

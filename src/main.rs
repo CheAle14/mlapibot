@@ -13,6 +13,7 @@ mod groups;
 mod ocr;
 mod reddit;
 mod statics;
+mod webhook;
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -43,26 +44,31 @@ struct TestInfo {
     /// Path where the trigger words will be rendered to
     #[arg(short, long, default_value = "trigger.png")]
     trigger: PathBuf,
+    /// A particular analyzer to use, or all of them if absent.
+    #[arg(short, long)]
+    analzyer: Option<String>,
+    /// Whether to display the markdown formatted template string as well
+    #[arg(short, long)]
+    markdown: bool,
 }
 
-#[derive(Clone, Args, Deserialize)]
-#[group(required = false, multiple = true)]
+#[derive(Clone, Deserialize)]
 struct RedditCredentials {
-    #[arg(long)]
     client_id: String,
-    #[arg(long)]
     client_secret: String,
-    #[arg(long)]
     username: String,
-    #[arg(long)]
     password: String,
+    webhook_url: Option<String>,
 }
 
 #[derive(Args)]
 struct RedditInfo {
-    /// Path where files are to be stored
-    #[arg(long, short)]
+    /// A read-only directory where files such as the templates are stored
+    #[arg(long, default_value = "./data")]
     data_dir: PathBuf,
+    /// A read/write storage directory
+    #[arg(long, short('d'))]
+    scratch_dir: PathBuf,
     /// The subreddits whose posts are monitored
     #[arg(short, long)]
     subreddits: Vec<String>,
@@ -70,7 +76,7 @@ struct RedditInfo {
 
 impl RedditInfo {
     pub fn get_credentials(&self) -> anyhow::Result<Cow<RedditCredentials>> {
-        let credentials_file = self.data_dir.join("credentials.json");
+        let credentials_file = self.scratch_dir.join("credentials.json");
         let mut file = std::fs::File::open(credentials_file)?;
         let parsed = serde_json::from_reader(&mut file)?;
         Ok(Cow::Owned(parsed))
@@ -78,28 +84,49 @@ impl RedditInfo {
 }
 
 fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
-    let ctx = if args.file.is_some() {
+    let mut ctx = if args.file.is_some() {
         let file = args.file.as_ref().unwrap();
         Context::from_cli_path(file)?
     } else {
         let link = args.link.as_ref().unwrap();
         Context::from_cli_link(link)?
     };
+    ctx.debug = args.analzyer.is_some();
 
-    match get_best_analysis(&ctx, analyzers)? {
-        Some((result, anal)) => {
-            println!("{}:\r\n{:?}", anal.name, result.get_markdown(&ctx));
+    println!(
+        "Saw words:\r\n{}",
+        ctx.images.first().unwrap().words().join(" ")
+    );
 
-            for img in &ctx.images {
-                let img = img.get_seen_words_image();
-                img.save(&args.seen)?;
+    if let Some(name) = &args.analzyer {
+        let analyzer = analyzers
+            .iter()
+            .find(|a| &a.name == name)
+            .expect("analzyer exists by that name");
+        match analyzer.analyze(&ctx)? {
+            Some(detect) => {
+                println!("{name} saw: {:?}", detect.get_markdown(&ctx)?)
             }
-            for img in result.get_trigger_images(&ctx)? {
-                img.save(&args.trigger)?;
+            None => {
+                println!("{name} detected nothing");
             }
         }
-        None => {
-            println!("Nothing detected");
+    } else {
+        match get_best_analysis(&ctx, analyzers)? {
+            Some((result, anal)) => {
+                println!("{}:\r\n{:?}", anal.name, result.get_markdown(&ctx));
+
+                for img in &ctx.images {
+                    let img = img.get_seen_words_image();
+                    img.save(&args.seen)?;
+                }
+                for img in result.get_trigger_images(&ctx)? {
+                    img.save(&args.trigger)?;
+                }
+            }
+            None => {
+                println!("Nothing detected");
+            }
         }
     }
 

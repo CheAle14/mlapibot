@@ -13,7 +13,7 @@ pub struct Subreddit {
 
 impl Subreddit {
     pub fn new(args: &RedditInfo, data: roux::Subreddit) -> Self {
-        let file = args.data_dir.join(format!("r_{}_last.txt", data.name));
+        let file = args.scratch_dir.join(format!("r_{}_last.txt", data.name));
         let seen = SeenTracker::new(file);
         Self { data, seen }
     }

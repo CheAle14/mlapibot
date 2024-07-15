@@ -4,7 +4,7 @@ use func_analyzer::FuncAnalyzer;
 use image::DynamicImage;
 use ord_many::{max_many, partial_max_iter};
 use pattern_analyzer::PatternAnalyzer;
-use serde::Deserialize;
+use serde::{de::Visitor, Deserialize, Deserializer};
 use str_analyzer::{get_words, StrAnalzyer, WordMatcher};
 
 use crate::context::Context;
@@ -152,6 +152,38 @@ fn default_true() -> bool {
     true
 }
 
+fn deserialse_template<'de, D>(de: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct StrVisitor;
+
+    impl<'de> Visitor<'de> for StrVisitor {
+        type Value = String;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "string or str")
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(format!("{v}.md"))
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(format!("{v}.md"))
+        }
+    }
+
+    let visitor = StrVisitor;
+    de.deserialize_string(visitor)
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Analyzer {
     pub name: String,
@@ -159,7 +191,7 @@ pub struct Analyzer {
     pub report: bool,
     #[serde(default = "default_true")]
     pub ignore_self_posts: bool,
-    #[serde(default = "default_template")]
+    #[serde(default = "default_template", deserialize_with = "deserialse_template")]
     pub template: String,
     blacklist: Option<WordMatcher>,
     #[serde(flatten)]

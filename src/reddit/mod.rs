@@ -1,13 +1,16 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use roux::Reddit;
+use roux::{submission::SubmissionData, Reddit};
 use seen_tracker::SeenTracker;
 use subreddit::Subreddit;
+use tera::Tera;
 
 use crate::{
-    analysis::{self, Analyzer},
-    context, RedditInfo,
+    analysis::{self, Analyzer, Detection},
+    context,
+    webhook::{create_detection_message, Message, MessageEmbed, MessageEmbedAuthor, WebhookClient},
+    RedditInfo,
 };
 
 mod ratelimiter;
@@ -20,12 +23,18 @@ pub struct RedditClient<'a> {
     me: roux::Me,
     subreddits: Vec<Subreddit>,
     ratelimit: ratelimiter::Ratelimiter,
+    templates: Tera,
+    webhook: Option<WebhookClient>,
 }
 
 impl<'a> RedditClient<'a> {
     const USER_AGENT: &str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
 
     pub fn new(analzyers: &'a [Analyzer], args: &RedditInfo) -> anyhow::Result<Self> {
+        let templates_path = args.data_dir.join("templates").join("*.md");
+        let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
+        let found: Vec<_> = templates.get_template_names().collect();
+        assert!(found.len() > 0);
         let credentials = args.get_credentials()?;
 
         let me = Reddit::new(
@@ -49,12 +58,20 @@ impl<'a> RedditClient<'a> {
             .map(|name| Subreddit::new(args, roux::Subreddit::new_oauth(&name, &me.client)))
             .collect();
 
+        let webhook = credentials
+            .webhook_url
+            .as_ref()
+            .map(|url| WebhookClient::new(url))
+            .transpose()?;
+
         Ok(Self {
             me,
             subreddits,
             analzyers,
             ratelimit: ratelimiter::Ratelimiter::new(),
-            data_dir: args.data_dir.clone(),
+            data_dir: args.scratch_dir.clone(),
+            templates,
+            webhook,
         })
     }
 
@@ -87,8 +104,18 @@ impl<'a> RedditClient<'a> {
                     println!("Triggered on post {:?} by /u/{}", post.title, post.author);
                     let md = detection.get_markdown(&ctx)?;
                     let md = md.join("\n\n---\n\n");
-                    let text = format!("Scam {}\r\n{}", detected.name, &md);
-                    self.me.comment(&text, &post.name)?;
+
+                    let template_context = tera::Context::new();
+                    let template = self
+                        .templates
+                        .render(&detected.template, &template_context)?;
+
+                    self.me.comment(&template, &post.name)?;
+
+                    if let Some(webhook) = &mut self.webhook {
+                        let msg = create_detection_message(&post, &detection, detected);
+                        webhook.send(&msg)?;
+                    }
                 }
             }
         }
