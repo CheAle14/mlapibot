@@ -8,12 +8,12 @@ use crate::{
     statics::{link_regex, valid_extensions},
 };
 
-pub enum ContextKind {
+pub enum ContextKind<'a> {
     CliPath(PathBuf),
     CliLink(Url),
-    Submission(roux::submission::SubmissionData),
-    Comment(roux::comment::CommentData),
-    DirectMessage(roux::inbox::InboxData),
+    Submission(&'a roux::submission::SubmissionData),
+    Comment(&'a roux::comment::CommentData),
+    DirectMessage(&'a roux::inbox::InboxData),
 }
 
 fn parse_url(text: impl AsRef<str>) -> Option<Url> {
@@ -59,18 +59,20 @@ fn extract_filename(url: &Url) -> Option<&str> {
     Some(filename)
 }
 
+fn allowed_url(url: &Url) -> bool {
+    if let Some(filename) = extract_filename(url) {
+        valid_extensions()
+            .iter()
+            .any(|ext| filename.ends_with(*ext))
+    } else {
+        false
+    }
+}
+
 fn extract_image_links(text: &str, rgx: &Regex) -> Vec<Url> {
     let mut all = extract_all_links(text, rgx);
 
-    all.retain(|item| {
-        if let Some(filename) = extract_filename(item) {
-            valid_extensions()
-                .iter()
-                .any(|ext| filename.ends_with(*ext))
-        } else {
-            false
-        }
-    });
+    all.retain(allowed_url);
 
     all
 }
@@ -105,7 +107,7 @@ fn download_file(url: &Url) -> anyhow::Result<ImageSource> {
     }
 }
 
-impl ContextKind {
+impl<'a> ContextKind<'a> {
     pub fn get_images(&self) -> anyhow::Result<Vec<OcrImage>> {
         let pattern = link_regex();
         let mut fixed_urls = Vec::new();
@@ -120,15 +122,30 @@ impl ContextKind {
                 fixed_urls.push(url);
             }
             ContextKind::Submission(submission) => {
-                if let Some(text) = &submission.url {
-                    if let Some(url) = parse_url(text) {
-                        fixed_urls.push(url);
-                    }
-                }
-
                 if submission.is_self {
                     for url in extract_image_links(&submission.selftext, pattern) {
                         fixed_urls.push(url)
+                    }
+                } else if let Some(gallery) = &submission.gallery_data {
+                    if let Some(metadata) = &submission.media_metadata {
+                        for img in &gallery.items {
+                            if let Some(meta) = metadata.get(&img.media_id) {
+                                if meta.e != "Image" {
+                                    continue;
+                                }
+                                if let Some(url) = parse_url(&meta.s.u) {
+                                    fixed_urls.push(url);
+                                } else {
+                                    eprintln!("Invalid url: {meta:?}");
+                                }
+                            } else {
+                                eprintln!("Gallery item not present: {img:?}");
+                            }
+                        }
+                    }
+                } else if let Some(text) = &submission.url {
+                    if let Some(url) = parse_url(text) {
+                        fixed_urls.push(url);
                     }
                 }
                 // TODO: gallery
@@ -174,15 +191,15 @@ impl ContextKind {
     }
 }
 
-pub struct Context {
-    pub kind: ContextKind,
+pub struct Context<'a> {
+    pub kind: ContextKind<'a>,
     pub images: Vec<OcrImage>,
     pub title: Option<String>,
     pub body: Option<String>,
 }
 
-impl Context {
-    fn from_kind(kind: ContextKind) -> anyhow::Result<Self> {
+impl<'a> Context<'a> {
+    fn from_kind(kind: ContextKind<'a>) -> anyhow::Result<Self> {
         let images = kind.get_images()?;
         let (title, body) = kind.get_title_and_body()?;
 
@@ -205,7 +222,9 @@ impl Context {
         Self::from_kind(kind)
     }
 
-    fn from_submission(submission: roux::submission::SubmissionData) -> anyhow::Result<Self> {
+    pub fn from_submission(
+        submission: &'a roux::submission::SubmissionData,
+    ) -> anyhow::Result<Self> {
         Self::from_kind(ContextKind::Submission(submission))
     }
 }

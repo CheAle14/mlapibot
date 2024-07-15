@@ -70,6 +70,10 @@ pub fn score(arr: &Alignment, i: &[&str], j: &[&str]) -> f32 {
         mapped.push((item.get_i(i), item.get_j(j)));
     }
 
+    if first_match > last_match {
+        return 0.0;
+    }
+
     let selected = &mapped[first_match..=last_match];
     let total = std::cmp::max(selected.len(), i.len() / 2) as f32;
     let mut sum = 0.0;

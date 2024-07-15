@@ -1,8 +1,10 @@
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
 
 use analysis::{get_best_analysis, load_scams, Analyzer};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use context::Context;
+use reddit::RedditClient;
+use serde::Deserialize;
 use url::Url;
 
 mod analysis;
@@ -43,8 +45,9 @@ struct TestInfo {
     trigger: PathBuf,
 }
 
-#[derive(Args)]
-struct RedditInfo {
+#[derive(Clone, Args, Deserialize)]
+#[group(required = false, multiple = true)]
+struct RedditCredentials {
     #[arg(long)]
     client_id: String,
     #[arg(long)]
@@ -53,6 +56,25 @@ struct RedditInfo {
     username: String,
     #[arg(long)]
     password: String,
+}
+
+#[derive(Args)]
+struct RedditInfo {
+    /// Path where files are to be stored
+    #[arg(long, short)]
+    data_dir: PathBuf,
+    /// The subreddits whose posts are monitored
+    #[arg(short, long)]
+    subreddits: Vec<String>,
+}
+
+impl RedditInfo {
+    pub fn get_credentials(&self) -> anyhow::Result<Cow<RedditCredentials>> {
+        let credentials_file = self.data_dir.join("credentials.json");
+        let mut file = std::fs::File::open(credentials_file)?;
+        let parsed = serde_json::from_reader(&mut file)?;
+        Ok(Cow::Owned(parsed))
+    }
 }
 
 fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
@@ -85,8 +107,8 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
 }
 
 fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
-    const USER_AGENT: &str = "mlapibot-rs v2.0.0 (by /u/DarkOverLordCO)";
-    todo!();
+    let mut client = RedditClient::new(analyzers, args)?;
+    client.run()
 }
 
 fn main() -> anyhow::Result<()> {
@@ -96,6 +118,16 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         SubCommand::Test(test) => test_single(&analyzers, &test),
-        SubCommand::Reddit(reddit) => run_reddit(&analyzers, &reddit),
+        SubCommand::Reddit(reddit) => {
+            if reddit.subreddits.len() == 0 {
+                let mut cmd = Cli::command();
+                cmd.error(
+                    clap::error::ErrorKind::MissingRequiredArgument,
+                    "at least one subreddit is required",
+                )
+                .exit();
+            }
+            run_reddit(&analyzers, &reddit)
+        }
     }
 }

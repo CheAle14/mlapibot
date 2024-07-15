@@ -10,7 +10,7 @@ image = "0.25.1"
 imageproc = "0.25.0"
 leptess = "0.14.0"
 regex = "1.10.5"
-roux = { version = "2.2.12", features = ["blocking"] }
+roux = { git = "https://github.com/CheAle14/roux.git", features = ["blocking"] }
 url = "2.5.2"
 ord-many = { git = "https://github.com/CheAle14/ord-many.git" }
 stringzilla = "3.8.4"
