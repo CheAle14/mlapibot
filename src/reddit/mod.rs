@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use roux::{submission::SubmissionData, Reddit};
-use seen_tracker::SeenTracker;
+use roux::Reddit;
 use subreddit::Subreddit;
 use tera::Tera;
 
 use crate::{
-    analysis::{self, Analyzer, Detection},
+    analysis::{self, Analyzer},
     context,
-    webhook::{create_detection_message, Message, MessageEmbed, MessageEmbedAuthor, WebhookClient},
+    imgur::{self, ImgurClient},
+    webhook::{create_detection_message, WebhookClient},
     RedditInfo,
 };
 
@@ -25,6 +25,7 @@ pub struct RedditClient<'a> {
     ratelimit: ratelimiter::Ratelimiter,
     templates: Tera,
     webhook: Option<WebhookClient>,
+    imgur: Option<ImgurClient>,
 }
 
 impl<'a> RedditClient<'a> {
@@ -64,6 +65,12 @@ impl<'a> RedditClient<'a> {
             .map(|url| WebhookClient::new(url))
             .transpose()?;
 
+        let mut imgur = credentials
+            .imgur_credentials
+            .as_ref()
+            .map(|creds| ImgurClient::new(creds))
+            .transpose()?;
+
         Ok(Self {
             me,
             subreddits,
@@ -72,6 +79,7 @@ impl<'a> RedditClient<'a> {
             data_dir: args.scratch_dir.clone(),
             templates,
             webhook,
+            imgur,
         })
     }
 
@@ -102,10 +110,20 @@ impl<'a> RedditClient<'a> {
 
                 if let Some((detection, detected)) = result {
                     println!("Triggered on post {:?} by /u/{}", post.title, post.author);
-                    let md = detection.get_markdown(&ctx)?;
-                    let md = md.join("\n\n---\n\n");
 
-                    let template_context = tera::Context::new();
+                    let mut template_context = tera::Context::new();
+
+                    let imgur_link = match (ctx.images.len() > 0, self.imgur.as_mut()) {
+                        (true, Some(imgur)) => {
+                            let album = imgur::upload_images(imgur, &ctx, &detection, detected)
+                                .context("uploading to imgur")?;
+                            let url = format!("https://imgur.com/a/{}", album.id);
+                            template_context.insert("imgur_url", &url);
+                            Some(url)
+                        }
+                        (_, _) => None,
+                    };
+
                     let template = self
                         .templates
                         .render(&detected.template, &template_context)?;
@@ -113,7 +131,7 @@ impl<'a> RedditClient<'a> {
                     self.me.comment(&template, &post.name)?;
 
                     if let Some(webhook) = &mut self.webhook {
-                        let msg = create_detection_message(&post, &detection, detected);
+                        let msg = create_detection_message(&post, &detection, detected, imgur_link);
                         webhook.send(&msg)?;
                     }
                 }

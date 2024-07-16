@@ -83,13 +83,19 @@ fn download_file(url: &Url) -> anyhow::Result<ImageSource> {
     let mut resp = reqwest::blocking::get(text)?;
     let len = resp.content_length().unwrap_or_default();
     println!("Image is {len} bytes");
+    let path = url.path();
+    let filename = if let Some(idx) = path.rfind('/') {
+        &path[idx..]
+    } else {
+        &path[..]
+    };
+
     if cfg!(windows) || len > (1024 * 1024 * 10) {
         // download to file on windows since not all image types can be read from memory, or
         // on other OS if the image is too large
-        let path = url.path();
-        let extension = if path.ends_with(".jpeg") {
+        let extension = if filename.ends_with(".jpeg") {
             ".jpeg"
-        } else if path.ends_with(".jpg") {
+        } else if filename.ends_with(".jpg") {
             ".jpg"
         } else {
             ".png"
@@ -103,7 +109,10 @@ fn download_file(url: &Url) -> anyhow::Result<ImageSource> {
         let mut v = Vec::with_capacity(len as usize);
         let _ = resp.copy_to(&mut v)?;
 
-        Ok(ImageSource::MemoryOnly(v))
+        Ok(ImageSource::MemoryOnly {
+            filename: filename.to_string(),
+            bytes: v,
+        })
     }
 }
 

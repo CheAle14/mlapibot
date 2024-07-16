@@ -124,14 +124,18 @@ pub fn create_detection_message(
     submission: &roux::submission::SubmissionData,
     detection: &crate::analysis::Detection,
     analyzer: &crate::analysis::Analyzer,
+    imgur_link: Option<String>,
 ) -> Message {
     let mut embed = MessageEmbed::builder();
     embed
         .with_title(&submission.title)
         .with_description(format!(
-            "{}: {:.2}%",
+            "{}: {:.2}%{}",
             analyzer.name,
-            detection.best_score() * 100.0
+            detection.best_score() * 100.0,
+            imgur_link
+                .map(|s| format!("\r\n\r\n[OCR]({s})"))
+                .unwrap_or("".into())
         ))
         .with_url(format!("https://reddit.com{}", submission.permalink))
         .with_author(MessageEmbedAuthor::new(&submission.author));

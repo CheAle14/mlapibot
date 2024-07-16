@@ -10,6 +10,7 @@ use url::Url;
 mod analysis;
 mod context;
 mod groups;
+mod imgur;
 mod ocr;
 mod reddit;
 mod statics;
@@ -53,12 +54,20 @@ struct TestInfo {
 }
 
 #[derive(Clone, Deserialize)]
+pub struct ImgurCredentials {
+    imgur_client_id: String,
+    imgur_client_secret: String,
+}
+
+#[derive(Clone, Deserialize)]
 struct RedditCredentials {
     client_id: String,
     client_secret: String,
     username: String,
     password: String,
     webhook_url: Option<String>,
+    #[serde(flatten)]
+    imgur_credentials: Option<ImgurCredentials>,
 }
 
 #[derive(Args)]
