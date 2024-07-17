@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::anyhow;
 use regex::Regex;
 use url::Url;
 
@@ -90,30 +91,15 @@ fn download_file(url: &Url) -> anyhow::Result<ImageSource> {
         &path[..]
     };
 
-    if cfg!(windows) || len > (1024 * 1024 * 10) {
-        // download to file on windows since not all image types can be read from memory, or
-        // on other OS if the image is too large
-        let extension = if filename.ends_with(".jpeg") {
-            ".jpeg"
-        } else if filename.ends_with(".jpg") {
-            ".jpg"
-        } else {
-            ".png"
-        };
+    let (_, extension) = filename
+        .rsplit_once('.')
+        .ok_or(anyhow!("no extension in {filename:?}"))?;
 
-        let mut file = tempfile::Builder::new().suffix(extension).tempfile()?;
-        let _ = resp.copy_to(&mut file)?;
-        Ok(ImageSource::DeleteOnDropFile(file))
-    } else {
-        // download to memory for small images
-        let mut v = Vec::with_capacity(len as usize);
-        let _ = resp.copy_to(&mut v)?;
-
-        Ok(ImageSource::MemoryOnly {
-            filename: filename.to_string(),
-            bytes: v,
-        })
-    }
+    let mut file = tempfile::Builder::new()
+        .suffix(&format!(".{extension}"))
+        .tempfile()?;
+    let _ = resp.copy_to(&mut file)?;
+    Ok(ImageSource::DeleteOnDropFile(file))
 }
 
 impl<'a> ContextKind<'a> {

@@ -82,14 +82,6 @@ impl ImgurClient {
         let form_image = match image.image {
             ImageSource::KeepFile(path) => multipart::Part::file(path)?,
             ImageSource::DeleteOnDropFile(guard) => multipart::Part::file(guard)?,
-            ImageSource::MemoryOnly { filename, bytes } => {
-                let (_, ext) = filename.rsplit_once('.').unwrap();
-
-                let mime = format!("image/{ext}");
-                multipart::Part::bytes(bytes.clone())
-                    .file_name(filename.clone())
-                    .mime_str(&mime)?
-            }
         };
 
         let form = reqwest::blocking::multipart::Form::new()

@@ -25,18 +25,11 @@ pub enum ImageSource {
     KeepFile(PathBuf),
     /// Image source is a local file that will be deleted
     DeleteOnDropFile(NamedTempFile),
-    /// Image source is only in memory
-    MemoryOnly { filename: String, bytes: Vec<u8> },
 }
 
 impl ImageSource {
     pub fn read_image(&self) -> anyhow::Result<DynamicImage> {
         match &self {
-            Self::MemoryOnly { bytes, .. } => {
-                let reader = Cursor::new(bytes);
-                let img = image::io::Reader::new(reader).decode()?;
-                Ok(img)
-            }
             Self::KeepFile(path) => {
                 let img = image::io::Reader::open(path)?.decode()?;
                 Ok(img)
@@ -79,7 +72,6 @@ impl OcrImage {
     pub fn new(source: ImageSource) -> anyhow::Result<Self> {
         let mut lt = get_tesseract()?;
         match &source {
-            ImageSource::MemoryOnly { bytes, .. } => lt.set_image_from_mem(&bytes)?,
             ImageSource::KeepFile(path) => lt.set_image(path)?,
             ImageSource::DeleteOnDropFile(guard) => lt.set_image(guard)?,
         }
