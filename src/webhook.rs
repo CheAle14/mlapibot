@@ -1,3 +1,4 @@
+use roux::submission::SubmissionData;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -42,13 +43,28 @@ impl MessageEmbed {
         }
     }
 
+    pub fn title(mut self, title: impl AsRef<str>) -> Self {
+        self.with_title(title);
+        self
+    }
+
     pub fn with_title(&mut self, title: impl AsRef<str>) -> &mut Self {
         self.title = Some(title.as_ref().to_string());
         self
     }
 
+    pub fn description(mut self, description: impl AsRef<str>) -> Self {
+        self.with_description(description);
+        self
+    }
+
     pub fn with_description(&mut self, description: impl AsRef<str>) -> &mut Self {
         self.description = Some(description.as_ref().to_string());
+        self
+    }
+
+    pub fn url(mut self, url: impl AsRef<str>) -> Self {
+        self.with_url(url);
         self
     }
 
@@ -79,11 +95,25 @@ impl Message {
         }
     }
 
+    #[inline(always)]
+    pub fn content(mut self, content: impl AsRef<str>) -> Self {
+        self.with_content(content);
+        self
+    }
+
+    #[inline(always)]
     pub fn with_content(&mut self, content: impl AsRef<str>) -> &mut Self {
         self.content = Some(content.as_ref().to_string());
         self
     }
 
+    #[inline(always)]
+    pub fn embed(mut self, embed: MessageEmbed) -> Self {
+        self.with_embed(embed);
+        self
+    }
+
+    #[inline(always)]
     pub fn with_embed(&mut self, embed: MessageEmbed) -> &mut Self {
         self.embeds.push(embed);
         self
@@ -121,7 +151,7 @@ impl WebhookClient {
 }
 
 pub fn create_detection_message(
-    submission: &roux::submission::SubmissionData,
+    submission: &SubmissionData,
     detection: &crate::analysis::Detection,
     analyzer: &crate::analysis::Analyzer,
     imgur_link: Option<String>,
@@ -143,4 +173,16 @@ pub fn create_detection_message(
     let mut message = Message::builder();
     message.with_embed(embed);
     message
+}
+
+pub fn create_error_processing_message(post: &SubmissionData) -> Message {
+    Message::builder().embed(
+        MessageEmbed::builder()
+            .title("Error: error result whilst processing")
+            .description(format!(
+                "Post [`{}`](https://reddit.com{}) by /u/{} caused an error",
+                post.title, post.permalink, post.author
+            ))
+            .url(format!("https://reddit.com{}", post.permalink)),
+    )
 }

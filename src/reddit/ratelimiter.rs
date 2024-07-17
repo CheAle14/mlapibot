@@ -24,28 +24,37 @@ impl Ratelimiter {
 
     pub fn get(&self) -> Rate {
         let now = Instant::now();
-        let inbox = now
-            .checked_duration_since(self.last_inbox)
-            .unwrap_or(Duration::from_secs(0))
-            .as_secs();
         let subreddits = now
             .checked_duration_since(self.last_subreddits)
             .unwrap_or(Duration::from_secs(0))
             .as_secs();
+        let inbox = now
+            .checked_duration_since(self.last_inbox)
+            .unwrap_or(Duration::from_secs(0))
+            .as_secs();
 
-        /*if inbox >= Self::REDDIT_SECONDS && subreddits >= 5 {
+        let least = std::cmp::min(subreddits, inbox);
+
+        if inbox >= Self::REDDIT_SECONDS && least >= 5 {
             Rate::InboxReady
-        } else */
-        if subreddits >= Self::REDDIT_SECONDS && inbox >= 5 {
+        } else if subreddits >= Self::REDDIT_SECONDS && least >= 5 {
             Rate::SubredditsReady
         } else {
             let max = std::cmp::max(inbox, subreddits);
 
-            if max >= Self::REDDIT_SECONDS {
-                Rate::NoneReadyFor(Duration::from_secs(5))
+            let secs = if max >= Self::REDDIT_SECONDS {
+                5
             } else {
-                Rate::NoneReadyFor(Duration::from_secs(Self::REDDIT_SECONDS - max))
-            }
+                Self::REDDIT_SECONDS - max
+            };
+
+            let secs = if least < 5 {
+                std::cmp::max(secs, 5)
+            } else {
+                secs
+            };
+
+            Rate::NoneReadyFor(Duration::from_secs(secs))
         }
     }
 

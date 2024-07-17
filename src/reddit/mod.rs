@@ -9,7 +9,7 @@ use crate::{
     analysis::{self, Analyzer},
     context,
     imgur::{self, ImgurClient},
-    webhook::{create_detection_message, WebhookClient},
+    webhook::{create_detection_message, create_error_processing_message, WebhookClient},
     RedditInfo,
 };
 
@@ -29,7 +29,7 @@ pub struct RedditClient<'a> {
 }
 
 impl<'a> RedditClient<'a> {
-    const USER_AGENT: &str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
+    const USER_AGENT: &'static str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
 
     pub fn new(analzyers: &'a [Analyzer], args: &RedditInfo) -> anyhow::Result<Self> {
         let templates_path = args.data_dir.join("templates").join("*.md");
@@ -65,7 +65,7 @@ impl<'a> RedditClient<'a> {
             .map(|url| WebhookClient::new(url))
             .transpose()?;
 
-        let mut imgur = credentials
+        let imgur = credentials
             .imgur_credentials
             .as_ref()
             .map(|creds| ImgurClient::new(creds))
@@ -104,7 +104,11 @@ impl<'a> RedditClient<'a> {
                     Ok(result) => result,
                     Err(err) => {
                         eprintln!("Error whilst analyising {}: {err:?}", post.id);
-                        return Ok(());
+                        if let Some(webhook) = &mut self.webhook {
+                            let msg = create_error_processing_message(&post);
+                            webhook.send(&msg)?;
+                        }
+                        continue;
                     }
                 };
 
@@ -143,10 +147,7 @@ impl<'a> RedditClient<'a> {
     pub fn run(&mut self) -> anyhow::Result<()> {
         loop {
             match self.ratelimit.get() {
-                ratelimiter::Rate::NoneReadyFor(dur) => {
-                    println!("Sleeping for {dur:?}");
-                    std::thread::sleep(dur)
-                }
+                ratelimiter::Rate::NoneReadyFor(dur) => std::thread::sleep(dur),
                 ratelimiter::Rate::InboxReady => {
                     println!("Checking inbox");
                     self.check_inbox().context("check inbox")?;
