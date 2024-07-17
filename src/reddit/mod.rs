@@ -146,6 +146,11 @@ impl<'a> RedditClient<'a> {
 
                     self.me.comment(&template, &post.name)?;
 
+                    if detected.report {
+                        self.me
+                            .report(&post.name, "Appears to be a common repost")?;
+                    }
+
                     if let Some(webhook) = &mut self.webhook {
                         let msg = create_detection_message(&post, &detection, detected, imgur_link);
                         webhook.send(&msg)?;
@@ -161,12 +166,12 @@ impl<'a> RedditClient<'a> {
             match self.ratelimit.get() {
                 ratelimiter::Rate::NoneReadyFor(dur) => std::thread::sleep(dur),
                 ratelimiter::Rate::InboxReady => {
-                    println!("{:?}: Checking inbox", chrono::Utc::now());
+                    println!("Checking inbox");
                     self.check_inbox().context("check inbox")?;
                     self.ratelimit.set_inbox();
                 }
                 ratelimiter::Rate::SubredditsReady => {
-                    println!("{:?}: Checking subreddits", chrono::Utc::now());
+                    println!("Checking subreddits");
                     self.check_subreddits().context("check subreddits")?;
                     self.ratelimit.set_subreddits();
                 }

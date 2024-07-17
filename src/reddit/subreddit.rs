@@ -22,7 +22,7 @@ impl Subreddit {
         let options = self.seen.get_options();
         let data = self.data.latest(25, options)?;
         if let Some(latest) = data.data.children.first() {
-            self.seen.set_seen(&latest.data.name);
+            self.seen.set_seen(latest.data.name.full());
         }
         let things: Vec<_> = data.data.children.into_iter().map(|d| d.data).collect();
 

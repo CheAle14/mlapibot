@@ -357,9 +357,7 @@ checksum = "a21f936df1771bf62b77f047b726c4625ff2e8aa607c01ec06e5a05bd8463401"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
- "js-sys",
  "num-traits",
- "wasm-bindgen",
  "windows-targets 0.52.6",
 ]
 
@@ -1403,7 +1401,6 @@ version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "anyhow",
- "chrono",
  "clap",
  "image",
  "imageproc",
@@ -2108,7 +2105,7 @@ dependencies = [
 [[package]]
 name = "roux"
 version = "2.2.12"
-source = "git+https://github.com/CheAle14/roux.git#0d76c90b5da86d9be0de4bc58637acfe654ad2e9"
+source = "git+https://github.com/CheAle14/roux.git#f12ff081bf6fc29776975cbff9c449eee42f2227"
 dependencies = [
  "maybe-async",
  "reqwest 0.11.27",

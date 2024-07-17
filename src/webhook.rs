@@ -199,12 +199,18 @@ pub fn create_inbox_message(message: &InboxData) -> Message {
         MessageEmbedAuthor::new("no author")
     };
 
-    Message::builder().embed(
-        MessageEmbed::builder()
-            .title(format!("Inbox: {}", subject))
-            .description(description)
-            .author(author),
-    )
+    let mut embed = MessageEmbed::builder()
+        .title(format!("Inbox: {}", subject))
+        .description(description)
+        .author(author);
+
+    if message.context.starts_with("http") {
+        embed.with_url(&message.context);
+    } else {
+        embed.with_url(format!("https://reddit.com{}", message.context));
+    }
+
+    Message::builder().embed(embed)
 }
 
 pub fn create_error_processing_message(post: &SubmissionData) -> Message {
