@@ -149,12 +149,12 @@ impl<'a> RedditClient<'a> {
             match self.ratelimit.get() {
                 ratelimiter::Rate::NoneReadyFor(dur) => std::thread::sleep(dur),
                 ratelimiter::Rate::InboxReady => {
-                    println!("Checking inbox");
+                    println!("{:?}: Checking inbox", chrono::Utc::now());
                     self.check_inbox().context("check inbox")?;
                     self.ratelimit.set_inbox();
                 }
                 ratelimiter::Rate::SubredditsReady => {
-                    println!("Checking subreddits");
+                    println!("{:?}: Checking subreddits", chrono::Utc::now());
                     self.check_subreddits().context("check subreddits")?;
                     self.ratelimit.set_subreddits();
                 }
