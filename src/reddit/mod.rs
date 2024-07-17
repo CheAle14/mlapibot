@@ -9,7 +9,10 @@ use crate::{
     analysis::{self, Analyzer},
     context,
     imgur::{self, ImgurClient},
-    webhook::{create_detection_message, create_error_processing_message, WebhookClient},
+    webhook::{
+        create_detection_message, create_error_processing_message, create_inbox_message,
+        WebhookClient,
+    },
     RedditInfo,
 };
 
@@ -89,8 +92,17 @@ impl<'a> RedditClient<'a> {
             println!(
                 "Saw inbox {} from {}",
                 item.data.subject,
-                item.data.author.unwrap_or(String::from("no author"))
+                item.data
+                    .author
+                    .as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("no author")
             );
+            self.me.mark_read(&item.data.name)?;
+            if let Some(webhook) = &mut self.webhook {
+                let inbox = create_inbox_message(&item.data);
+                webhook.send(&inbox)?;
+            }
         }
 
         Ok(())

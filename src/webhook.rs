@@ -1,4 +1,6 @@
-use roux::submission::SubmissionData;
+use std::borrow::Cow;
+
+use roux::{inbox::InboxData, submission::SubmissionData};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -70,6 +72,11 @@ impl MessageEmbed {
 
     pub fn with_url(&mut self, url: impl AsRef<str>) -> &mut Self {
         self.url = Some(url.as_ref().to_string());
+        self
+    }
+
+    pub fn author(mut self, author: MessageEmbedAuthor) -> Self {
+        self.with_author(author);
         self
     }
 
@@ -173,6 +180,31 @@ pub fn create_detection_message(
     let mut message = Message::builder();
     message.with_embed(embed);
     message
+}
+
+fn clamp<'a>(text: &'a str, length: usize) -> &'a str {
+    if text.len() <= length {
+        text
+    } else {
+        &text[..length]
+    }
+}
+
+pub fn create_inbox_message(message: &InboxData) -> Message {
+    let subject = clamp(&message.subject, 128);
+    let description = clamp(&message.body, 4096);
+    let author = if let Some(author) = &message.author {
+        MessageEmbedAuthor::new(author)
+    } else {
+        MessageEmbedAuthor::new("no author")
+    };
+
+    Message::builder().embed(
+        MessageEmbed::builder()
+            .title(format!("Inbox: {}", subject))
+            .description(description)
+            .author(author),
+    )
 }
 
 pub fn create_error_processing_message(post: &SubmissionData) -> Message {
