@@ -28,6 +28,6 @@ impl SeenTracker {
         }
 
         self.seen_id = Some(value.to_string());
-        let _ = std::fs::write(&self.seen_file, value);
+        std::fs::write(&self.seen_file, value).expect("can write seen id to file");
     }
 }

@@ -141,7 +141,7 @@ impl<'a> RedditClient<'a> {
             if subreddit.status_only {
                 continue;
             }
-            for post in subreddit.newest_unseen()? {
+            for post in subreddit.newest_unseen().context("get netwest unseen")? {
                 let ctx = context::Context::from_submission(&post)?;
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
                     Ok(result) => result,
@@ -173,18 +173,24 @@ impl<'a> RedditClient<'a> {
 
                     let template = self
                         .templates
-                        .render(&detected.template, &template_context)?;
+                        .render(&detected.template, &template_context)
+                        .with_context(|| {
+                            format!("rendering to template {:?}", detected.template)
+                        })?;
 
-                    self.me.comment(&template, &post.name)?;
+                    self.me
+                        .comment(&template, &post.name)
+                        .with_context(|| format!("reply to {:?}", post.name))?;
 
                     if detected.report {
                         self.me
-                            .report(&post.name, "Appears to be a common repost")?;
+                            .report(&post.name, "Appears to be a common repost")
+                            .with_context(|| format!("report {:?}", post.name))?;
                     }
 
                     if let Some(webhook) = &mut self.webhook {
                         let msg = create_detection_message(&post, &detection, detected, imgur_link);
-                        webhook.send(&msg)?;
+                        webhook.send(&msg).context("send detection webhook")?;
                     }
                 }
             }
