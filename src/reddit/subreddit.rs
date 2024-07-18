@@ -97,9 +97,10 @@ impl Subreddit {
     pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<roux::submission::SubmissionData>> {
         let options = self.seen.get_options();
         let data = self.data.latest(25, options)?;
-        if let Some(latest) = data.data.children.first() {
-            self.seen.set_seen(latest.data.name.full());
+        if let Some(latest) = data.data.after {
+            self.seen.set_seen(&latest);
         }
+        println!("Saw {} posts in latest", data.data.children.len());
         let things: Vec<_> = data.data.children.into_iter().map(|d| d.data).collect();
 
         Ok(things)
