@@ -3,6 +3,8 @@ use std::borrow::Cow;
 use roux::{inbox::InboxData, submission::SubmissionData};
 use serde::Serialize;
 
+use crate::utils::clamp;
+
 #[derive(Debug, Serialize)]
 pub struct MessageEmbedAuthor {
     pub name: String,
@@ -180,14 +182,6 @@ pub fn create_detection_message(
     let mut message = Message::builder();
     message.with_embed(embed);
     message
-}
-
-fn clamp<'a>(text: &'a str, length: usize) -> &'a str {
-    if text.len() <= length {
-        text
-    } else {
-        &text[..length]
-    }
 }
 
 pub fn create_inbox_message(message: &InboxData) -> Message {

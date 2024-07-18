@@ -1,7 +1,12 @@
-use std::path::PathBuf;
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use anyhow::Context;
-use roux::Reddit;
+use roux::{builders::submission::SubmissionSubmitBuilder, Reddit};
+use status_tracker::CachedSummary;
+use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
 use tera::Tera;
 
@@ -18,6 +23,7 @@ use crate::{
 
 mod ratelimiter;
 mod seen_tracker;
+mod status_tracker;
 mod subreddit;
 
 pub struct RedditClient<'a> {
@@ -29,6 +35,8 @@ pub struct RedditClient<'a> {
     templates: Tera,
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
+    status: StatusClient,
+    status_filter: HashMap<String, IncidentImpact>,
 }
 
 impl<'a> RedditClient<'a> {
@@ -50,18 +58,6 @@ impl<'a> RedditClient<'a> {
         .password(&credentials.password)
         .login()?;
 
-        println!(
-            "Logged in as /u/{}; monitoring {} subreddits",
-            credentials.username,
-            args.subreddits.len()
-        );
-
-        let subreddits = args
-            .subreddits
-            .iter()
-            .map(|name| Subreddit::new(args, roux::Subreddit::new_oauth(&name, &me.client)))
-            .collect();
-
         let webhook = credentials
             .webhook_url
             .as_ref()
@@ -74,6 +70,36 @@ impl<'a> RedditClient<'a> {
             .map(|creds| ImgurClient::new(creds))
             .transpose()?;
 
+        let status = StatusClient::new("https://discordstatus.com")?;
+
+        let mut status_filter = args.get_status_levels()?;
+
+        let mut subreddit_names = HashSet::new();
+        for sub in &args.subreddits {
+            subreddit_names.insert(sub);
+        }
+        for key in status_filter.keys() {
+            subreddit_names.insert(key);
+        }
+
+        let subreddits: Vec<Subreddit> = subreddit_names
+            .iter()
+            .map(|&name| Subreddit::new(args, roux::Subreddit::new_oauth(&name, &me.client)))
+            .collect();
+
+        println!(
+            "Logged in as /u/{}; monitoring {} and sending status information to {} subreddits",
+            credentials.username,
+            args.subreddits.len(),
+            status_filter.len()
+        );
+
+        for subreddit in &subreddits {
+            if !status_filter.contains_key(subreddit.name()) {
+                status_filter.insert(subreddit.name().to_owned(), IncidentImpact::Major);
+            }
+        }
+
         Ok(Self {
             me,
             subreddits,
@@ -83,6 +109,8 @@ impl<'a> RedditClient<'a> {
             templates,
             webhook,
             imgur,
+            status,
+            status_filter,
         })
     }
 
@@ -110,6 +138,9 @@ impl<'a> RedditClient<'a> {
 
     fn check_subreddits(&mut self) -> anyhow::Result<()> {
         for subreddit in self.subreddits.iter_mut() {
+            if subreddit.status_only {
+                continue;
+            }
             for post in subreddit.newest_unseen()? {
                 let ctx = context::Context::from_submission(&post)?;
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
@@ -161,6 +192,25 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn check_status(&mut self) -> anyhow::Result<()> {
+        let summary = self.status.get_summary()?;
+        println!(
+            "Status is {:?}, with {} incidents",
+            summary.status.indicator,
+            summary.incidents.len()
+        );
+        // TODO: only compute if any subreddit post needs updating
+        let mut summary = CachedSummary::new(summary)?;
+        for subreddit in &mut self.subreddits {
+            let level = self.status_filter.get(subreddit.name()).unwrap();
+            subreddit
+                .update_status(&self.me, &self.status, &mut summary, level)
+                .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
+        }
+
+        Ok(())
+    }
+
     pub fn run(&mut self) -> anyhow::Result<()> {
         loop {
             match self.ratelimit.get() {
@@ -174,6 +224,11 @@ impl<'a> RedditClient<'a> {
                     println!("Checking subreddits");
                     self.check_subreddits().context("check subreddits")?;
                     self.ratelimit.set_subreddits();
+                }
+                ratelimiter::Rate::StatusReady => {
+                    println!("Checking status");
+                    self.check_status().context("check status")?;
+                    self.ratelimit.set_status();
                 }
             }
         }

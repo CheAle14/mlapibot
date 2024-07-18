@@ -1,10 +1,11 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use analysis::{get_best_analysis, load_scams, Analyzer};
 use clap::{Args, CommandFactory, Parser, Subcommand};
 use context::Context;
 use reddit::RedditClient;
 use serde::Deserialize;
+use statuspage::incident::{Incident, IncidentImpact, IncidentStatus};
 use url::Url;
 
 mod analysis;
@@ -14,6 +15,7 @@ mod imgur;
 mod ocr;
 mod reddit;
 mod statics;
+pub(crate) mod utils;
 mod webhook;
 
 #[derive(Parser)]
@@ -89,6 +91,13 @@ impl RedditInfo {
         let mut file = std::fs::File::open(credentials_file)?;
         let parsed = serde_json::from_reader(&mut file)?;
         Ok(Cow::Owned(parsed))
+    }
+
+    pub fn get_status_levels(&self) -> anyhow::Result<HashMap<String, IncidentImpact>> {
+        let file = self.scratch_dir.join("status.json");
+        let mut file = std::fs::File::open(file)?;
+        let parsed = serde_json::from_reader(&mut file)?;
+        Ok(parsed)
     }
 }
 
