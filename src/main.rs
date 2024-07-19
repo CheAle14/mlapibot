@@ -161,8 +161,8 @@ fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
         r @ Ok(()) => r,
         Err(err) => {
             // we might fail at sending the webhook, so make sure we log the underlying error
-            eprintln!("Error: {err:?}");
-            let text = err.to_string();
+            let text = format!("{err:?}");
+            eprintln!("Error: {text}");
             let clamped = clamp(&text, 4096 - (3 + 3 + 2 + 2));
             let actual = format!("```\r\n{clamped}\r\n```");
             let message = Message::builder()
