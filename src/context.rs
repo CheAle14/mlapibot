@@ -140,12 +140,13 @@ impl<'a> ContextKind<'a> {
                             }
                         }
                     }
+                } else if submission.is_video {
+                    // ignore any videos
                 } else if let Some(text) = &submission.url {
                     if let Some(url) = parse_url(text) {
                         fixed_urls.push(url);
                     }
                 }
-                // TODO: gallery
             }
             ContextKind::Comment(comment) => {
                 if let Some(body) = &comment.body {
