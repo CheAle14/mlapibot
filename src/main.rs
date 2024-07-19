@@ -83,6 +83,8 @@ struct RedditInfo {
     /// The subreddits whose posts are monitored
     #[arg(short, long)]
     subreddits: Vec<String>,
+    #[arg(long, default_value = "false")]
+    dry_run: bool,
 }
 
 impl RedditInfo {

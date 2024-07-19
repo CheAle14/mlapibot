@@ -37,6 +37,7 @@ pub struct RedditClient<'a> {
     imgur: Option<ImgurClient>,
     status: StatusClient,
     status_filter: HashMap<String, IncidentImpact>,
+    dry_run: bool,
 }
 
 impl<'a> RedditClient<'a> {
@@ -94,6 +95,10 @@ impl<'a> RedditClient<'a> {
             status_filter.len()
         );
 
+        if args.dry_run {
+            println!("Running in dry-run mode.");
+        }
+
         for subreddit in &subreddits {
             if !status_filter.contains_key(subreddit.name()) {
                 status_filter.insert(subreddit.name().to_owned(), IncidentImpact::Major);
@@ -111,6 +116,7 @@ impl<'a> RedditClient<'a> {
             imgur,
             status,
             status_filter,
+            dry_run: args.dry_run,
         })
     }
 
@@ -179,19 +185,22 @@ impl<'a> RedditClient<'a> {
                             format!("rendering to template {:?}", detected.template)
                         })?;
 
-                    self.me
-                        .comment(&template, &post.name)
-                        .with_context(|| format!("reply to {:?}", post.name))?;
-
-                    if detected.report {
+                    if !self.dry_run {
                         self.me
-                            .report(&post.name, "Appears to be a common repost")
-                            .with_context(|| format!("report {:?}", post.name))?;
-                    }
+                            .comment(&template, &post.name)
+                            .with_context(|| format!("reply to {:?}", post.name))?;
 
-                    if let Some(webhook) = &mut self.webhook {
-                        let msg = create_detection_message(&post, &detection, detected, imgur_link);
-                        webhook.send(&msg).context("send detection webhook")?;
+                        if detected.report {
+                            self.me
+                                .report(&post.name, "Appears to be a common repost")
+                                .with_context(|| format!("report {:?}", post.name))?;
+                        }
+
+                        if let Some(webhook) = &mut self.webhook {
+                            let msg =
+                                create_detection_message(&post, &detection, detected, imgur_link);
+                            webhook.send(&msg).context("send detection webhook")?;
+                        }
                     }
                 }
             }

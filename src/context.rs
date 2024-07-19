@@ -125,13 +125,15 @@ impl<'a> ContextKind<'a> {
                     if let Some(metadata) = &submission.media_metadata {
                         for img in &gallery.items {
                             if let Some(meta) = metadata.get(&img.media_id) {
-                                if meta.e != "Image" {
-                                    continue;
-                                }
-                                if let Some(url) = parse_url(&meta.s.u) {
-                                    fixed_urls.push(url);
-                                } else {
-                                    eprintln!("Invalid url: {meta:?}");
+                                match meta {
+                                    roux::submission::SubmissionDataMediaMetadata::Image { s, .. } => {
+                                        if let Some(url) = parse_url(&s.u) {
+                                            fixed_urls.push(url);
+                                        } else {
+                                            eprintln!("Invalid url: {meta:?}");
+                                        }
+                                    },
+                                    roux::submission::SubmissionDataMediaMetadata::RedditVideo { .. } => (),
                                 }
                             } else {
                                 eprintln!("Gallery item not present: {img:?}");
