@@ -142,6 +142,7 @@ impl<'a> RedditClient<'a> {
                 continue;
             }
             for post in subreddit.newest_unseen().context("get netwest unseen")? {
+                println!("Saw {:?} {:?} by /u/{}", post.name, post.title, post.author);
                 let ctx = context::Context::from_submission(&post)?;
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
                     Ok(result) => result,

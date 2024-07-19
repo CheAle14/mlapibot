@@ -5,8 +5,7 @@ use clap::{Args, CommandFactory, Parser, Subcommand};
 use context::Context;
 use reddit::RedditClient;
 use serde::Deserialize;
-use statuspage::incident::{Incident, IncidentImpact, IncidentStatus};
-use url::Url;
+use statuspage::incident::IncidentImpact;
 
 mod analysis;
 mod context;
@@ -15,6 +14,7 @@ mod imgur;
 mod ocr;
 mod reddit;
 mod statics;
+pub(crate) mod url;
 pub(crate) mod utils;
 mod webhook;
 
@@ -40,7 +40,7 @@ struct TestInfo {
     file: Option<PathBuf>,
     /// The input image link, which will be downloaded and then OCR-ed
     #[arg(short, long, group = "input")]
-    link: Option<Url>,
+    link: Option<url::Url>,
     /// Path where the seen words will be rendered to
     #[arg(short, long, default_value = "seen.png")]
     seen: PathBuf,

@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use roux::{inbox::InboxData, submission::SubmissionData};
 use serde::Serialize;
 

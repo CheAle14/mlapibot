@@ -78,10 +78,6 @@ impl StatusTracker {
         Self { map, path }
     }
 
-    pub fn is_tracking_any(&self) -> bool {
-        self.map.posts.len() > 0
-    }
-
     pub fn is_tracking(&self, incident_id: &str) -> bool {
         self.map.posts.contains_key(incident_id)
     }

@@ -11,12 +11,12 @@ const MISMATCH: i32 = -MATCH;
 const BOUNDED_DISTANCE: usize = (MATCH - MISMATCH) as usize;
 const INDEL: i32 = MISMATCH;
 
+#[inline(always)]
 fn string_similiarity(a: &str, b: &str) -> f32 {
-    let distance = stringzilla::sz::edit_distance_utf8_bounded(a, b, BOUNDED_DISTANCE);
-    let max_len = std::cmp::max(a.len(), b.len());
-    1.0 - (distance as f32 / max_len as f32)
+    strsim::normalized_damerau_levenshtein(a, b) as f32
 }
 
+#[inline(always)]
 fn match_or_mismatch(top: &str, side: &str) -> i32 {
     let perc = string_similiarity(top, side);
     let interpolate = perc * (BOUNDED_DISTANCE as f32);

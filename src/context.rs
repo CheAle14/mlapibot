@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use regex::Regex;
-use url::Url;
 
 use crate::{
     ocr::image::{ImageSource, OcrImage},
     statics::{link_regex, valid_extensions},
+    url::Url,
 };
 
 pub enum ContextKind<'a> {
@@ -38,11 +38,11 @@ fn fix_url(mut url: Url) -> Option<Url> {
     if url.scheme() != "https" {
         None
     } else {
-        let hostname = url.host_str()?;
+        let hostname = url.domain();
         if hostname == "preview.redd.it" {
-            let _ = url.set_host(Some("i.redd.it"));
+            let _ = url.set_domain("i.redd.it");
         } else if hostname == "gyazo.com" {
-            let _ = url.set_host(Some("i.gyazo.com"));
+            let _ = url.set_domain("i.gyazo.com");
             let mut path = url.path().to_owned();
             path.push_str(".png");
             url.set_path(&path);
