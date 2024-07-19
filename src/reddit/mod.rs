@@ -4,19 +4,19 @@ use std::{
 };
 
 use anyhow::Context;
-use roux::{builders::submission::SubmissionSubmitBuilder, Reddit};
+use roux::{builders::submission::SubmissionSubmitBuilder, inbox::InboxData, Reddit};
 use status_tracker::CachedSummary;
 use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
 use tera::Tera;
 
 use crate::{
-    analysis::{self, Analyzer},
+    analysis::{self, get_best_analysis, Analyzer},
     context,
     imgur::{self, ImgurClient},
     webhook::{
-        create_detection_message, create_error_processing_message, create_inbox_message,
-        WebhookClient,
+        create_detection_message, create_error_processing_message, create_error_processing_post,
+        create_inbox_message, WebhookClient,
     },
     RedditInfo,
 };
@@ -120,11 +120,48 @@ impl<'a> RedditClient<'a> {
         })
     }
 
+    fn run_inbox_test(&mut self, message: &InboxData) -> anyhow::Result<()> {
+        let ctx = crate::context::Context::from_direct_message(message)?;
+
+        match get_best_analysis(&ctx, &self.analzyers) {
+            Ok(Some((detection, detected))) => {
+                let text = detection.get_markdown(&ctx)?;
+                let text = text.join("\n\n\n> ");
+                let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
+                self.me.comment(&s, &message.name)?;
+            }
+            Ok(None) => {
+                let mut text = String::from("No scams were detected, text was:\r\n\r\n");
+                for img in &ctx.images {
+                    text.push_str("> ");
+                    text.push_str(&img.full_text());
+                    text.push_str("\n\n\n");
+                }
+                self.me.comment(&text, &message.name)?;
+            }
+            Err(err) => {
+                eprintln!(
+                    "Error whilst analyising message {:?}: {err:?}",
+                    message.subject
+                );
+                if let Some(webhook) = &mut self.webhook {
+                    let msg = create_error_processing_message(&message);
+                    webhook.send(&msg)?;
+                }
+                self.me.comment(
+                    "An internal error occured whilst attempting to process your request. Sorry!",
+                    &message.name,
+                )?;
+            }
+        };
+        Ok(())
+    }
+
     fn check_inbox(&mut self) -> anyhow::Result<()> {
         let inbox = self.me.unread()?;
         for item in inbox.data.children {
             println!(
-                "Saw inbox {} from {}",
+                "Saw inbox {:?} from /u/{}",
                 item.data.subject,
                 item.data
                     .author
@@ -133,7 +170,9 @@ impl<'a> RedditClient<'a> {
                     .unwrap_or("no author")
             );
             self.me.mark_read(&item.data.name)?;
-            if let Some(webhook) = &mut self.webhook {
+            if item.data.subject == "test" {
+                self.run_inbox_test(&item.data)?;
+            } else if let Some(webhook) = &mut self.webhook {
                 let inbox = create_inbox_message(&item.data);
                 webhook.send(&inbox)?;
             }
@@ -155,7 +194,7 @@ impl<'a> RedditClient<'a> {
                     Err(err) => {
                         eprintln!("Error whilst analyising {}: {err:?}", post.id);
                         if let Some(webhook) = &mut self.webhook {
-                            let msg = create_error_processing_message(&post);
+                            let msg = create_error_processing_post(&post);
                             webhook.send(&msg)?;
                         }
                         continue;

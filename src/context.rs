@@ -227,4 +227,8 @@ impl<'a> Context<'a> {
     ) -> anyhow::Result<Self> {
         Self::from_kind(ContextKind::Submission(submission))
     }
+
+    pub fn from_direct_message(inbox: &'a roux::inbox::InboxData) -> anyhow::Result<Self> {
+        Self::from_kind(ContextKind::DirectMessage(inbox))
+    }
 }

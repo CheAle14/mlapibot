@@ -205,14 +205,25 @@ pub fn create_inbox_message(message: &InboxData) -> Message {
     Message::builder().embed(embed)
 }
 
-pub fn create_error_processing_message(post: &SubmissionData) -> Message {
+pub fn create_error_processing_post(post: &SubmissionData) -> Message {
     Message::builder().embed(
         MessageEmbed::builder()
-            .title("Error: error result whilst processing")
+            .title("Error occured processing post")
             .description(format!(
                 "Post [`{}`](https://reddit.com{}) by /u/{} caused an error",
                 post.title, post.permalink, post.author
             ))
             .url(format!("https://reddit.com{}", post.permalink)),
+    )
+}
+pub fn create_error_processing_message(message: &InboxData) -> Message {
+    Message::builder().embed(
+        MessageEmbed::builder()
+            .title("Error occured processing message")
+            .description(format!(
+                "From /u/{} subject:\r\n> {}",
+                message.author.clone().unwrap_or_default(),
+                message.subject,
+            )),
     )
 }
