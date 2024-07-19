@@ -19,7 +19,7 @@ pub struct Subreddit {
 
 impl Subreddit {
     pub fn new(args: &RedditInfo, data: roux::Subreddit) -> Self {
-        let file = args.scratch_dir.join(format!("r_{}_last.txt", data.name));
+        let file = args.scratch_dir.join(format!("r_{}_last.json", data.name));
         let seen = SeenTracker::new(file);
         let status = StatusTracker::new(
             args.scratch_dir
@@ -96,12 +96,14 @@ impl Subreddit {
     pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<roux::submission::SubmissionData>> {
         let options = self.seen.get_options();
         let data = self.data.latest(25, options)?;
-        if let Some(latest) = data.data.children.first() {
-            self.seen.set_seen(latest.data.name.full());
-        }
-        println!("Saw {} posts in latest", data.data.children.len());
-        let things: Vec<_> = data.data.children.into_iter().map(|d| d.data).collect();
+        let children = data.data.children.into_iter().map(|d| d.data).collect();
+        let children = self.seen.filter_seen(children);
 
-        Ok(things)
+        if let Some(latest) = children.first() {
+            self.seen.set_seen(&latest.name, latest.created_utc)
+        }
+        println!("Saw {} posts in latest", children.len());
+
+        Ok(children)
     }
 }
