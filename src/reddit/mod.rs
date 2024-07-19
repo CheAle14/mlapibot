@@ -16,7 +16,7 @@ use crate::{
     imgur::{self, ImgurClient},
     webhook::{
         create_detection_message, create_error_processing_message, create_error_processing_post,
-        create_inbox_message, WebhookClient,
+        create_inbox_message, Message, WebhookClient,
     },
     RedditInfo,
 };
@@ -287,5 +287,12 @@ impl<'a> RedditClient<'a> {
                 }
             }
         }
+    }
+
+    pub fn send_webhook(&mut self, message: &Message) -> anyhow::Result<()> {
+        if let Some(webhook) = &mut self.webhook {
+            webhook.send(message)?;
+        }
+        Ok(())
     }
 }

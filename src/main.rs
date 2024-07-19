@@ -6,6 +6,8 @@ use context::Context;
 use reddit::RedditClient;
 use serde::Deserialize;
 use statuspage::incident::IncidentImpact;
+use utils::clamp;
+use webhook::{Message, MessageEmbed};
 
 mod analysis;
 mod context;
@@ -155,7 +157,21 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
 
 fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
     let mut client = RedditClient::new(analyzers, args)?;
-    client.run()
+    match client.run() {
+        r @ Ok(()) => r,
+        Err(err) => {
+            // we might fail at sending the webhook, so make sure we log the underlying error
+            eprintln!("Error: {err:?}");
+            let text = err.to_string();
+            let clamped = clamp(&text, 4096 - (3 + 3 + 2 + 2));
+            let actual = format!("```\r\n{clamped}\r\n```");
+            let message = Message::builder()
+                .content("A fatal error has occured in mlapibot!")
+                .embed(MessageEmbed::builder().description(&actual));
+            client.send_webhook(&message)?;
+            Err(err)
+        }
+    }
 }
 
 fn main() -> anyhow::Result<()> {
