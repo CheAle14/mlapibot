@@ -4,7 +4,8 @@ use std::{
 };
 
 use anyhow::Context;
-use roux::{builders::submission::SubmissionSubmitBuilder, inbox::InboxData, Reddit};
+use roux::client::{OAuthClient, RedditClient as RouxRedditClient};
+use roux::inbox::InboxData;
 use status_tracker::CachedSummary;
 use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
@@ -26,10 +27,12 @@ mod seen_tracker;
 mod status_tracker;
 mod subreddit;
 
+pub type RouxClient = roux::client::AuthedClient;
+
 pub struct RedditClient<'a> {
     data_dir: PathBuf,
     analzyers: &'a [Analyzer],
-    me: roux::Me,
+    client: RouxClient,
     subreddits: Vec<Subreddit>,
     ratelimit: ratelimiter::Ratelimiter,
     templates: Tera,
@@ -50,14 +53,15 @@ impl<'a> RedditClient<'a> {
         assert!(found.len() > 0);
         let credentials = args.get_credentials()?;
 
-        let me = Reddit::new(
+        let config = roux::Config::new(
             Self::USER_AGENT,
             &credentials.client_id,
             &credentials.client_secret,
         )
         .username(&credentials.username)
-        .password(&credentials.password)
-        .login()?;
+        .password(&credentials.password);
+
+        let client = OAuthClient::new(config)?.login()?;
 
         let webhook = credentials
             .webhook_url
@@ -85,7 +89,7 @@ impl<'a> RedditClient<'a> {
 
         let subreddits: Vec<Subreddit> = subreddit_names
             .iter()
-            .map(|&name| Subreddit::new(args, roux::Subreddit::new_oauth(&name, &me.client)))
+            .map(|&name| Subreddit::new(args, client.subreddit(&name)))
             .collect();
 
         println!(
@@ -106,7 +110,7 @@ impl<'a> RedditClient<'a> {
         }
 
         Ok(Self {
-            me,
+            client,
             subreddits,
             analzyers,
             ratelimit: ratelimiter::Ratelimiter::new(),
@@ -128,7 +132,7 @@ impl<'a> RedditClient<'a> {
                 let text = detection.get_markdown(&ctx)?;
                 let text = text.join("\n\n\n> ");
                 let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
-                self.me.comment(&s, &message.name)?;
+                self.client.comment(&s, &message.name)?;
             }
             Ok(None) => {
                 let mut text = String::from("No scams were detected, text was:\r\n\r\n");
@@ -137,7 +141,7 @@ impl<'a> RedditClient<'a> {
                     text.push_str(&img.full_text());
                     text.push_str("\n\n\n");
                 }
-                self.me.comment(&text, &message.name)?;
+                self.client.comment(&text, &message.name)?;
             }
             Err(err) => {
                 eprintln!(
@@ -148,7 +152,7 @@ impl<'a> RedditClient<'a> {
                     let msg = create_error_processing_message(&message);
                     webhook.send(&msg)?;
                 }
-                self.me.comment(
+                self.client.comment(
                     "An internal error occured whilst attempting to process your request. Sorry!",
                     &message.name,
                 )?;
@@ -158,7 +162,7 @@ impl<'a> RedditClient<'a> {
     }
 
     fn check_inbox(&mut self) -> anyhow::Result<()> {
-        let inbox = self.me.unread()?;
+        let inbox = self.client.unread()?;
         for item in inbox.data.children {
             println!(
                 "Saw inbox {:?} from /u/{}",
@@ -169,7 +173,7 @@ impl<'a> RedditClient<'a> {
                     .map(|s| s.as_str())
                     .unwrap_or("no author")
             );
-            self.me.mark_read(&item.data.name)?;
+            self.client.mark_read(&item.data.name)?;
             if item.data.subject == "test" {
                 self.run_inbox_test(&item.data)?;
             } else if let Some(webhook) = &mut self.webhook {
@@ -225,12 +229,12 @@ impl<'a> RedditClient<'a> {
                         })?;
 
                     if !self.dry_run {
-                        self.me
+                        self.client
                             .comment(&template, &post.name)
                             .with_context(|| format!("reply to {:?}", post.name))?;
 
                         if detected.report {
-                            self.me
+                            self.client
                                 .report(&post.name, "Appears to be a common repost")
                                 .with_context(|| format!("report {:?}", post.name))?;
                         }
@@ -259,7 +263,7 @@ impl<'a> RedditClient<'a> {
         for subreddit in &mut self.subreddits {
             let level = self.status_filter.get(subreddit.name()).unwrap();
             subreddit
-                .update_status(&self.me, &self.status, &mut summary, level)
+                .update_status(&self.client, &self.status, &mut summary, level)
                 .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
         }
 

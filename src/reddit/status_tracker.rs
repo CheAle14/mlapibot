@@ -7,6 +7,8 @@ use statuspage::{incident::Incident, summary::Summary};
 
 use crate::utils::clamp;
 
+use super::{subreddit::RouxSubreddit, RouxClient};
+
 #[derive(Serialize, Deserialize)]
 pub struct StatusSubmission {
     post_id: ThingId,
@@ -103,8 +105,8 @@ impl StatusTracker {
     pub fn add(
         &mut self,
         incident_id: &str,
-        reddit: &roux::Me,
-        subreddit: &roux::Subreddit,
+        reddit: &RouxClient,
+        subreddit: &RouxSubreddit,
         submission: &SubmissionSubmitBuilder,
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", subreddit.name);
@@ -132,7 +134,7 @@ impl StatusTracker {
 
     pub fn update(
         &mut self,
-        reddit: &roux::Me,
+        reddit: &RouxClient,
         incident_id: &str,
         text: &str,
     ) -> anyhow::Result<()> {

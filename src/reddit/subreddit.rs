@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use roux::util::FeedOption;
 use statuspage::{incident::IncidentImpact, StatusClient};
 
 use crate::RedditInfo;
@@ -7,10 +8,13 @@ use crate::RedditInfo;
 use super::{
     seen_tracker::SeenTracker,
     status_tracker::{CachedSummary, StatusTracker},
+    RouxClient,
 };
 
+pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
+
 pub struct Subreddit {
-    data: roux::Subreddit,
+    data: RouxSubreddit,
     seen: SeenTracker,
     status: StatusTracker,
     // whether we are only using this subreddit to send status info
@@ -18,7 +22,7 @@ pub struct Subreddit {
 }
 
 impl Subreddit {
-    pub fn new(args: &RedditInfo, data: roux::Subreddit) -> Self {
+    pub fn new(args: &RedditInfo, data: RouxSubreddit) -> Self {
         let file = args.scratch_dir.join(format!("r_{}_last.json", data.name));
         let seen = SeenTracker::new(file);
         let status = StatusTracker::new(
@@ -40,7 +44,7 @@ impl Subreddit {
 
     pub fn update_status(
         &mut self,
-        reddit: &roux::Me,
+        reddit: &RouxClient,
         status: &StatusClient,
         summary: &mut CachedSummary,
         level: &IncidentImpact,
@@ -94,9 +98,14 @@ impl Subreddit {
     }
 
     pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<roux::submission::SubmissionData>> {
-        let options = self.seen.get_options();
-        let data = self.data.latest(25, options)?;
-        let children = data.data.children.into_iter().map(|d| d.data).collect();
+        let options = self
+            .seen
+            .get_options()
+            .unwrap_or_else(|| FeedOption::new())
+            .limit(25);
+
+        let data = self.data.latest(Some(options))?;
+        let children: Vec<_> = data.data.children.into_iter().map(|d| d.data).collect();
         let children = self.seen.filter_seen(children);
 
         if let Some(latest) = children.first() {

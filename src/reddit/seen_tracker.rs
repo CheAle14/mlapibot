@@ -16,7 +16,7 @@ pub struct SeenTracker {
 }
 
 fn into_timestamp(utc: f64) -> DateTime<Utc> {
-    (Utc).timestamp_millis_opt(utc as i64).unwrap()
+    (Utc).timestamp_millis_opt((utc * 1000.0) as i64).unwrap()
 }
 
 impl SeenTracker {
