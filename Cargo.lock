@@ -1655,13 +1655,14 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.5"
-source = "git+https://github.com/CheAle14/roux.git#fba6d06b6ed5525de2ddb2f770add4b08d251475"
+version = "2.3.6"
+source = "git+https://github.com/CheAle14/roux.git#8f89fea76f0169c3ceed574cfdb21f668018d3bf"
 dependencies = [
  "maybe-async",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
