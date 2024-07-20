@@ -1,13 +1,13 @@
 use std::{collections::HashMap, io, path::PathBuf};
 
 use chrono::{DateTime, Utc};
-use roux::{builders::submission::SubmissionSubmitBuilder, ThingId};
+use roux::{api::ThingId, builders::submission::SubmissionSubmitBuilder};
 use serde::{Deserialize, Serialize};
 use statuspage::{incident::Incident, summary::Summary};
 
 use crate::utils::clamp;
 
-use super::{subreddit::RouxSubreddit, RouxClient};
+use super::{subreddit::RouxSubreddit, RouxClient, Submission};
 
 #[derive(Serialize, Deserialize)]
 pub struct StatusSubmission {
@@ -111,12 +111,12 @@ impl StatusTracker {
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", subreddit.name);
         let submission = reddit.submit(&subreddit.name, submission)?;
-        println!("Incident posted as {:?}", submission.name);
+        println!("Incident posted as {:?}", submission.name());
 
         self.map.posts.insert(
             incident_id.to_owned(),
             StatusSubmission {
-                post_id: submission.name.clone(),
+                post_id: submission.name().clone(),
                 last_updated: chrono::Utc::now(),
             },
         );

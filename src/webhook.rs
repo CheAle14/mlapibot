@@ -1,6 +1,7 @@
-use roux::{inbox::InboxData, submission::SubmissionData};
+use roux::api::inbox::InboxData;
 use serde::Serialize;
 
+use crate::reddit::Submission;
 use crate::utils::clamp;
 
 #[derive(Debug, Serialize)]
@@ -158,14 +159,14 @@ impl WebhookClient {
 }
 
 pub fn create_detection_message(
-    submission: &SubmissionData,
+    submission: &Submission,
     detection: &crate::analysis::Detection,
     analyzer: &crate::analysis::Analyzer,
     imgur_link: Option<String>,
 ) -> Message {
     let mut embed = MessageEmbed::builder();
     embed
-        .with_title(&submission.title)
+        .with_title(&submission.title())
         .with_description(format!(
             "{}: {:.2}%{}",
             analyzer.name,
@@ -174,8 +175,8 @@ pub fn create_detection_message(
                 .map(|s| format!("\r\n\r\n[OCR]({s})"))
                 .unwrap_or("".into())
         ))
-        .with_url(format!("https://reddit.com{}", submission.permalink))
-        .with_author(MessageEmbedAuthor::new(&submission.author));
+        .with_url(format!("https://reddit.com{}", submission.permalink()))
+        .with_author(MessageEmbedAuthor::new(&submission.author()));
 
     let mut message = Message::builder();
     message.with_embed(embed);
@@ -205,15 +206,17 @@ pub fn create_inbox_message(message: &InboxData) -> Message {
     Message::builder().embed(embed)
 }
 
-pub fn create_error_processing_post(post: &SubmissionData) -> Message {
+pub fn create_error_processing_post(post: &Submission) -> Message {
     Message::builder().embed(
         MessageEmbed::builder()
             .title("Error occured processing post")
             .description(format!(
                 "Post [`{}`](https://reddit.com{}) by /u/{} caused an error",
-                post.title, post.permalink, post.author
+                post.title(),
+                post.permalink(),
+                post.author()
             ))
-            .url(format!("https://reddit.com{}", post.permalink)),
+            .url(format!("https://reddit.com{}", post.permalink())),
     )
 }
 pub fn create_error_processing_message(message: &InboxData) -> Message {

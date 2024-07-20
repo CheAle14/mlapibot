@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use roux::client::{OAuthClient, RedditClient as RouxRedditClient};
-use roux::inbox::InboxData;
+use roux::{api::inbox::InboxData, builders::submission::SubmissionSubmitBuilder};
 use status_tracker::CachedSummary;
 use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
@@ -28,6 +28,8 @@ mod status_tracker;
 mod subreddit;
 
 pub type RouxClient = roux::client::AuthedClient;
+pub type Submission = roux::models::Submission<RouxClient>;
+pub type Comment = roux::models::ArticleComment<RouxClient>;
 
 pub struct RedditClient<'a> {
     data_dir: PathBuf,
@@ -191,12 +193,17 @@ impl<'a> RedditClient<'a> {
                 continue;
             }
             for post in subreddit.newest_unseen().context("get netwest unseen")? {
-                println!("Saw {:?} {:?} by /u/{}", post.name, post.title, post.author);
+                println!(
+                    "Saw {:?} {:?} by /u/{}",
+                    post.name(),
+                    post.title(),
+                    post.author()
+                );
                 let ctx = context::Context::from_submission(&post)?;
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
                     Ok(result) => result,
                     Err(err) => {
-                        eprintln!("Error whilst analyising {}: {err:?}", post.id);
+                        eprintln!("Error whilst analyising {}: {err:?}", post.id());
                         if let Some(webhook) = &mut self.webhook {
                             let msg = create_error_processing_post(&post);
                             webhook.send(&msg)?;
@@ -206,7 +213,11 @@ impl<'a> RedditClient<'a> {
                 };
 
                 if let Some((detection, detected)) = result {
-                    println!("Triggered on post {:?} by /u/{}", post.title, post.author);
+                    println!(
+                        "Triggered on post {:?} by /u/{}",
+                        post.title(),
+                        post.author()
+                    );
 
                     let mut template_context = tera::Context::new();
 
@@ -229,14 +240,12 @@ impl<'a> RedditClient<'a> {
                         })?;
 
                     if !self.dry_run {
-                        self.client
-                            .comment(&template, &post.name)
-                            .with_context(|| format!("reply to {:?}", post.name))?;
+                        post.comment(&template)
+                            .with_context(|| format!("reply to {:?}", post.name()))?;
 
                         if detected.report {
-                            self.client
-                                .report(&post.name, "Appears to be a common repost")
-                                .with_context(|| format!("report {:?}", post.name))?;
+                            post.report("Appears to be a common repost")
+                                .with_context(|| format!("report {:?}", post.name()))?;
                         }
 
                         if let Some(webhook) = &mut self.webhook {

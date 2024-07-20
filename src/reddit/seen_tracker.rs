@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, TimeZone, Utc};
-use roux::{submission::SubmissionData, util::FeedOption, ThingId};
+use roux::{api::ThingId, util::FeedOption};
 use serde::{Deserialize, Serialize};
+
+use super::Submission;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SeenData {
@@ -41,10 +43,10 @@ impl SeenTracker {
         None
     }
 
-    pub fn filter_seen(&self, mut iter: Vec<SubmissionData>) -> Vec<SubmissionData> {
+    pub fn filter_seen(&self, mut iter: Vec<Submission>) -> Vec<Submission> {
         if let Some(seen) = &self.seen_data {
             iter.retain(|s| {
-                let utc = into_timestamp(s.created_utc);
+                let utc = into_timestamp(s.created_utc());
                 utc > seen.seen_time
             });
             iter

@@ -5,16 +5,19 @@ use regex::Regex;
 
 use crate::{
     ocr::image::{ImageSource, OcrImage},
+    reddit::{Comment, Submission},
     statics::{link_regex, valid_extensions},
     url::Url,
 };
 
+use roux::api::submission::SubmissionDataMediaMetadata;
+
 pub enum ContextKind<'a> {
     CliPath(PathBuf),
     CliLink(Url),
-    Submission(&'a roux::submission::SubmissionData),
-    Comment(&'a roux::comment::CommentData),
-    DirectMessage(&'a roux::inbox::InboxData),
+    Submission(&'a Submission),
+    Comment(&'a Comment),
+    DirectMessage(&'a roux::api::inbox::InboxData),
 }
 
 fn parse_url(text: impl AsRef<str>) -> Option<Url> {
@@ -117,41 +120,39 @@ impl<'a> ContextKind<'a> {
                 fixed_urls.push(url);
             }
             ContextKind::Submission(submission) => {
-                if submission.is_self {
-                    for url in extract_image_links(&submission.selftext, pattern) {
+                if submission.is_self() {
+                    for url in extract_image_links(submission.selftext(), pattern) {
                         fixed_urls.push(url)
                     }
-                } else if let Some(gallery) = &submission.gallery_data {
-                    if let Some(metadata) = &submission.media_metadata {
+                } else if let Some(gallery) = submission.gallery_data() {
+                    if let Some(metadata) = submission.media_metadata() {
                         for img in &gallery.items {
                             if let Some(meta) = metadata.get(&img.media_id) {
                                 match meta {
-                                    roux::submission::SubmissionDataMediaMetadata::Image { s, .. } => {
+                                    SubmissionDataMediaMetadata::Image { s, .. } => {
                                         if let Some(url) = parse_url(&s.u) {
                                             fixed_urls.push(url);
                                         } else {
                                             eprintln!("Invalid url: {meta:?}");
                                         }
-                                    },
-                                    roux::submission::SubmissionDataMediaMetadata::RedditVideo { .. } => (),
+                                    }
+                                    SubmissionDataMediaMetadata::RedditVideo { .. } => (),
                                 }
                             } else {
                                 eprintln!("Gallery item not present: {img:?}");
                             }
                         }
                     }
-                } else if submission.is_video {
+                } else if submission.is_video() {
                     // ignore any videos
-                } else if let Some(text) = &submission.url {
+                } else if let Some(text) = submission.url() {
                     if let Some(url) = parse_url(text) {
                         fixed_urls.push(url);
                     }
                 }
             }
             ContextKind::Comment(comment) => {
-                if let Some(body) = &comment.body {
-                    fixed_urls.extend(extract_image_links(body, pattern))
-                }
+                fixed_urls.extend(extract_image_links(comment.body(), pattern))
             }
             ContextKind::DirectMessage(message) => {
                 fixed_urls.extend(extract_image_links(&message.body, pattern))
@@ -171,13 +172,16 @@ impl<'a> ContextKind<'a> {
         match self {
             ContextKind::CliPath(_) | ContextKind::CliLink(_) => Ok((None, None)),
             ContextKind::Submission(submission) => {
-                let (t, c) = match (submission.title.len() > 0, submission.selftext.len() > 0) {
+                let (t, c) = match (
+                    submission.title().len() > 0,
+                    submission.selftext().len() > 0,
+                ) {
                     (true, true) => (
-                        Some(submission.title.clone()),
-                        Some(submission.selftext.clone()),
+                        Some(submission.title().clone()),
+                        Some(submission.selftext().clone()),
                     ),
-                    (true, false) => (Some(submission.title.clone()), None),
-                    (false, true) => (None, Some(submission.selftext.clone())),
+                    (true, false) => (Some(submission.title().clone()), None),
+                    (false, true) => (None, Some(submission.selftext().clone())),
                     (false, false) => (None, None),
                 };
 
@@ -222,13 +226,11 @@ impl<'a> Context<'a> {
         Self::from_kind(kind)
     }
 
-    pub fn from_submission(
-        submission: &'a roux::submission::SubmissionData,
-    ) -> anyhow::Result<Self> {
+    pub fn from_submission(submission: &'a Submission) -> anyhow::Result<Self> {
         Self::from_kind(ContextKind::Submission(submission))
     }
 
-    pub fn from_direct_message(inbox: &'a roux::inbox::InboxData) -> anyhow::Result<Self> {
+    pub fn from_direct_message(inbox: &'a roux::api::inbox::InboxData) -> anyhow::Result<Self> {
         Self::from_kind(ContextKind::DirectMessage(inbox))
     }
 }

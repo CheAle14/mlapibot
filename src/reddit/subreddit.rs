@@ -8,7 +8,7 @@ use crate::RedditInfo;
 use super::{
     seen_tracker::SeenTracker,
     status_tracker::{CachedSummary, StatusTracker},
-    RouxClient,
+    RouxClient, Submission,
 };
 
 pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
@@ -97,7 +97,7 @@ impl Subreddit {
         Ok(())
     }
 
-    pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<roux::submission::SubmissionData>> {
+    pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<Submission>> {
         let options = self
             .seen
             .get_options()
@@ -105,11 +105,10 @@ impl Subreddit {
             .limit(25);
 
         let data = self.data.latest(Some(options))?;
-        let children: Vec<_> = data.data.children.into_iter().map(|d| d.data).collect();
-        let children = self.seen.filter_seen(children);
+        let children = self.seen.filter_seen(data.children);
 
         if let Some(latest) = children.first() {
-            self.seen.set_seen(&latest.name, latest.created_utc)
+            self.seen.set_seen(&latest.name(), latest.created_utc())
         }
         println!("Saw {} posts in latest", children.len());
 
