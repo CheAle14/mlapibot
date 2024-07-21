@@ -7,7 +7,7 @@ use statuspage::{incident::Incident, summary::Summary};
 
 use crate::utils::clamp;
 
-use super::{subreddit::RouxSubreddit, RouxClient, Submission};
+use super::{subreddit::RouxSubreddit, RouxClient};
 
 #[derive(Serialize, Deserialize)]
 pub struct StatusSubmission {

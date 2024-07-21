@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::{
     ocr::image::{ImageSource, OcrImage},
-    reddit::{Comment, Submission},
+    reddit::{Comment, RedditMessage, Submission},
     statics::{link_regex, valid_extensions},
     url::Url,
 };
@@ -17,7 +17,7 @@ pub enum ContextKind<'a> {
     CliLink(Url),
     Submission(&'a Submission),
     Comment(&'a Comment),
-    DirectMessage(&'a roux::api::inbox::InboxData),
+    DirectMessage(&'a RedditMessage),
 }
 
 fn parse_url(text: impl AsRef<str>) -> Option<Url> {
@@ -155,7 +155,7 @@ impl<'a> ContextKind<'a> {
                 fixed_urls.extend(extract_image_links(comment.body(), pattern))
             }
             ContextKind::DirectMessage(message) => {
-                fixed_urls.extend(extract_image_links(&message.body, pattern))
+                fixed_urls.extend(extract_image_links(&message.body(), pattern))
             }
         };
 
@@ -230,7 +230,7 @@ impl<'a> Context<'a> {
         Self::from_kind(ContextKind::Submission(submission))
     }
 
-    pub fn from_direct_message(inbox: &'a roux::api::inbox::InboxData) -> anyhow::Result<Self> {
+    pub fn from_direct_message(inbox: &'a RedditMessage) -> anyhow::Result<Self> {
         Self::from_kind(ContextKind::DirectMessage(inbox))
     }
 }

@@ -1,7 +1,6 @@
-use roux::api::inbox::InboxData;
 use serde::Serialize;
 
-use crate::reddit::Submission;
+use crate::reddit::{RedditMessage, Submission};
 use crate::utils::clamp;
 
 #[derive(Debug, Serialize)]
@@ -183,10 +182,10 @@ pub fn create_detection_message(
     message
 }
 
-pub fn create_inbox_message(message: &InboxData) -> Message {
-    let subject = clamp(&message.subject, 128);
-    let description = clamp(&message.body, 4096);
-    let author = if let Some(author) = &message.author {
+pub fn create_inbox_message(message: &RedditMessage) -> Message {
+    let subject = clamp(&message.subject(), 128);
+    let description = clamp(&message.body(), 4096);
+    let author = if let Some(author) = &message.author() {
         MessageEmbedAuthor::new(author)
     } else {
         MessageEmbedAuthor::new("no author")
@@ -197,10 +196,11 @@ pub fn create_inbox_message(message: &InboxData) -> Message {
         .description(description)
         .author(author);
 
-    if message.context.starts_with("http") {
-        embed.with_url(&message.context);
+    let ctx = message.context();
+    if ctx.starts_with("http") {
+        embed.with_url(&ctx);
     } else {
-        embed.with_url(format!("https://reddit.com{}", message.context));
+        embed.with_url(format!("https://reddit.com{}", ctx));
     }
 
     Message::builder().embed(embed)
@@ -219,14 +219,14 @@ pub fn create_error_processing_post(post: &Submission) -> Message {
             .url(format!("https://reddit.com{}", post.permalink())),
     )
 }
-pub fn create_error_processing_message(message: &InboxData) -> Message {
+pub fn create_error_processing_message(message: &RedditMessage) -> Message {
     Message::builder().embed(
         MessageEmbed::builder()
             .title("Error occured processing message")
             .description(format!(
                 "From /u/{} subject:\r\n> {}",
-                message.author.clone().unwrap_or_default(),
-                message.subject,
+                message.author().clone().unwrap_or_default(),
+                message.subject(),
             )),
     )
 }

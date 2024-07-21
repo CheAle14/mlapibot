@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::Context;
 use roux::client::{OAuthClient, RedditClient as RouxRedditClient};
-use roux::{api::inbox::InboxData, builders::submission::SubmissionSubmitBuilder};
 use status_tracker::CachedSummary;
 use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
@@ -17,7 +16,7 @@ use crate::{
     imgur::{self, ImgurClient},
     webhook::{
         create_detection_message, create_error_processing_message, create_error_processing_post,
-        create_inbox_message, Message, WebhookClient,
+        create_inbox_message, Message as DiscordMessage, WebhookClient,
     },
     RedditInfo,
 };
@@ -30,6 +29,7 @@ mod subreddit;
 pub type RouxClient = roux::client::AuthedClient;
 pub type Submission = roux::models::Submission<RouxClient>;
 pub type Comment = roux::models::ArticleComment<RouxClient>;
+pub type RedditMessage = roux::models::Message<RouxClient>;
 
 pub struct RedditClient<'a> {
     data_dir: PathBuf,
@@ -126,7 +126,7 @@ impl<'a> RedditClient<'a> {
         })
     }
 
-    fn run_inbox_test(&mut self, message: &InboxData) -> anyhow::Result<()> {
+    fn run_inbox_test(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
         let ctx = crate::context::Context::from_direct_message(message)?;
 
         match get_best_analysis(&ctx, &self.analzyers) {
@@ -134,7 +134,7 @@ impl<'a> RedditClient<'a> {
                 let text = detection.get_markdown(&ctx)?;
                 let text = text.join("\n\n\n> ");
                 let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
-                self.client.comment(&s, &message.name)?;
+                message.reply(&s)?;
             }
             Ok(None) => {
                 let mut text = String::from("No scams were detected, text was:\r\n\r\n");
@@ -143,20 +143,19 @@ impl<'a> RedditClient<'a> {
                     text.push_str(&img.full_text());
                     text.push_str("\n\n\n");
                 }
-                self.client.comment(&text, &message.name)?;
+                message.reply(&text)?;
             }
             Err(err) => {
                 eprintln!(
                     "Error whilst analyising message {:?}: {err:?}",
-                    message.subject
+                    message.subject()
                 );
                 if let Some(webhook) = &mut self.webhook {
                     let msg = create_error_processing_message(&message);
                     webhook.send(&msg)?;
                 }
-                self.client.comment(
+                message.reply(
                     "An internal error occured whilst attempting to process your request. Sorry!",
-                    &message.name,
                 )?;
             }
         };
@@ -165,21 +164,20 @@ impl<'a> RedditClient<'a> {
 
     fn check_inbox(&mut self) -> anyhow::Result<()> {
         let inbox = self.client.unread()?;
-        for item in inbox.data.children {
+        for item in inbox {
             println!(
                 "Saw inbox {:?} from /u/{}",
-                item.data.subject,
-                item.data
-                    .author
+                item.subject(),
+                item.author()
                     .as_ref()
                     .map(|s| s.as_str())
                     .unwrap_or("no author")
             );
-            self.client.mark_read(&item.data.name)?;
-            if item.data.subject == "test" {
-                self.run_inbox_test(&item.data)?;
+            item.mark_read()?;
+            if item.subject() == "test" {
+                self.run_inbox_test(&item)?;
             } else if let Some(webhook) = &mut self.webhook {
-                let inbox = create_inbox_message(&item.data);
+                let inbox = create_inbox_message(&item);
                 webhook.send(&inbox)?;
             }
         }
@@ -302,7 +300,7 @@ impl<'a> RedditClient<'a> {
         }
     }
 
-    pub fn send_webhook(&mut self, message: &Message) -> anyhow::Result<()> {
+    pub fn send_webhook(&mut self, message: &DiscordMessage) -> anyhow::Result<()> {
         if let Some(webhook) = &mut self.webhook {
             webhook.send(message)?;
         }
