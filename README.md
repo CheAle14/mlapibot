@@ -30,7 +30,21 @@ These paths can be changed with the `--seen` and `--trigger` commands respective
 
 Alternatively, you can run a reddit bot like /u/mlapibot through the reddit command:
 
-    cargo run reddit --client_id <CID> --client_secret <CSRC> --username <USER> --password <PASS>
+    cargo run reddit -s <SUBREDDIT NAME> -s <ANOTHER SUBREDDIT> -d <PATH TO DATA DIR>
+
+Each `-s` represents a subreddit whose new posts are scanned for scams.
+
+In the specified `-d`ata directory, a `credentials.json` file is expected to contain the Reddit `client_id`, `client_secret`,
+`username` and `password`.  
+Optionally, it may also contain an `imgur_client_id` and `imgur_client_secret` to support uploading the OCR images to Imgur and linking
+them into the bot's responses.  
+Optionally, it may also contain a Discord `webhook_url` URL, where various events will be logged.
+
+You can also provide a `status.json` file which can contain a single object, where each key is the name of the subreddit as passed
+and the value corresponds to the status impact that causes the bot to post to that subreddit for any incident at or above the impact specified.
+
+This directory must be read and write as the program will write files to remember state, particularly the latest post it has seen
+in each subreddit it monitoring, and which posts it is keeping updated for status incidents.
 
 ### Data
 
