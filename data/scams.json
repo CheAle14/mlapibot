@@ -240,6 +240,13 @@
             "template": "accountreport"
         },
         {
+            "name": "doneReading",
+            "ocr": [
+                "done reading check out other channels"
+            ],
+            "template": "doneReading"
+        },
+        {
             "name": "Mac Keybind Perms",
             "ocr": [
                 "would like to receive keystrokes from any application",
