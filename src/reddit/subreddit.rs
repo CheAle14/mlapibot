@@ -105,13 +105,15 @@ impl Subreddit {
             .limit(25);
 
         let data = self.data.latest(Some(options))?;
-        let children = self.seen.filter_seen(data.children);
+        let mut children = self.seen.filter_seen(data.children);
 
-        if let Some(latest) = children.first() {
-            self.seen.set_seen(&latest.name(), latest.created_utc())
-        }
+        children.reverse();
         println!("Saw {} posts in latest", children.len());
 
         Ok(children)
+    }
+
+    pub fn set_seen(&mut self, post: &Submission) {
+        self.seen.set_seen(&post.name(), post.created_utc());
     }
 }

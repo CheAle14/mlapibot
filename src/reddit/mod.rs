@@ -197,6 +197,7 @@ impl<'a> RedditClient<'a> {
                     post.title(),
                     post.author()
                 );
+                subreddit.set_seen(&post);
                 let ctx = context::Context::from_submission(&post)?;
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
                     Ok(result) => result,
