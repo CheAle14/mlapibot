@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::reddit::{RedditMessage, Submission};
+use crate::reddit::{CreatedComment, RedditMessage, Submission};
 use crate::utils::clamp;
 
 #[derive(Debug, Serialize)]
@@ -157,6 +157,28 @@ impl WebhookClient {
     }
 }
 
+trait LinkExt {
+    fn with_reddit_link(&mut self, maybe_full_url: &str) -> &mut Self;
+    fn reddit_link(mut self, maybe_full_url: &str) -> Self
+    where
+        Self: Sized,
+    {
+        self.with_reddit_link(maybe_full_url);
+        self
+    }
+}
+
+impl LinkExt for MessageEmbed {
+    fn with_reddit_link(&mut self, maybe_full_url: &str) -> &mut Self {
+        if maybe_full_url.starts_with("http") {
+            self.with_url(maybe_full_url)
+        } else {
+            let full = format!("https://reddit.com{maybe_full_url}");
+            self.with_url(full)
+        }
+    }
+}
+
 pub fn create_detection_message(
     submission: &Submission,
     detection: &crate::analysis::Detection,
@@ -174,7 +196,7 @@ pub fn create_detection_message(
                 .map(|s| format!("\r\n\r\n[OCR]({s})"))
                 .unwrap_or("".into())
         ))
-        .with_url(format!("https://reddit.com{}", submission.permalink()))
+        .with_reddit_link(submission.permalink())
         .with_author(MessageEmbedAuthor::new(&submission.author()));
 
     let mut message = Message::builder();
@@ -197,12 +219,7 @@ pub fn create_inbox_message(message: &RedditMessage) -> Message {
         .author(author);
 
     let ctx = message.context();
-    if ctx.starts_with("http") {
-        embed.with_url(&ctx);
-    } else {
-        embed.with_url(format!("https://reddit.com{}", ctx));
-    }
-
+    embed.with_reddit_link(ctx);
     Message::builder().embed(embed)
 }
 
@@ -216,7 +233,7 @@ pub fn create_error_processing_post(post: &Submission) -> Message {
                 post.permalink(),
                 post.author()
             ))
-            .url(format!("https://reddit.com{}", post.permalink())),
+            .reddit_link(post.permalink()),
     )
 }
 pub fn create_error_processing_message(message: &RedditMessage) -> Message {
@@ -228,5 +245,13 @@ pub fn create_error_processing_message(message: &RedditMessage) -> Message {
                 message.author().clone().unwrap_or_default(),
                 message.subject(),
             )),
+    )
+}
+pub fn create_deleted_downvoted_comment(comment: &CreatedComment) -> Message {
+    Message::builder().embed(
+        MessageEmbed::builder()
+            .title("Removed downvoted post")
+            .description(format!("For {}", comment.link_title()))
+            .reddit_link(comment.permalink()),
     )
 }

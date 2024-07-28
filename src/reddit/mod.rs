@@ -15,8 +15,9 @@ use crate::{
     context,
     imgur::{self, ImgurClient},
     webhook::{
-        create_detection_message, create_error_processing_message, create_error_processing_post,
-        create_inbox_message, Message as DiscordMessage, WebhookClient,
+        create_deleted_downvoted_comment, create_detection_message,
+        create_error_processing_message, create_error_processing_post, create_inbox_message,
+        Message as DiscordMessage, WebhookClient,
     },
     RedditInfo,
 };
@@ -30,6 +31,7 @@ pub type RouxClient = roux::client::AuthedClient;
 pub type Submission = roux::models::Submission<RouxClient>;
 pub type Comment = roux::models::ArticleComment<RouxClient>;
 pub type RedditMessage = roux::models::Message<RouxClient>;
+pub type CreatedComment = roux::models::CreatedComment<RouxClient>;
 
 pub struct RedditClient<'a> {
     data_dir: PathBuf,
@@ -278,6 +280,26 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn check_own_comments(&mut self) -> anyhow::Result<()> {
+        for comment in self.client.comments(None)? {
+            if !comment.score_hidden() && comment.score() < 0 {
+                println!(
+                    "Removing downvoted {:?} on {:?} by /u/{}",
+                    comment.name(),
+                    comment.link_title(),
+                    comment.link_author()
+                );
+                comment.delete()?;
+                if let Some(webhook) = &mut self.webhook {
+                    let message = create_deleted_downvoted_comment(&comment);
+                    webhook.send(&message)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn run(&mut self) -> anyhow::Result<()> {
         loop {
             match self.ratelimit.get() {
@@ -296,6 +318,11 @@ impl<'a> RedditClient<'a> {
                     println!("Checking status");
                     self.check_status().context("check status")?;
                     self.ratelimit.set_status();
+                }
+                ratelimiter::Rate::DownvotesReady => {
+                    println!("Checking for downvoted comments");
+                    self.check_own_comments().context("check own comments")?;
+                    self.ratelimit.set_downvotes();
                 }
             }
         }

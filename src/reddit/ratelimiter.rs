@@ -1,11 +1,12 @@
 use std::time::{Duration, Instant};
 
-use ord_many::min_many;
+use ord_many::{max_many, min_many};
 
 pub struct Ratelimiter {
     last_inbox: Instant,
     last_subreddits: Instant,
     last_status: Instant,
+    last_downvotes: Instant,
 }
 
 pub enum Rate {
@@ -13,6 +14,7 @@ pub enum Rate {
     StatusReady,
     InboxReady,
     SubredditsReady,
+    DownvotesReady,
 }
 
 impl Ratelimiter {
@@ -31,6 +33,9 @@ impl Ratelimiter {
             last_status: now
                 .checked_sub(Duration::from_secs(Self::STATUS_SECONDS * 2))
                 .unwrap(),
+            last_downvotes: now
+                .checked_sub(Duration::from_secs(Self::REDDIT_SECONDS * 2))
+                .unwrap(),
         }
     }
 
@@ -48,8 +53,12 @@ impl Ratelimiter {
             .checked_duration_since(self.last_status)
             .unwrap_or(Duration::from_secs(0))
             .as_secs();
+        let downvotes = now
+            .checked_duration_since(self.last_downvotes)
+            .unwrap_or(Duration::from_secs(0))
+            .as_secs();
 
-        let least = min_many!(subreddits, inbox, status);
+        let least = min_many!(subreddits, inbox, status, downvotes);
 
         if status >= Self::STATUS_SECONDS && least >= 5 {
             Rate::StatusReady
@@ -57,8 +66,10 @@ impl Ratelimiter {
             Rate::SubredditsReady
         } else if inbox >= Self::REDDIT_SECONDS && least >= 5 {
             Rate::InboxReady
+        } else if downvotes >= Self::REDDIT_SECONDS && least >= 5 {
+            Rate::DownvotesReady
         } else {
-            let reddit_max = std::cmp::max(inbox, subreddits);
+            let reddit_max = max_many!(inbox, subreddits, downvotes);
 
             let reddit_secs = if reddit_max >= Self::REDDIT_SECONDS {
                 5
@@ -94,5 +105,9 @@ impl Ratelimiter {
 
     pub fn set_status(&mut self) {
         self.last_status = Instant::now();
+    }
+
+    pub fn set_downvotes(&mut self) {
+        self.last_downvotes = Instant::now();
     }
 }
