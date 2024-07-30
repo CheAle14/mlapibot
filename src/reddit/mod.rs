@@ -81,7 +81,7 @@ impl<'a> RedditClient<'a> {
 
         let status = StatusClient::new("https://discordstatus.com")?;
 
-        let mut status_filter = args.get_status_levels()?;
+        let status_filter = args.get_status_levels()?;
 
         let mut subreddit_names = HashSet::new();
         for sub in &args.subreddits {
@@ -105,12 +105,6 @@ impl<'a> RedditClient<'a> {
 
         if args.dry_run {
             println!("Running in dry-run mode.");
-        }
-
-        for subreddit in &subreddits {
-            if !status_filter.contains_key(subreddit.name()) {
-                status_filter.insert(subreddit.name().to_owned(), IncidentImpact::Major);
-            }
         }
 
         Ok(Self {
@@ -268,13 +262,14 @@ impl<'a> RedditClient<'a> {
             summary.status.indicator,
             summary.incidents.len()
         );
-        // TODO: only compute if any subreddit post needs updating
+
         let mut summary = CachedSummary::new(summary)?;
         for subreddit in &mut self.subreddits {
-            let level = self.status_filter.get(subreddit.name()).unwrap();
-            subreddit
-                .update_status(&self.client, &self.status, &mut summary, level)
-                .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
+            if let Some(level) = self.status_filter.get(subreddit.name()) {
+                subreddit
+                    .update_status(&self.client, &self.status, &mut summary, level)
+                    .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
+            }
         }
 
         Ok(())
