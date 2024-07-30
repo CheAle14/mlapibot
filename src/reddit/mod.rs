@@ -1,14 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
+    sync::mpsc::{self, RecvTimeoutError},
 };
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use roux::{
     builders::submission::SubmissionSubmitBuilder,
     client::{OAuthClient, RedditClient as RouxRedditClient},
 };
-use status_tracker::CachedSummary;
+use status_tracker::CachedIncidentSubmissions;
 use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
 use tera::Tera;
@@ -48,6 +49,7 @@ pub struct RedditClient<'a> {
     status: StatusClient,
     status_config: HashMap<String, SubredditStatusConfig>,
     dry_run: bool,
+    status_webhook: Option<String>,
 }
 
 impl<'a> RedditClient<'a> {
@@ -122,6 +124,7 @@ impl<'a> RedditClient<'a> {
             status,
             status_config: status_filter,
             dry_run: args.dry_run,
+            status_webhook: args.status_webhook.clone(),
         })
     }
 
@@ -258,6 +261,22 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn update_status_with(
+        &mut self,
+        mut cached: CachedIncidentSubmissions,
+        is_summary: bool,
+    ) -> anyhow::Result<()> {
+        for subreddit in &mut self.subreddits {
+            if let Some(config) = self.status_config.get(subreddit.name()) {
+                subreddit
+                    .update_status(&self.client, &self.status, &mut cached, is_summary, config)
+                    .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn check_status(&mut self) -> anyhow::Result<()> {
         let summary = self.status.get_summary()?;
         println!(
@@ -266,16 +285,9 @@ impl<'a> RedditClient<'a> {
             summary.incidents.len()
         );
 
-        let mut summary = CachedSummary::new(summary)?;
-        for subreddit in &mut self.subreddits {
-            if let Some(config) = self.status_config.get(subreddit.name()) {
-                subreddit
-                    .update_status(&self.client, &self.status, &mut summary, config)
-                    .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
-            }
-        }
+        let summary = CachedIncidentSubmissions::new(summary.incidents);
 
-        Ok(())
+        self.update_status_with(summary, true)
     }
 
     fn check_own_comments(&mut self) -> anyhow::Result<()> {
@@ -299,9 +311,30 @@ impl<'a> RedditClient<'a> {
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
+        let (tx, rx) = mpsc::channel();
+
+        if let Some(addr) = &self.status_webhook {
+            println!("Starting status webhook at {addr}");
+            crate::reddit::status_tracker::start_webhook_listener_thread(tx, &addr);
+        }
+
         loop {
             match self.ratelimit.get() {
-                ratelimiter::Rate::NoneReadyFor(dur) => std::thread::sleep(dur),
+                ratelimiter::Rate::NoneReadyFor(dur) => match rx.recv_timeout(dur) {
+                    Ok(event) => match event {
+                        status_tracker::WebhookEvent::IncidentUpdate(incident) => {
+                            let incident = *incident;
+                            let cache = CachedIncidentSubmissions::new(vec![incident]);
+                            self.update_status_with(cache, false)?;
+                        }
+                        _ => {
+                            self.check_status()?;
+                            self.ratelimit.set_status();
+                        }
+                    },
+                    Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
+                    Err(RecvTimeoutError::Timeout) => continue,
+                },
                 ratelimiter::Rate::InboxReady => {
                     println!("Checking inbox");
                     self.check_inbox().context("check inbox")?;

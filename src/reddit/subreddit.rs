@@ -7,7 +7,7 @@ use crate::{RedditInfo, SubredditStatusConfig};
 
 use super::{
     seen_tracker::SeenTracker,
-    status_tracker::{CachedSummary, StatusTracker},
+    status_tracker::{CachedIncidentSubmissions, StatusTracker},
     RouxClient, Submission,
 };
 
@@ -46,7 +46,8 @@ impl Subreddit {
         &mut self,
         reddit: &RouxClient,
         status: &StatusClient,
-        summary: &mut CachedSummary,
+        cached: &mut CachedIncidentSubmissions,
+        is_summary: bool,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
         let mut unseen = HashSet::new();
@@ -54,14 +55,15 @@ impl Subreddit {
             unseen.insert(id.clone());
         }
 
-        for incident in &summary.summary.incidents {
+        for incident in &cached.incidents {
             if &incident.impact < &config.min_impact {
                 continue;
             }
             unseen.remove(&incident.id);
             if self.status.is_tracking(incident.id.as_str()) {
                 if self.status.needs_update(incident) {
-                    let cached = CachedSummary::get_submission(&mut summary.cache, incident)?;
+                    let cached =
+                        CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
                     let text = match &cached.kind {
                         roux::builders::submission::SubmissionSubmitKind::SelfText { text } => {
                             text.as_str()
@@ -72,7 +74,8 @@ impl Subreddit {
                     self.status.update(reddit, &incident.id, text)?;
                 }
             } else {
-                let cached = CachedSummary::get_submission(&mut summary.cache, incident)?;
+                let cached =
+                    CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
 
                 if let Some(flair) = config.flair_id.as_ref() {
                     let cloned = cached.clone().with_flair_id(flair.as_str());
@@ -86,10 +89,15 @@ impl Subreddit {
             }
         }
 
+        if !is_summary {
+            // from a webhook, so it is expected that other incidents are missing
+            return Ok(());
+        }
+
         for unseen in unseen {
             let incident = status.get_incident(&unseen)?;
-            CachedSummary::add(&mut summary.cache, &incident)?;
-            let cached = CachedSummary::get_submission(&mut summary.cache, &incident)?;
+            CachedIncidentSubmissions::add(&mut cached.cache, &incident)?;
+            let cached = CachedIncidentSubmissions::get_submission(&mut cached.cache, &incident)?;
             let text = match &cached.kind {
                 roux::builders::submission::SubmissionSubmitKind::SelfText { text } => {
                     text.as_str()
@@ -99,8 +107,6 @@ impl Subreddit {
             self.status.update(reddit, &incident.id, text)?;
             self.status.remove(&incident.id)?;
         }
-
-        // TODO: handle incidents that are now resolved, and thus don't appear in the summary
 
         Ok(())
     }

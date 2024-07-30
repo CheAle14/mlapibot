@@ -87,6 +87,9 @@ struct RedditInfo {
     subreddits: Vec<String>,
     #[arg(long, default_value = "false")]
     dry_run: bool,
+    /// If present, bind a HTTP listener to the provided address to listen for status webhooks.
+    #[arg(long)]
+    status_webhook: Option<String>,
 }
 
 #[derive(Deserialize)]

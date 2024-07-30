@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::HashMap, io, net::ToSocketAddrs, path::PathBuf, sync::mpsc::Sender};
 
 use chrono::{DateTime, Utc};
 use roux::{api::ThingId, builders::submission::SubmissionSubmitBuilder};
@@ -146,17 +146,17 @@ impl StatusTracker {
     }
 }
 
-pub struct CachedSummary {
-    pub summary: Summary,
+pub struct CachedIncidentSubmissions {
+    pub incidents: Vec<Incident>,
     pub cache: HashMap<String, SubmissionSubmitBuilder>,
 }
 
-impl CachedSummary {
-    pub fn new(summary: Summary) -> anyhow::Result<Self> {
-        Ok(Self {
-            summary,
+impl CachedIncidentSubmissions {
+    pub fn new(incidents: Vec<Incident>) -> Self {
+        Self {
+            incidents,
             cache: HashMap::new(),
-        })
+        }
     }
 
     pub fn add(
@@ -181,4 +181,46 @@ impl CachedSummary {
         }
         Ok(this.get(&incident.id).unwrap())
     }
+}
+
+pub enum WebhookEvent {
+    IncidentUpdate(Box<Incident>),
+    OtherUpdate,
+    Closed,
+}
+
+pub fn start_webhook_listener_thread(channel: Sender<WebhookEvent>, addr: &str) {
+    let addr = addr.to_owned();
+
+    std::thread::spawn(move || {
+        let chnl = channel.clone();
+        rouille::Server::new(addr, move |request| {
+            println!("[status-webhook] {} {}", request.method(), request.url());
+            let Some(body) = request.data() else {
+                return rouille::Response::empty_404();
+            };
+
+            let parsed: statuspage::webhook::StatusWebhook = match serde_json::from_reader(body) {
+                Ok(value) => value,
+                Err(err) => {
+                    println!("[status-webhook] {err:?}");
+                    return rouille::Response::text("failed to parse json").with_status_code(500);
+                }
+            };
+
+            let event = match parsed.payload {
+                statuspage::webhook::WebhookPayload::Incident { incident } => {
+                    WebhookEvent::IncidentUpdate(Box::new(incident))
+                }
+                _ => WebhookEvent::OtherUpdate,
+            };
+
+            channel.send(event).unwrap();
+
+            rouille::Response::empty_204()
+        })
+        .expect("Failed to start server")
+        .run();
+        chnl.send(WebhookEvent::Closed).unwrap();
+    });
 }
