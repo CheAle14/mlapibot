@@ -4,7 +4,10 @@ use std::{
 };
 
 use anyhow::Context;
-use roux::client::{OAuthClient, RedditClient as RouxRedditClient};
+use roux::{
+    builders::submission::SubmissionSubmitBuilder,
+    client::{OAuthClient, RedditClient as RouxRedditClient},
+};
 use status_tracker::CachedSummary;
 use statuspage::{incident::IncidentImpact, StatusClient};
 use subreddit::Subreddit;
@@ -19,7 +22,7 @@ use crate::{
         create_error_processing_message, create_error_processing_post, create_inbox_message,
         Message as DiscordMessage, WebhookClient,
     },
-    RedditInfo,
+    RedditInfo, SubredditStatusConfig,
 };
 
 mod ratelimiter;
@@ -43,7 +46,7 @@ pub struct RedditClient<'a> {
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
     status: StatusClient,
-    status_filter: HashMap<String, IncidentImpact>,
+    status_config: HashMap<String, SubredditStatusConfig>,
     dry_run: bool,
 }
 
@@ -117,7 +120,7 @@ impl<'a> RedditClient<'a> {
             webhook,
             imgur,
             status,
-            status_filter,
+            status_config: status_filter,
             dry_run: args.dry_run,
         })
     }
@@ -265,9 +268,9 @@ impl<'a> RedditClient<'a> {
 
         let mut summary = CachedSummary::new(summary)?;
         for subreddit in &mut self.subreddits {
-            if let Some(level) = self.status_filter.get(subreddit.name()) {
+            if let Some(config) = self.status_config.get(subreddit.name()) {
                 subreddit
-                    .update_status(&self.client, &self.status, &mut summary, level)
+                    .update_status(&self.client, &self.status, &mut summary, config)
                     .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
             }
         }

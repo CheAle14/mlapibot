@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use roux::util::FeedOption;
 use statuspage::{incident::IncidentImpact, StatusClient};
 
-use crate::RedditInfo;
+use crate::{RedditInfo, SubredditStatusConfig};
 
 use super::{
     seen_tracker::SeenTracker,
@@ -47,7 +47,7 @@ impl Subreddit {
         reddit: &RouxClient,
         status: &StatusClient,
         summary: &mut CachedSummary,
-        level: &IncidentImpact,
+        config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
         let mut unseen = HashSet::new();
         for id in self.status.map.posts.keys() {
@@ -55,7 +55,7 @@ impl Subreddit {
         }
 
         for incident in &summary.summary.incidents {
-            if &incident.impact < level {
+            if &incident.impact < &config.min_impact {
                 continue;
             }
             unseen.remove(&incident.id);
@@ -73,8 +73,16 @@ impl Subreddit {
                 }
             } else {
                 let cached = CachedSummary::get_submission(&mut summary.cache, incident)?;
-                self.status
-                    .add(incident.id.as_str(), reddit, &self.data, cached)?;
+
+                if let Some(flair) = config.flair_id.as_ref() {
+                    let cloned = cached.clone().with_flair_id(flair.as_str());
+
+                    self.status
+                        .add(incident.id.as_str(), reddit, &self.data, &cloned)?;
+                } else {
+                    self.status
+                        .add(incident.id.as_str(), reddit, &self.data, cached)?;
+                }
             }
         }
 

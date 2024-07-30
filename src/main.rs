@@ -89,6 +89,12 @@ struct RedditInfo {
     dry_run: bool,
 }
 
+#[derive(Deserialize)]
+pub struct SubredditStatusConfig {
+    pub min_impact: IncidentImpact,
+    pub flair_id: Option<String>,
+}
+
 impl RedditInfo {
     pub fn get_credentials(&self) -> anyhow::Result<Cow<RedditCredentials>> {
         let credentials_file = self.scratch_dir.join("credentials.json");
@@ -97,7 +103,7 @@ impl RedditInfo {
         Ok(Cow::Owned(parsed))
     }
 
-    pub fn get_status_levels(&self) -> anyhow::Result<HashMap<String, IncidentImpact>> {
+    pub fn get_status_levels(&self) -> anyhow::Result<HashMap<String, SubredditStatusConfig>> {
         let file = self.scratch_dir.join("status.json");
         let mut file = std::fs::File::open(file)?;
         let parsed = serde_json::from_reader(&mut file)?;

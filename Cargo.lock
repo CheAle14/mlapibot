@@ -1655,8 +1655,8 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.12"
-source = "git+https://github.com/CheAle14/roux.git#7d9e22d2921d919a5812c2ee7470dd2d863bd821"
+version = "2.3.13"
+source = "git+https://github.com/CheAle14/roux.git#165bd054c82235977afd9bd3c66bd4de4da20b8a"
 dependencies = [
  "maybe-async",
  "reqwest 0.11.27",
@@ -1913,8 +1913,8 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "statuspage"
-version = "0.1.0"
-source = "git+https://github.com/CheAle14/statuspage.git#551e9914771210811446c2034524850c71b3c094"
+version = "0.2.0"
+source = "git+https://github.com/CheAle14/statuspage.git#47bfc75d2815ad4da161db19e1c1270c7e09bcc1"
 dependencies = [
  "chrono",
  "reqwest 0.12.5",
