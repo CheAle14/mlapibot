@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::reddit::{CreatedComment, RedditMessage, Submission};
+use crate::reddit::{CreatedComment, CreatedCommentWithLinkInfo, RedditMessage, Submission};
 use crate::utils::clamp;
 
 #[derive(Debug, Serialize)]
@@ -247,7 +247,7 @@ pub fn create_error_processing_message(message: &RedditMessage) -> Message {
             )),
     )
 }
-pub fn create_deleted_downvoted_comment(comment: &CreatedComment) -> Message {
+pub fn create_deleted_downvoted_comment(comment: &CreatedCommentWithLinkInfo) -> Message {
     Message::builder().embed(
         MessageEmbed::builder()
             .title("Removed downvoted post")

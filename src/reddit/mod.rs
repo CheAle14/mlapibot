@@ -5,12 +5,9 @@ use std::{
 };
 
 use anyhow::{bail, Context};
-use roux::{
-    builders::submission::SubmissionSubmitBuilder,
-    client::{OAuthClient, RedditClient as RouxRedditClient},
-};
+use roux::client::{OAuthClient, RedditClient as RouxRedditClient};
 use status_tracker::CachedIncidentSubmissions;
-use statuspage::{incident::IncidentImpact, StatusClient};
+use statuspage::StatusClient;
 use subreddit::Subreddit;
 use tera::Tera;
 
@@ -36,6 +33,7 @@ pub type Submission = roux::models::Submission<RouxClient>;
 pub type Comment = roux::models::ArticleComment<RouxClient>;
 pub type RedditMessage = roux::models::Message<RouxClient>;
 pub type CreatedComment = roux::models::CreatedComment<RouxClient>;
+pub type CreatedCommentWithLinkInfo = roux::models::CreatedCommentWithLinkInfo<RouxClient>;
 
 pub struct RedditClient<'a> {
     data_dir: PathBuf,
