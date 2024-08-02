@@ -1,5 +1,3 @@
-#![feature(try_trait_v2)]
-
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use analysis::{get_best_analysis, load_scams, Analyzer};
@@ -118,10 +116,10 @@ impl RedditInfo {
 fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
     let (mut ctx, warnings) = if args.file.is_some() {
         let file = args.file.as_ref().unwrap();
-        Context::from_cli_path(file)?
+        tryw!(Context::from_cli_path(file), Result::Err)
     } else {
         let link = args.link.as_ref().unwrap();
-        Context::from_cli_link(link)?
+        tryw!(Context::from_cli_link(link), Result::Err)
     };
 
     for warning in warnings {

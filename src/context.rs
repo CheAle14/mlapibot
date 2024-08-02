@@ -8,6 +8,7 @@ use crate::{
     ocr::image::{ImageSource, OcrImage},
     reddit::{Comment, RedditMessage, Submission},
     statics::{link_regex, valid_extensions},
+    tryres, tryw,
     url::Url,
 };
 
@@ -112,7 +113,7 @@ impl<'a> ContextKind<'a> {
 
         match self {
             ContextKind::CliPath(path) => {
-                let image = OcrImage::new(ImageSource::KeepFile(path.clone()))?;
+                let image = tryres!(OcrImage::new(ImageSource::KeepFile(path.clone())));
                 return ResultWarnings::Ok(vec![image]);
             }
             ContextKind::CliLink(link) => {
@@ -216,8 +217,8 @@ pub struct Context<'a> {
 
 impl<'a> Context<'a> {
     fn from_kind(kind: ContextKind<'a>) -> ResultWarnings<Self> {
-        let (images, warnings) = kind.get_images()?;
-        let (title, body) = kind.get_title_and_body()?;
+        let (images, warnings) = tryw!(kind.get_images());
+        let (title, body) = tryres!(kind.get_title_and_body());
 
         ResultWarnings::ok(
             Self {

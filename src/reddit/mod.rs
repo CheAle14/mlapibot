@@ -15,6 +15,7 @@ use crate::{
     analysis::{self, get_best_analysis, Analyzer},
     context,
     imgur::{self, ImgurClient},
+    tryw,
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post, create_inbox_message,
@@ -146,7 +147,10 @@ impl<'a> RedditClient<'a> {
     }
 
     fn run_inbox_test(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
-        let (ctx, warnings) = crate::context::Context::from_direct_message(message)?;
+        let (ctx, warnings) = tryw!(
+            crate::context::Context::from_direct_message(message),
+            Result::Err
+        );
 
         self.send_warnings(warnings)?;
 
@@ -219,7 +223,7 @@ impl<'a> RedditClient<'a> {
                     post.author()
                 );
                 subreddit.set_seen(&post);
-                let (ctx, warnings) = context::Context::from_submission(&post)?;
+                let (ctx, warnings) = tryw!(context::Context::from_submission(&post), Result::Err);
                 Self::_send_warnings(&mut self.webhook, warnings)?;
 
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
