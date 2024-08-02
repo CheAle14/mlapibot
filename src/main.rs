@@ -1,3 +1,5 @@
+#![feature(try_trait_v2)]
+
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use analysis::{get_best_analysis, load_scams, Analyzer};
@@ -6,11 +8,10 @@ use context::Context;
 use reddit::RedditClient;
 use serde::Deserialize;
 use statuspage::incident::IncidentImpact;
-use utils::clamp;
-use webhook::{Message, MessageEmbed};
 
 mod analysis;
 mod context;
+mod error;
 mod groups;
 mod imgur;
 mod ocr;
@@ -115,13 +116,18 @@ impl RedditInfo {
 }
 
 fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
-    let mut ctx = if args.file.is_some() {
+    let (mut ctx, warnings) = if args.file.is_some() {
         let file = args.file.as_ref().unwrap();
         Context::from_cli_path(file)?
     } else {
         let link = args.link.as_ref().unwrap();
         Context::from_cli_link(link)?
     };
+
+    for warning in warnings {
+        eprintln!("Warning: {warning:?}");
+    }
+
     ctx.debug = args.analzyer.is_some();
 
     println!(
@@ -170,13 +176,10 @@ fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
         r @ Ok(()) => r,
         Err(err) => {
             // we might fail at sending the webhook, so make sure we log the underlying error
-            let text = format!("{err:?}");
-            eprintln!("Error: {text}");
-            let clamped = clamp(&text, 4096 - (3 + 3 + 2 + 2));
-            let actual = format!("```\r\n{clamped}\r\n```");
-            let message = Message::builder()
-                .content("A fatal error has occured in mlapibot!")
-                .embed(MessageEmbed::builder().description(&actual));
+            let message = crate::webhook::create_generic_error_message(
+                "A fatal error has occured in mlapibot!",
+                &err,
+            );
             client.send_webhook(&message)?;
             Err(err)
         }

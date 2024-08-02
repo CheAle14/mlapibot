@@ -18,7 +18,7 @@ use crate::{
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post, create_inbox_message,
-        Message as DiscordMessage, WebhookClient,
+        create_multiple_error_message, Message as DiscordMessage, WebhookClient,
     },
     RedditInfo, SubredditStatusConfig,
 };
@@ -126,8 +126,29 @@ impl<'a> RedditClient<'a> {
         })
     }
 
+    fn _send_warnings(
+        webhook: &mut Option<WebhookClient>,
+        warnings: Vec<anyhow::Error>,
+    ) -> anyhow::Result<()> {
+        if warnings.len() > 0 {
+            if let Some(webhook) = webhook {
+                let message =
+                    create_multiple_error_message("Warnings when doing inbox test", warnings);
+                webhook.send(&message)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn send_warnings(&mut self, warnings: Vec<anyhow::Error>) -> anyhow::Result<()> {
+        Self::_send_warnings(&mut self.webhook, warnings)
+    }
+
     fn run_inbox_test(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
-        let ctx = crate::context::Context::from_direct_message(message)?;
+        let (ctx, warnings) = crate::context::Context::from_direct_message(message)?;
+
+        self.send_warnings(warnings)?;
 
         match get_best_analysis(&ctx, &self.analzyers) {
             Ok(Some((detection, detected))) => {
@@ -198,7 +219,9 @@ impl<'a> RedditClient<'a> {
                     post.author()
                 );
                 subreddit.set_seen(&post);
-                let ctx = context::Context::from_submission(&post)?;
+                let (ctx, warnings) = context::Context::from_submission(&post)?;
+                Self::_send_warnings(&mut self.webhook, warnings)?;
+
                 let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
                     Ok(result) => result,
                     Err(err) => {

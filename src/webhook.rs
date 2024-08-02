@@ -1,6 +1,8 @@
+use std::fmt::Debug;
+
 use serde::Serialize;
 
-use crate::reddit::{CreatedComment, CreatedCommentWithLinkInfo, RedditMessage, Submission};
+use crate::reddit::{CreatedCommentWithLinkInfo, RedditMessage, Submission};
 use crate::utils::clamp;
 
 #[derive(Debug, Serialize)]
@@ -254,4 +256,35 @@ pub fn create_deleted_downvoted_comment(comment: &CreatedCommentWithLinkInfo) ->
             .description(format!("For {}", comment.link_title()))
             .reddit_link(comment.permalink()),
     )
+}
+
+fn get_error_embed(err: impl Debug) -> MessageEmbed {
+    let text = format!("{err:?}");
+    let clamped = clamp(&text, 4096 - (3 + 3 + 2 + 2));
+    let actual = format!("```\r\n{clamped}\r\n```");
+    MessageEmbed::builder().description(&actual)
+}
+
+pub fn create_generic_error_message(content: impl AsRef<str>, err: impl Debug) -> Message {
+    let content = content.as_ref();
+    eprintln!("Error {content}: {err:?}");
+    Message::builder()
+        .content(content)
+        .embed(get_error_embed(err))
+}
+
+pub fn create_multiple_error_message(
+    content: impl AsRef<str>,
+    errs: Vec<anyhow::Error>,
+) -> Message {
+    let content = content.as_ref();
+    eprintln!("Multiple error: {content}");
+    let mut message = Message::builder().content(content);
+
+    for error in errs {
+        eprintln!("  - {error:?}");
+        message.with_embed(get_error_embed(error));
+    }
+
+    message
 }

@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use regex::Regex;
 
 use crate::{
+    error::ResultWarnings,
     ocr::image::{ImageSource, OcrImage},
     reddit::{Comment, RedditMessage, Submission},
     statics::{link_regex, valid_extensions},
@@ -81,39 +82,38 @@ fn extract_image_links(text: &str, rgx: &Regex) -> Vec<Url> {
     all
 }
 
-fn download_file(url: &Url) -> anyhow::Result<ImageSource> {
+fn download_file(url: &Url) -> anyhow::Result<Option<ImageSource>> {
     let text = url.as_str();
     println!("Downloading image from {text}");
     let mut resp = reqwest::blocking::get(text)?;
     let len = resp.content_length().unwrap_or_default();
     println!("Image is {len} bytes");
-    let path = url.path();
-    let filename = if let Some(idx) = path.rfind('/') {
-        &path[idx..]
-    } else {
-        &path[..]
+
+    let Some(filename) = extract_filename(url) else {
+        return Ok(None);
     };
 
-    let (_, extension) = filename
-        .rsplit_once('.')
-        .ok_or(anyhow!("no extension in {filename:?}"))?;
+    let Some((_, extension)) = filename.rsplit_once('.') else {
+        return Ok(None);
+    };
 
     let mut file = tempfile::Builder::new()
         .suffix(&format!(".{extension}"))
         .tempfile()?;
     let _ = resp.copy_to(&mut file)?;
-    Ok(ImageSource::DeleteOnDropFile(file))
+    Ok(Some(ImageSource::DeleteOnDropFile(file)))
 }
 
 impl<'a> ContextKind<'a> {
-    pub fn get_images(&self) -> anyhow::Result<Vec<OcrImage>> {
+    pub fn get_images(&self) -> ResultWarnings<Vec<OcrImage>> {
         let pattern = link_regex();
         let mut fixed_urls = Vec::new();
+        let mut warnings = Vec::new();
 
         match self {
             ContextKind::CliPath(path) => {
                 let image = OcrImage::new(ImageSource::KeepFile(path.clone()))?;
-                return Ok(vec![image]);
+                return ResultWarnings::Ok(vec![image]);
             }
             ContextKind::CliLink(link) => {
                 let url = fix_url(link.clone()).expect("link is https to image");
@@ -161,11 +161,24 @@ impl<'a> ContextKind<'a> {
 
         let mut images = Vec::with_capacity(fixed_urls.len());
         for url in fixed_urls {
-            let downloaded = download_file(&url)?;
-            let image = OcrImage::new(downloaded)?;
-            images.push(image);
+            match download_file(&url) {
+                Ok(Some(image)) => match OcrImage::new(image) {
+                    Ok(image) => {
+                        images.push(image);
+                    }
+                    Err(err) => warnings.push(err.context("parse downloaded image")),
+                },
+                Ok(None) => {
+                    // failed to download the url, potentially no filename/extension or
+                    // it is an unsupported image
+                    continue;
+                }
+                Err(err) => {
+                    warnings.push(err.context(format!("download file {url:?}")));
+                }
+            }
         }
-        Ok(images)
+        ResultWarnings::ok(images, warnings)
     }
 
     pub fn get_title_and_body(&self) -> anyhow::Result<(Option<String>, Option<String>)> {
@@ -202,35 +215,38 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    fn from_kind(kind: ContextKind<'a>) -> anyhow::Result<Self> {
-        let images = kind.get_images()?;
+    fn from_kind(kind: ContextKind<'a>) -> ResultWarnings<Self> {
+        let (images, warnings) = kind.get_images()?;
         let (title, body) = kind.get_title_and_body()?;
 
-        Ok(Self {
-            kind,
-            images,
-            title,
-            body,
-            debug: false,
-        })
+        ResultWarnings::ok(
+            Self {
+                kind,
+                images,
+                title,
+                body,
+                debug: false,
+            },
+            warnings,
+        )
     }
-    pub fn from_cli_path(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+    pub fn from_cli_path(path: impl AsRef<Path>) -> ResultWarnings<Self> {
         let path = path.as_ref();
         let kind = ContextKind::CliPath(path.to_owned());
 
         Self::from_kind(kind)
     }
-    pub fn from_cli_link(link: &Url) -> anyhow::Result<Self> {
+    pub fn from_cli_link(link: &Url) -> ResultWarnings<Self> {
         let kind = ContextKind::CliLink(link.clone());
 
         Self::from_kind(kind)
     }
 
-    pub fn from_submission(submission: &'a Submission) -> anyhow::Result<Self> {
+    pub fn from_submission(submission: &'a Submission) -> ResultWarnings<Self> {
         Self::from_kind(ContextKind::Submission(submission))
     }
 
-    pub fn from_direct_message(inbox: &'a RedditMessage) -> anyhow::Result<Self> {
+    pub fn from_direct_message(inbox: &'a RedditMessage) -> ResultWarnings<Self> {
         Self::from_kind(ContextKind::DirectMessage(inbox))
     }
 }
