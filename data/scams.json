@@ -234,7 +234,8 @@
                 "discord staff emailed me",
                 "accidentally reported your discord account instead of someone else",
                 "would you please help me to prove your innocence",
-                "please contact our corporate security head for assistance by sending a friend request on Discord"
+                "please contact our corporate security head for assistance by sending a friend request on Discord",
+                "the user who performed the reports already provided a followup statement that you are not involved"
             ],
             "report": true,
             "template": "accountreport"
