@@ -243,7 +243,8 @@
         {
             "name": "doneReading",
             "ocr": [
-                "done reading check out other channels"
+                "done reading check out other channels",
+                "done reading check out chat"
             ],
             "template": "doneReading"
         },
