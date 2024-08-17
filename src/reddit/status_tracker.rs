@@ -105,6 +105,7 @@ impl StatusTracker {
     pub fn add(
         &mut self,
         incident_id: &str,
+        incident_last_updated: DateTime<Utc>,
         reddit: &RouxClient,
         subreddit: &RouxSubreddit,
         submission: &SubmissionSubmitBuilder,
@@ -117,7 +118,7 @@ impl StatusTracker {
             incident_id.to_owned(),
             StatusSubmission {
                 post_id: submission.name().clone(),
-                last_updated: chrono::Utc::now(),
+                last_updated: incident_last_updated,
             },
         );
 
@@ -136,11 +137,12 @@ impl StatusTracker {
         &mut self,
         reddit: &RouxClient,
         incident_id: &str,
+        incident_last_updated: DateTime<Utc>,
         text: &str,
     ) -> anyhow::Result<()> {
         if let Some(state) = self.map.posts.get_mut(incident_id) {
             reddit.edit(text, &state.post_id)?;
-            state.last_updated = Utc::now();
+            state.last_updated = incident_last_updated;
         }
         Ok(())
     }

@@ -56,11 +56,13 @@ impl Subreddit {
         }
 
         for incident in &cached.incidents {
-            if &incident.impact < &config.min_impact {
-                continue;
-            }
-            unseen.remove(&incident.id);
+            let update = incident
+                .updated_at
+                .unwrap_or_else(|| incident.created_at)
+                .to_utc();
+
             if self.status.is_tracking(incident.id.as_str()) {
+                unseen.remove(&incident.id);
                 if self.status.needs_update(incident) {
                     let cached =
                         CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
@@ -71,9 +73,10 @@ impl Subreddit {
                         _ => unreachable!("we create this as a text post"),
                     };
 
-                    self.status.update(reddit, &incident.id, text)?;
+                    self.status.update(reddit, &incident.id, update, text)?;
                 }
-            } else {
+            } else if incident.impact >= config.min_impact {
+                unseen.remove(&incident.id);
                 let cached =
                     CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
 
@@ -81,10 +84,10 @@ impl Subreddit {
                     let cloned = cached.clone().with_flair_id(flair.as_str());
 
                     self.status
-                        .add(incident.id.as_str(), reddit, &self.data, &cloned)?;
+                        .add(incident.id.as_str(), update, reddit, &self.data, &cloned)?;
                 } else {
                     self.status
-                        .add(incident.id.as_str(), reddit, &self.data, cached)?;
+                        .add(incident.id.as_str(), update, reddit, &self.data, cached)?;
                 }
             }
         }
@@ -96,6 +99,12 @@ impl Subreddit {
 
         for unseen in unseen {
             let incident = status.get_incident(&unseen)?;
+
+            let update = incident
+                .updated_at
+                .unwrap_or_else(|| incident.created_at)
+                .to_utc();
+
             CachedIncidentSubmissions::add(&mut cached.cache, &incident)?;
             let cached = CachedIncidentSubmissions::get_submission(&mut cached.cache, &incident)?;
             let text = match &cached.kind {
@@ -104,7 +113,7 @@ impl Subreddit {
                 }
                 _ => unreachable!("we create this as a text post"),
             };
-            self.status.update(reddit, &incident.id, text)?;
+            self.status.update(reddit, &incident.id, update, text)?;
             self.status.remove(&incident.id)?;
         }
 
