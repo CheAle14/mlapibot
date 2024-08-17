@@ -204,6 +204,8 @@ pub fn start_webhook_listener_thread(channel: Sender<WebhookEvent>, addr: &str) 
                 Ok(value) => value,
                 Err(err) => {
                     println!("[status-webhook] {err:?}");
+                    // *something* has happened, so trigger a refresh anyway
+                    chnl.send(WebhookEvent::OtherUpdate).unwrap();
                     return rouille::Response::text("failed to parse json").with_status_code(500);
                 }
             };
@@ -215,12 +217,12 @@ pub fn start_webhook_listener_thread(channel: Sender<WebhookEvent>, addr: &str) 
                 _ => WebhookEvent::OtherUpdate,
             };
 
-            channel.send(event).unwrap();
+            chnl.send(event).unwrap();
 
             rouille::Response::empty_204()
         })
         .expect("Failed to start server")
         .run();
-        chnl.send(WebhookEvent::Closed).unwrap();
+        channel.send(WebhookEvent::Closed).unwrap();
     });
 }

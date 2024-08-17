@@ -348,11 +348,13 @@ impl<'a> RedditClient<'a> {
                 ratelimiter::Rate::NoneReadyFor(dur) => match rx.recv_timeout(dur) {
                     Ok(event) => match event {
                         status_tracker::WebhookEvent::IncidentUpdate(incident) => {
+                            println!("[status-recv] got incident webhook");
                             let incident = *incident;
                             let cache = CachedIncidentSubmissions::new(vec![incident]);
                             self.update_status_with(cache, false)?;
                         }
                         _ => {
+                            println!("[status-recv] got unknown webhook, checking status");
                             self.check_status()?;
                             self.ratelimit.set_status();
                         }
