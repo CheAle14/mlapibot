@@ -10,13 +10,7 @@ use imageproc::{
 use leptess::leptonica::Box;
 use tempfile::NamedTempFile;
 
-use crate::{
-    analysis::{
-        str_analyzer::{clean_string, CleanedWords},
-        DetectedItem,
-    },
-    statics::draw_font,
-};
+use crate::{analysis::DetectedItem, statics::draw_font, utils::Words};
 
 use super::{get_tesseract, word::OcrWord};
 
@@ -45,7 +39,7 @@ impl ImageSource {
 pub struct OcrImage {
     source: ImageSource,
     cached_image: DynamicImage,
-    ocr_words: CleanedWords,
+    ocr_words: Vec<String>,
     ocr_boxes: Vec<Box>,
 }
 
@@ -86,10 +80,11 @@ impl OcrImage {
         let mut ocr_words = Vec::new();
         let mut ocr_boxes = Vec::new();
         for (bx, word) in std::iter::zip(initial_boxes, initial_words) {
-            let word = clean_string(word);
+            let mut owned = word.to_owned();
+            Words::clean(&mut owned);
             if word.len() > 0 {
                 ocr_boxes.push(bx);
-                ocr_words.push(word);
+                ocr_words.push(owned);
             }
         }
 

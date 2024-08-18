@@ -2,3 +2,5 @@
 *.png
 *.json
 *.txt
+
+!tests/**/*.png

@@ -32,6 +32,15 @@ enum SubCommand {
     Test(TestInfo),
     /// Runs the reddit bot using specified credentials
     Reddit(RedditInfo),
+    /// Analyzes all images in the sub-folders, expecting them to be detected by the analyzer whose name
+    /// is equal to the image folder name. If that folder is `none`, then expects no detection from any.
+    TestRun(TestRunInfo),
+}
+
+#[derive(Args)]
+struct TestRunInfo {
+    #[arg(long, default_value = "./tests")]
+    dir: PathBuf,
 }
 
 #[derive(Args)]
@@ -184,6 +193,58 @@ fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
     }
 }
 
+fn test_folder(analyzers: &[Analyzer], args: TestRunInfo) -> anyhow::Result<()> {
+    for dir in std::fs::read_dir(args.dir)? {
+        let dir = dir?;
+
+        println!("Testing {:?}", dir.path());
+        let is_none = dir.file_name().eq_ignore_ascii_case("none");
+
+        for file in std::fs::read_dir(dir.path())? {
+            let file = file?;
+
+            let (ctx, warnings) = tryw!(Context::from_cli_path(file.path()), Result::Err);
+
+            for warning in warnings {
+                eprintln!("  Warning: {warning:?}");
+            }
+
+            if is_none {
+                for yzer in analyzers {
+                    if let Some(det) = yzer.analyze(&ctx)? {
+                        panic!("  failed {file:?} not none -> {det:?}");
+                    }
+                }
+                println!("  {file:?} passed");
+            } else {
+                let mut found = false;
+                for yzer in analyzers {
+                    if dir.file_name().eq_ignore_ascii_case(&yzer.name) {
+                        found = true;
+                        match yzer.analyze(&ctx)? {
+                            None => panic!("  failed {file:?} not detected"),
+                            Some(_) => {
+                                println!("  {file:?} passed");
+                                break;
+                            }
+                        }
+                    }
+                }
+                if !found {
+                    panic!(
+                        "  failed {file:?} no analyzer with the name {:?}",
+                        dir.file_name()
+                    );
+                }
+            }
+        }
+
+        println!()
+    }
+
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
@@ -202,5 +263,6 @@ fn main() -> anyhow::Result<()> {
             }
             run_reddit(&analyzers, &reddit)
         }
+        SubCommand::TestRun(args) => test_folder(&analyzers, args),
     }
 }

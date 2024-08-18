@@ -5,13 +5,16 @@ use image::DynamicImage;
 use ord_many::{max_many, partial_max_iter};
 use pattern_analyzer::PatternAnalyzer;
 use serde::{de::Visitor, Deserialize, Deserializer};
-use str_analyzer::{get_words, StrAnalzyer, WordMatcher};
+use str_analyzer::StrAnalzyer;
+use str_matchers::{Matcher, MatcherKind};
 
-use crate::context::Context;
+use crate::{context::Context, utils::Words};
 
 pub mod func_analyzer;
 pub mod pattern_analyzer;
 pub mod str_analyzer;
+
+mod str_matchers;
 
 #[derive(Debug, Clone)]
 pub struct DetectedWord {
@@ -46,6 +49,7 @@ impl DetectedItem {
         text: &[impl AsRef<str>],
         output: &mut W,
     ) -> std::fmt::Result {
+        let last_idx = text.len() - 1;
         for (idx, word) in text.iter().enumerate() {
             let word = word.as_ref();
             if let Some(_) = self.words.get(&idx) {
@@ -53,10 +57,24 @@ impl DetectedItem {
             } else {
                 write!(output, "{word}")?;
             }
-            write!(output, " ")?;
+            if idx < last_idx {
+                write!(output, " ")?;
+            }
         }
 
         Ok(())
+    }
+
+    pub fn min_max_word_indexes(&self) -> (usize, usize) {
+        let mut max = usize::MIN;
+        let mut min = usize::MAX;
+
+        for key in self.words.keys() {
+            max = (*key).max(max);
+            min = (*key).min(min);
+        }
+
+        (min, max)
     }
 }
 
@@ -99,17 +117,17 @@ impl Detection {
 
         if let Some(title) = &self.title {
             let text = ctx.title.as_ref().unwrap();
-            let words = get_words(&text);
+            let words = Words::new(text);
             let mut s = String::new();
-            title.write_markdown(&words, &mut s)?;
+            title.write_markdown(&words.as_words(), &mut s)?;
             v.push(s);
         }
 
         if let Some(body) = &self.body {
             let text = ctx.body.as_ref().unwrap();
-            let words = get_words(&text);
+            let words = Words::new(text);
             let mut s = String::new();
-            body.write_markdown(&words, &mut s)?;
+            body.write_markdown(&words.as_words(), &mut s)?;
             v.push(s);
         }
 
@@ -193,7 +211,7 @@ pub struct Analyzer {
     pub ignore_self_posts: bool,
     #[serde(default = "default_template", deserialize_with = "deserialse_template")]
     pub template: String,
-    blacklist: Option<WordMatcher>,
+    blacklist: Option<MatcherKind>,
     #[serde(flatten)]
     kind: AnalyzerKind,
 }

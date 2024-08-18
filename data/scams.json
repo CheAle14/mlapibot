@@ -1,21 +1,6 @@
 {
     "scams": [
         {
-            "function": "home_ds_logo",
-            "ignore_self_posts": false,
-            "name": "home notification nitro tab",
-            "report": true,
-            "template": "homeNotification",
-            "type": "function"
-        },
-        {
-            "img": "custom_status*.jpeg",
-            "name": "Custom status icon",
-            "report": true,
-            "template": "customStatusIcon",
-            "type": "img"
-        },
-        {
             "blacklist": [
                 "epic games",
                 "epic game",
@@ -295,6 +280,25 @@
             "template": "malwareLink"
         },
         {
+            "ignore_self_posts": false,
+            "name": "tryGameMalware",
+            "ocr": {
+                "children": [
+                    {
+                        "children": [
+                            "develop",
+                            "developed"
+                        ],
+                        "type": "any"
+                    },
+                    "game",
+                    "feedback"
+                ],
+                "type": "ordered"
+            },
+            "template": "tryGameMalware"
+        },
+        {
             "name": "discord support",
             "ocr": [
                 "you have successfully completed the test period on the discord testers server",
@@ -342,16 +346,14 @@
         {
             "name": "Server Ban Appeal",
             "template": "serverBanAppeal",
-            "title": [
-                "banned from minecraft discord server",
-                "ban from minecraft discord server",
-                "ban minecraft discord server",
-                "banned minecraft discord server",
-                "banned from minecraft server",
-                "banned minecraft server",
-                "banned from the minecraft discord"
-            ],
-            "type": "text"
+            "title": {
+                "children": [
+                    "banned",
+                    "from",
+                    "server"
+                ],
+                "type": "ordered"
+            }
         },
         {
             "name": "GenericChainSpam",
