@@ -18,10 +18,16 @@ impl Matcher for OrderedMatcher {
             let words = &words[start_idx..];
             if let Some(next) = child.matches(words, debug) {
                 score_sum += next.score;
-                let (_, max) = next.min_max_word_indexes();
+                let len = next.words.len();
+                let (min, max) = next.min_max_word_indexes();
+                let min = start_idx + min;
+                let max = start_idx + max;
+
                 for (key, value) in next.words {
                     detection.words.insert(key + start_idx, value);
                 }
+
+                println!("  Found {len} words between {min} and {max}");
 
                 start_idx = max;
             } else {
