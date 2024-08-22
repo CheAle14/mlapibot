@@ -201,7 +201,9 @@ impl<'a> RedditClient<'a> {
             item.mark_read()?;
             if item.subject() == "test" {
                 self.run_inbox_test(&item)?;
-            } else if let Some(webhook) = &mut self.webhook {
+            }
+
+            if let Some(webhook) = &mut self.webhook {
                 let inbox = create_inbox_message(&item);
                 webhook.send(&inbox)?;
             }
