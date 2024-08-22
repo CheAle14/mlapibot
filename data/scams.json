@@ -199,7 +199,6 @@
                 "we are working with some officials for this matter so that we can record all processes taken legally and are not violating",
                 "we can verify here that the said user doesn't have any past history of reports regarding this",
                 "i clicked on a link 2 days ago and somebody else had access my account but luckily i have my 2fa on",
-                "could you please help me explain to the discord support that the reports on your account were false",
                 "both of our accounts could get deleted and worst get our ip addresses blocked from accessing discord",
                 "the discord support said that your account will be banned if you didn't take any action for this",
                 "i was hacked last day because of a fake nitro link that i happened to click on discord",
@@ -207,18 +206,36 @@
                 "we recommend contacting the users who have been reported and encouraging them to reach out to the same corporate team",
                 "exercise cauion regarding potental impersonators attempting to replicate our profile please ensure to accurately document the correct discord username",
                 "hey don't really know how to say this please don't be mad clicked on a link that matched my paypal",
-                "would you be able to help me explain to discord support that the reports on your account were a mistake",
                 "we have identified the account that you have been reported for as it has violated our terms of service or community guidelines",
                 "failure to validate the legality of an account within a specific time frame 12 hours may result in account suspension restrictions",
                 "by implementing this process we can assure that your discord account is not susceptible to fraudulent",
                 "your ip will be blocked on discord if there is no action taken from you",
-                "could you help me explain to discord support that reports on your account were false",
                 "someone sent me a link but i clicked on it by accident",
                 "i accidentally reported you for scamming instead of someone else",
                 "discord staff emailed me",
                 "would you please help me to prove your innocence",
                 "please contact our corporate security head for assistance by sending a friend request on Discord",
                 "the user who performed the reports already provided a followup statement that you are not involved",
+                {
+                    "children": [
+                        "help",
+                        "explain",
+                        [
+                            "discord support",
+                            "discord staff"
+                        ],
+                        [
+                            "reports",
+                            "complaints"
+                        ],
+                        [
+                            "false",
+                            "mistake",
+                            "accident"
+                        ]
+                    ],
+                    "type": "ordered"
+                },
                 {
                     "children": [
                         [
