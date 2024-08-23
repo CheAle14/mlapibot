@@ -138,6 +138,7 @@ impl<'a> ContextKind<'a> {
                                         }
                                     }
                                     SubmissionDataMediaMetadata::RedditVideo { .. } => (),
+                                    SubmissionDataMediaMetadata::AnimatedImage { .. } => (),
                                 }
                             } else {
                                 eprintln!("Gallery item not present: {img:?}");
