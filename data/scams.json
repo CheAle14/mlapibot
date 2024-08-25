@@ -83,7 +83,7 @@
                 "you won 15x boosts",
                 "you were randomly selected to win 15x discord boosts from spooked"
             ],
-            "report": true
+            "remove": true
         },
         {
             "blacklist": [
@@ -106,7 +106,7 @@
                 "i dont want creeps on my friends list",
                 "im blocking you sorry if its a misunderstanding"
             ],
-            "report": true,
+            "remove": true,
             "template": "verifyscam"
         },
         {
@@ -181,7 +181,7 @@
                 "invite the bot to your server",
                 "invite this bot on your biggest server wait 1 day and you will receive the prizes listed above on your account"
             ],
-            "report": true
+            "remove": true
         },
         {
             "ignore_self_posts": true,
@@ -257,7 +257,7 @@
                     "type": "ordered"
                 }
             ],
-            "report": true,
+            "remove": true,
             "template": "accountreport"
         },
         {
@@ -311,7 +311,7 @@
                 "i created a new game rate tried very hard",
                 "i create game rate it"
             ],
-            "report": true,
+            "remove": true,
             "template": "malwareLink"
         },
         {
@@ -358,7 +358,7 @@
                 "your account has accessed the server's channels where the content was being distributed within the past 10 minutes",
                 "your account may have been involved in the server for a longer period of time"
             ],
-            "report": true
+            "remove": true
         },
         {
             "name": "Copyright",
@@ -484,7 +484,7 @@
                 "you won a nitro gift as part of a limited time event",
                 "discord official event"
             ],
-            "report": true
+            "remove": true
         },
         {
             "name": "Nitro Generator",
@@ -588,7 +588,7 @@
                 "come one and come all to the newest discord event",
                 "we are very happy to announce that we are starting hypesquad events again and entries are selected between"
             ],
-            "report": true
+            "remove": true
         },
         {
             "name": "AnarchyGrabber",

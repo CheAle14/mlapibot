@@ -207,6 +207,8 @@ pub struct Analyzer {
     pub name: String,
     #[serde(default)]
     pub report: bool,
+    #[serde(default)]
+    pub remove: bool,
     #[serde(default = "default_true")]
     pub ignore_self_posts: bool,
     #[serde(default = "default_template", deserialize_with = "deserialse_template")]

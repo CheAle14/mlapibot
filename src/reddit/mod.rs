@@ -264,15 +264,12 @@ impl<'a> RedditClient<'a> {
 
                     let modconf = self.subreddits_config.get_moderate(subreddit.name());
 
-                    let is_mod = if let Some(modconf) = modconf {
-                        if post.can_mod_post() {
+                    let is_mod = match (modconf, detected.remove) {
+                        (Some(modconf), true) if post.can_mod_post() => {
                             template_context.insert("removal_reason", &modconf.removal_reason);
                             true
-                        } else {
-                            false
                         }
-                    } else {
-                        false
+                        _ => false,
                     };
 
                     let imgur_link = match (ctx.images.len() > 0, self.imgur.as_mut()) {
@@ -298,14 +295,12 @@ impl<'a> RedditClient<'a> {
                             .comment(&template)
                             .with_context(|| format!("reply to {:?}", post.name()))?;
 
-                        if detected.report {
-                            if is_mod {
-                                post.remove(false)?;
-                                own_comment.distinguish(Distinguish::Moderator, true)?;
-                            } else {
-                                post.report("Appears to be a common repost")
-                                    .with_context(|| format!("report {:?}", post.name()))?;
-                            }
+                        if is_mod {
+                            post.remove(false)?;
+                            own_comment.distinguish(Distinguish::Moderator, true)?;
+                        } else if detected.report {
+                            post.report("Appears to be a common repost")
+                                .with_context(|| format!("report {:?}", post.name()))?;
                         }
 
                         if let Some(webhook) = &mut self.webhook {
