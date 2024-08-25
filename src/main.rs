@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 use analysis::{get_best_analysis, load_scams, Analyzer};
 use clap::{Args, CommandFactory, Parser, Subcommand};
 use context::Context;
-use reddit::RedditClient;
+use reddit::{config::SubredditsConfig, RedditClient};
 use serde::Deserialize;
 use statuspage::incident::IncidentImpact;
 
@@ -114,9 +114,9 @@ impl RedditInfo {
         Ok(Cow::Owned(parsed))
     }
 
-    pub fn get_status_levels(&self) -> anyhow::Result<HashMap<String, SubredditStatusConfig>> {
-        let file = self.scratch_dir.join("status.json");
-        let mut file = std::fs::File::open(file)?;
+    pub fn get_subreddits_config(&self) -> anyhow::Result<SubredditsConfig> {
+        let config = self.scratch_dir.join("subreddits.json");
+        let mut file = std::fs::File::open(config)?;
         let parsed = serde_json::from_reader(&mut file)?;
         Ok(parsed)
     }

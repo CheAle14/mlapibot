@@ -1,11 +1,15 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::PathBuf,
     sync::mpsc::{self, RecvTimeoutError},
 };
 
 use anyhow::{bail, Context};
-use roux::client::{OAuthClient, RedditClient as RouxRedditClient};
+use config::SubredditsConfig;
+use roux::{
+    client::{OAuthClient, RedditClient as RouxRedditClient},
+    models::Distinguish,
+};
 use status_tracker::CachedIncidentSubmissions;
 use statuspage::StatusClient;
 use subreddit::Subreddit;
@@ -21,9 +25,10 @@ use crate::{
         create_error_processing_message, create_error_processing_post, create_inbox_message,
         create_multiple_error_message, Message as DiscordMessage, WebhookClient,
     },
-    RedditInfo, SubredditStatusConfig,
+    RedditInfo,
 };
 
+pub mod config;
 mod ratelimiter;
 mod seen_tracker;
 mod status_tracker;
@@ -46,7 +51,7 @@ pub struct RedditClient<'a> {
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
     status: StatusClient,
-    status_config: HashMap<String, SubredditStatusConfig>,
+    subreddits_config: SubredditsConfig,
     dry_run: bool,
     status_webhook: Option<String>,
 }
@@ -85,13 +90,13 @@ impl<'a> RedditClient<'a> {
 
         let status = StatusClient::new("https://discordstatus.com")?;
 
-        let status_filter = args.get_status_levels()?;
+        let subreddits_config = args.get_subreddits_config()?;
 
         let mut subreddit_names = HashSet::new();
         for sub in &args.subreddits {
             subreddit_names.insert(sub);
         }
-        for key in status_filter.keys() {
+        for key in subreddits_config.keys() {
             subreddit_names.insert(key);
         }
 
@@ -101,10 +106,10 @@ impl<'a> RedditClient<'a> {
             .collect();
 
         println!(
-            "Logged in as /u/{}; monitoring {} and sending status information to {} subreddits",
+            "Logged in as /u/{}; monitoring {} with {} total known subreddits",
             credentials.username,
             args.subreddits.len(),
-            status_filter.len()
+            subreddits_config.len()
         );
 
         if args.dry_run {
@@ -121,7 +126,7 @@ impl<'a> RedditClient<'a> {
             webhook,
             imgur,
             status,
-            status_config: status_filter,
+            subreddits_config,
             dry_run: args.dry_run,
             status_webhook: args.status_webhook.clone(),
         })
@@ -199,8 +204,16 @@ impl<'a> RedditClient<'a> {
                     .unwrap_or("no author")
             );
             item.mark_read()?;
+
             if item.subject() == "test" {
                 self.run_inbox_test(&item)?;
+            } else if item.author().is_none() {
+                if let Some(subreddit) = item.subject().strip_prefix("invitation to moderate /r/") {
+                    let sub = self.client.subreddit(subreddit);
+                    if let Err(e) = sub.accept_moderator_invite() {
+                        println!("Unable to accept mod: {e:?}");
+                    }
+                }
             }
 
             if let Some(webhook) = &mut self.webhook {
@@ -249,6 +262,19 @@ impl<'a> RedditClient<'a> {
 
                     let mut template_context = tera::Context::new();
 
+                    let modconf = self.subreddits_config.get_moderate(subreddit.name());
+
+                    let is_mod = if let Some(modconf) = modconf {
+                        if post.can_mod_post() {
+                            template_context.insert("removal_reason", &modconf.removal_reason);
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
                     let imgur_link = match (ctx.images.len() > 0, self.imgur.as_mut()) {
                         (true, Some(imgur)) => {
                             let album = imgur::upload_images(imgur, &ctx, &detection, detected)
@@ -268,12 +294,18 @@ impl<'a> RedditClient<'a> {
                         })?;
 
                     if !self.dry_run {
-                        post.comment(&template)
+                        let own_comment = post
+                            .comment(&template)
                             .with_context(|| format!("reply to {:?}", post.name()))?;
 
                         if detected.report {
-                            post.report("Appears to be a common repost")
-                                .with_context(|| format!("report {:?}", post.name()))?;
+                            if is_mod {
+                                post.remove(false)?;
+                                own_comment.distinguish(Distinguish::Moderator, true)?;
+                            } else {
+                                post.report("Appears to be a common repost")
+                                    .with_context(|| format!("report {:?}", post.name()))?;
+                            }
                         }
 
                         if let Some(webhook) = &mut self.webhook {
@@ -294,7 +326,7 @@ impl<'a> RedditClient<'a> {
         is_summary: bool,
     ) -> anyhow::Result<()> {
         for subreddit in &mut self.subreddits {
-            if let Some(config) = self.status_config.get(subreddit.name()) {
+            if let Some(config) = self.subreddits_config.get_status(subreddit.name()) {
                 subreddit
                     .update_status(&self.client, &self.status, &mut cached, is_summary, config)
                     .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
