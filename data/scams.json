@@ -216,6 +216,29 @@
                 "would you please help me to prove your innocence",
                 "please contact our corporate security head for assistance by sending a friend request on Discord",
                 "the user who performed the reports already provided a followup statement that you are not involved",
+                "your account might get deleted eternally",
+                {
+                    "children": [
+                        "reason",
+                        [
+                            "process",
+                            "appeal"
+                        ],
+                        [
+                            "ensure",
+                            "prove"
+                        ],
+                        [
+                            "own",
+                            "owner"
+                        ],
+                        [
+                            "account",
+                            "profile"
+                        ]
+                    ],
+                    "type": "ordered"
+                },
                 {
                     "children": [
                         "help",
