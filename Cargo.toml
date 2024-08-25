@@ -3,6 +3,9 @@ name = "mlapibot"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+true-run = []
+
 [dependencies]
 ab_glyph = "0.2.28"
 anyhow = "1.0.86"

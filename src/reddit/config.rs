@@ -35,7 +35,7 @@ pub struct SubredditConfig {
     pub moderate: Option<SubredditModerateConfig>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SubredditModerateConfig {
     pub removal_reason: String,
 }

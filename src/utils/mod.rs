@@ -13,3 +13,13 @@ pub fn clamp<'a>(text: &'a str, length: usize) -> &'a str {
 pub fn as_ref(words: &Vec<String>) -> Vec<&str> {
     words.iter().map(|s| s.as_str()).collect()
 }
+
+#[cfg(feature = "true-run")]
+pub const fn is_debug() -> bool {
+    false
+}
+
+#[cfg(not(feature = "true-run"))]
+pub const fn is_debug() -> bool {
+    true
+}

@@ -98,6 +98,8 @@ struct RedditInfo {
     /// If present, bind a HTTP listener to the provided address to listen for status webhooks.
     #[arg(long)]
     status_webhook: Option<String>,
+    #[arg(long)]
+    admin: Option<String>,
 }
 
 #[derive(Deserialize)]

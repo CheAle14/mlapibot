@@ -1860,8 +1860,8 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.18"
-source = "git+https://github.com/CheAle14/roux.git#e0e091eb812af043625f7b3b9bfb6cc62629a6fe"
+version = "2.3.19"
+source = "git+https://github.com/CheAle14/roux.git#faad1d9c11d881803710631f4532f043f08205fd"
 dependencies = [
  "maybe-async",
  "reqwest 0.11.27",

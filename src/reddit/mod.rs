@@ -5,9 +5,9 @@ use std::{
 };
 
 use anyhow::{bail, Context};
-use config::SubredditsConfig;
+use config::{SubredditModerateConfig, SubredditsConfig};
 use roux::{
-    client::{OAuthClient, RedditClient as RouxRedditClient},
+    client::{AuthedClient, OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
 };
 use status_tracker::CachedIncidentSubmissions;
@@ -20,6 +20,7 @@ use crate::{
     context,
     imgur::{self, ImgurClient},
     tryw,
+    utils::is_debug,
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post, create_inbox_message,
@@ -54,6 +55,7 @@ pub struct RedditClient<'a> {
     subreddits_config: SubredditsConfig,
     dry_run: bool,
     status_webhook: Option<String>,
+    admin: Option<String>,
 }
 
 impl<'a> RedditClient<'a> {
@@ -106,10 +108,15 @@ impl<'a> RedditClient<'a> {
             .collect();
 
         println!(
-            "Logged in as /u/{}; monitoring {} with {} total known subreddits",
+            "Logged in as /u/{}; monitoring {} with {} total known subreddits in {}",
             credentials.username,
             args.subreddits.len(),
-            subreddits_config.len()
+            subreddits_config.len(),
+            if is_debug() {
+                "debug mode"
+            } else {
+                "release mode"
+            }
         );
 
         if args.dry_run {
@@ -129,6 +136,7 @@ impl<'a> RedditClient<'a> {
             subreddits_config,
             dry_run: args.dry_run,
             status_webhook: args.status_webhook.clone(),
+            admin: args.admin.clone(),
         })
     }
 
@@ -192,36 +200,164 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn redo_from_message(&mut self, message: RedditMessage) -> anyhow::Result<()> {
+        let submission = match self.client.get_submission_by_link(message.body()) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!(
+                    "Failed to parse or fetch post to redo: {:?} {e:?}",
+                    message.body()
+                );
+                message.reply("Failed to parse or fetch which submission you meant.")?;
+                return Ok(());
+            }
+        };
+
+        let modconf = self.subreddits_config.get_moderate(submission.subreddit());
+        Self::check_post(
+            &mut self.webhook,
+            &self.analzyers,
+            &mut self.imgur,
+            modconf,
+            &self.templates,
+            self.dry_run,
+            submission,
+        )?;
+        Ok(())
+    }
+
     fn check_inbox(&mut self) -> anyhow::Result<()> {
         let inbox = self.client.unread()?;
         for item in inbox {
+            let subject = if let Some(stripped) = item.subject().strip_prefix("[dev-only]") {
+                if is_debug() {
+                    stripped.trim_start()
+                } else {
+                    continue;
+                }
+            } else {
+                item.subject()
+            };
+
             println!(
                 "Saw inbox {:?} from /u/{}",
-                item.subject(),
+                subject,
                 item.author()
                     .as_ref()
                     .map(|s| s.as_str())
                     .unwrap_or("no author")
             );
+
             item.mark_read()?;
 
-            if item.subject() == "test" {
+            if let Some(webhook) = &mut self.webhook {
+                let inbox = create_inbox_message(&item);
+                webhook.send(&inbox)?;
+            }
+
+            let author = match item.author() {
+                Some(s) => s.as_str(),
+                None => "",
+            };
+
+            if subject == "test" {
                 self.run_inbox_test(&item)?;
-            } else if item.author().is_none() {
-                if let Some(subreddit) = item.subject().strip_prefix("invitation to moderate /r/") {
+            } else if subject == "redo" {
+                if let Some(admin) = self.admin.as_ref() {
+                    if author == admin {
+                        self.redo_from_message(item)?;
+                    }
+                } else {
+                    eprintln!("  User attempted unauthorized redo");
+                }
+            } else if author == "" {
+                if let Some(subreddit) = subject.strip_prefix("invitation to moderate /r/") {
                     let sub = self.client.subreddit(subreddit);
                     if let Err(e) = sub.accept_moderator_invite() {
                         println!("Unable to accept mod: {e:?}");
                     }
                 }
             }
-
-            if let Some(webhook) = &mut self.webhook {
-                let inbox = create_inbox_message(&item);
-                webhook.send(&inbox)?;
-            }
         }
 
+        Ok(())
+    }
+
+    fn check_post(
+        webhook: &mut Option<WebhookClient>,
+        analzyers: &[Analyzer],
+        imgur: &mut Option<ImgurClient>,
+        modconf: Option<&SubredditModerateConfig>,
+        templates: &Tera,
+        dry_run: bool,
+        post: Submission,
+    ) -> anyhow::Result<()> {
+        let (ctx, warnings) = tryw!(context::Context::from_submission(&post), Result::Err);
+        Self::_send_warnings(webhook, warnings)?;
+
+        let result = match analysis::get_best_analysis(&ctx, analzyers) {
+            Ok(result) => result,
+            Err(err) => {
+                eprintln!("Error whilst analyising {}: {err:?}", post.id());
+                if let Some(webhook) = webhook {
+                    let msg = create_error_processing_post(&post);
+                    webhook.send(&msg)?;
+                }
+                return Ok(());
+            }
+        };
+
+        if let Some((detection, detected)) = result {
+            println!(
+                "Triggered on post {:?} by /u/{}",
+                post.title(),
+                post.author()
+            );
+
+            let mut template_context = tera::Context::new();
+
+            let is_mod = match (modconf, detected.remove) {
+                (Some(modconf), true) if post.can_mod_post() => {
+                    template_context.insert("removal_reason", &modconf.removal_reason);
+                    true
+                }
+                _ => false,
+            };
+
+            let imgur_link = match (ctx.images.len() > 0, imgur.as_mut()) {
+                (true, Some(imgur)) => {
+                    let album = imgur::upload_images(imgur, &ctx, &detection, detected)
+                        .context("uploading to imgur")?;
+                    let url = format!("https://imgur.com/a/{}", album.id);
+                    template_context.insert("imgur_url", &url);
+                    Some(url)
+                }
+                (_, _) => None,
+            };
+
+            let template = templates
+                .render(&detected.template, &template_context)
+                .with_context(|| format!("rendering to template {:?}", detected.template))?;
+
+            if !dry_run {
+                let own_comment = post
+                    .comment(&template)
+                    .with_context(|| format!("reply to {:?}", post.name()))?;
+
+                if is_mod {
+                    post.remove(false)?;
+                    own_comment.distinguish(Distinguish::Moderator, true)?;
+                } else if detected.report {
+                    post.report("Appears to be a common repost")
+                        .with_context(|| format!("report {:?}", post.name()))?;
+                }
+
+                if let Some(webhook) = webhook {
+                    let msg = create_detection_message(&post, &detection, detected, imgur_link);
+                    webhook.send(&msg).context("send detection webhook")?;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -230,7 +366,7 @@ impl<'a> RedditClient<'a> {
             if subreddit.status_only {
                 continue;
             }
-            for post in subreddit.newest_unseen().context("get netwest unseen")? {
+            for post in subreddit.newest_unseen().context("get newest unseen")? {
                 println!(
                     "Saw {:?} {:?} by /u/{}",
                     post.name(),
@@ -238,78 +374,17 @@ impl<'a> RedditClient<'a> {
                     post.author()
                 );
                 subreddit.set_seen(&post);
-                let (ctx, warnings) = tryw!(context::Context::from_submission(&post), Result::Err);
-                Self::_send_warnings(&mut self.webhook, warnings)?;
 
-                let result = match analysis::get_best_analysis(&ctx, &self.analzyers) {
-                    Ok(result) => result,
-                    Err(err) => {
-                        eprintln!("Error whilst analyising {}: {err:?}", post.id());
-                        if let Some(webhook) = &mut self.webhook {
-                            let msg = create_error_processing_post(&post);
-                            webhook.send(&msg)?;
-                        }
-                        continue;
-                    }
-                };
-
-                if let Some((detection, detected)) = result {
-                    println!(
-                        "Triggered on post {:?} by /u/{}",
-                        post.title(),
-                        post.author()
-                    );
-
-                    let mut template_context = tera::Context::new();
-
-                    let modconf = self.subreddits_config.get_moderate(subreddit.name());
-
-                    let is_mod = match (modconf, detected.remove) {
-                        (Some(modconf), true) if post.can_mod_post() => {
-                            template_context.insert("removal_reason", &modconf.removal_reason);
-                            true
-                        }
-                        _ => false,
-                    };
-
-                    let imgur_link = match (ctx.images.len() > 0, self.imgur.as_mut()) {
-                        (true, Some(imgur)) => {
-                            let album = imgur::upload_images(imgur, &ctx, &detection, detected)
-                                .context("uploading to imgur")?;
-                            let url = format!("https://imgur.com/a/{}", album.id);
-                            template_context.insert("imgur_url", &url);
-                            Some(url)
-                        }
-                        (_, _) => None,
-                    };
-
-                    let template = self
-                        .templates
-                        .render(&detected.template, &template_context)
-                        .with_context(|| {
-                            format!("rendering to template {:?}", detected.template)
-                        })?;
-
-                    if !self.dry_run {
-                        let own_comment = post
-                            .comment(&template)
-                            .with_context(|| format!("reply to {:?}", post.name()))?;
-
-                        if is_mod {
-                            post.remove(false)?;
-                            own_comment.distinguish(Distinguish::Moderator, true)?;
-                        } else if detected.report {
-                            post.report("Appears to be a common repost")
-                                .with_context(|| format!("report {:?}", post.name()))?;
-                        }
-
-                        if let Some(webhook) = &mut self.webhook {
-                            let msg =
-                                create_detection_message(&post, &detection, detected, imgur_link);
-                            webhook.send(&msg).context("send detection webhook")?;
-                        }
-                    }
-                }
+                let modconf = self.subreddits_config.get_moderate(subreddit.name());
+                Self::check_post(
+                    &mut self.webhook,
+                    &self.analzyers,
+                    &mut self.imgur,
+                    modconf,
+                    &self.templates,
+                    self.dry_run,
+                    post,
+                )?;
             }
         }
         Ok(())
