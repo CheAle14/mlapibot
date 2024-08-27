@@ -1,9 +1,9 @@
-use std::{collections::HashMap, io, net::ToSocketAddrs, path::PathBuf, sync::mpsc::Sender};
+use std::{collections::HashMap, io, path::PathBuf, sync::mpsc::Sender};
 
 use chrono::{DateTime, Utc};
 use roux::{api::ThingId, builders::submission::SubmissionSubmitBuilder};
 use serde::{Deserialize, Serialize};
-use statuspage::{incident::Incident, summary::Summary};
+use statuspage::incident::{Incident, IncidentStatus};
 
 use crate::utils::clamp;
 
@@ -41,19 +41,30 @@ pub fn get_markdown(incident: &Incident) -> anyhow::Result<String> {
 
     let pdt = chrono_tz::PST8PDT;
 
+    let mut last_status = IncidentStatus::Postmortem;
+
     for update in &incident.incident_updates {
         let pdt = update.created_at.with_timezone(&pdt);
+
+        write!(text, "### ")?;
+
+        if update.status == last_status {
+            write!(text, "Update")?;
+        } else {
+            write!(text, "{:?}", update.status)?;
+            last_status = update.status;
+        }
+
         writeln!(
             text,
-            "### {:?}  \r\n{}  \r\n\r\n{}\r\n\r\n---\r\n\r\n",
-            update.status,
+            "  \r\n{}  \r\n\r\n{}\r\n\r\n---\r\n\r\n",
             update.body,
             pdt.format("%b %e, %Y - %H:%M PDT")
         )?
     }
 
     if incident.components.len() > 0 {
-        writeln!(text, "This issue affects:  ")?;
+        writeln!(text, "This issue affects:  \r\n")?;
         for component in &incident.components {
             write!(text, "- **{}**", component.name)?;
             if let Some(desc) = &component.description {

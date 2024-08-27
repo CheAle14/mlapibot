@@ -2130,13 +2130,12 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "statuspage"
-version = "0.3.0"
-source = "git+https://github.com/CheAle14/statuspage.git#4578de7b56f3910c02b5fce74f8827259bff3bf2"
+version = "0.3.1"
+source = "git+https://github.com/CheAle14/statuspage.git#b9e0d7d60fa90e8091660dec4c784e3fbf55b31d"
 dependencies = [
  "chrono",
  "reqwest 0.12.5",
  "serde",
- "serde_json",
  "thiserror",
 ]
 
