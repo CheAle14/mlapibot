@@ -41,11 +41,17 @@ pub fn get_markdown(incident: &Incident) -> anyhow::Result<String> {
 
     let pdt = chrono_tz::PST8PDT;
 
+    // We want the updates to appear from newest to oldest (top to bottom, respectively),
+    // but the status title needs to be determined from oldest to newest.
+    // So look oldest to newest first and push to a temporary buffer
+    // then reverse when writing it back to the actual text.
+    let mut texts = Vec::new();
     let mut last_status = IncidentStatus::Postmortem;
 
-    for update in &incident.incident_updates {
+    for update in incident.incident_updates.iter().rev() {
         let pdt = update.created_at.with_timezone(&pdt);
 
+        let mut text = String::new();
         write!(text, "### ")?;
 
         if update.status == last_status {
@@ -60,7 +66,13 @@ pub fn get_markdown(incident: &Incident) -> anyhow::Result<String> {
             "  \r\n{}  \r\n\r\n{}\r\n\r\n---\r\n\r\n",
             update.body,
             pdt.format("%b %e, %Y - %H:%M PDT")
-        )?
+        )?;
+
+        texts.push(text);
+    }
+
+    for t in texts.into_iter().rev() {
+        text.push_str(&t);
     }
 
     if incident.components.len() > 0 {
