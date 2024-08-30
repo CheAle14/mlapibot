@@ -1,5 +1,7 @@
+mod lowercase;
 mod words;
 
+pub use lowercase::*;
 pub use words::*;
 
 pub fn clamp<'a>(text: &'a str, length: usize) -> &'a str {

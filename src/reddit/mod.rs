@@ -20,7 +20,7 @@ use crate::{
     context,
     imgur::{self, ImgurClient},
     tryw,
-    utils::is_debug,
+    utils::{is_debug, LowercaseString},
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post, create_inbox_message,
@@ -93,18 +93,19 @@ impl<'a> RedditClient<'a> {
         let status = StatusClient::new("https://discordstatus.com")?;
 
         let subreddits_config = args.get_subreddits_config()?;
+        panic!("{subreddits_config:?}");
 
         let mut subreddit_names = HashSet::new();
         for sub in &args.subreddits {
-            subreddit_names.insert(sub);
+            subreddit_names.insert(LowercaseString::new(sub));
         }
         for key in subreddits_config.keys() {
-            subreddit_names.insert(key);
+            subreddit_names.insert(key.clone());
         }
 
         let subreddits: Vec<Subreddit> = subreddit_names
-            .iter()
-            .map(|&name| Subreddit::new(args, client.subreddit(&name)))
+            .into_iter()
+            .map(|name| Subreddit::new(args, client.subreddit(name.as_str()), name))
             .collect();
 
         println!(
@@ -213,7 +214,8 @@ impl<'a> RedditClient<'a> {
             }
         };
 
-        let modconf = self.subreddits_config.get_moderate(submission.subreddit());
+        let name = LowercaseString::new(submission.subreddit());
+        let modconf = self.subreddits_config.get_moderate(&name);
         Self::check_post(
             &mut self.webhook,
             &self.analzyers,

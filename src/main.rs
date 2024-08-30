@@ -102,7 +102,7 @@ struct RedditInfo {
     admin: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SubredditStatusConfig {
     pub min_impact: IncidentImpact,
     pub flair_id: Option<String>,

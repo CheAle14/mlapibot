@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use roux::util::FeedOption;
 use statuspage::{incident::IncidentImpact, StatusClient};
 
-use crate::{RedditInfo, SubredditStatusConfig};
+use crate::{utils::LowercaseString, RedditInfo, SubredditStatusConfig};
 
 use super::{
     seen_tracker::SeenTracker,
@@ -17,12 +17,13 @@ pub struct Subreddit {
     data: RouxSubreddit,
     seen: SeenTracker,
     status: StatusTracker,
+    lower: LowercaseString,
     // whether we are only using this subreddit to send status info
     pub status_only: bool,
 }
 
 impl Subreddit {
-    pub fn new(args: &RedditInfo, data: RouxSubreddit) -> Self {
+    pub fn new(args: &RedditInfo, data: RouxSubreddit, name: LowercaseString) -> Self {
         let file = args.scratch_dir.join(format!("r_{}_last.json", data.name));
         let seen = SeenTracker::new(file);
         let status = StatusTracker::new(
@@ -34,12 +35,13 @@ impl Subreddit {
             data,
             seen,
             status,
+            lower: name,
             status_only,
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.data.name
+    pub fn name(&self) -> &LowercaseString {
+        &self.lower
     }
 
     pub fn update_status(

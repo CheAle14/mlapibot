@@ -2,21 +2,21 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::SubredditStatusConfig;
+use crate::{utils::LowercaseString, SubredditStatusConfig};
 
-#[derive(Deserialize)]
-pub struct SubredditsConfig(HashMap<String, SubredditConfig>);
+#[derive(Debug, Deserialize)]
+pub struct SubredditsConfig(HashMap<LowercaseString, SubredditConfig>);
 
 impl SubredditsConfig {
-    pub fn get(&self, subreddit: &str) -> Option<&SubredditConfig> {
+    pub fn get(&self, subreddit: &LowercaseString) -> Option<&SubredditConfig> {
         self.0.get(subreddit)
     }
 
-    pub fn get_status(&self, subreddit: &str) -> Option<&SubredditStatusConfig> {
+    pub fn get_status(&self, subreddit: &LowercaseString) -> Option<&SubredditStatusConfig> {
         self.0.get(subreddit).and_then(|c| c.status.as_ref())
     }
 
-    pub fn get_moderate(&self, subreddit: &str) -> Option<&SubredditModerateConfig> {
+    pub fn get_moderate(&self, subreddit: &LowercaseString) -> Option<&SubredditModerateConfig> {
         self.0.get(subreddit).and_then(|c| c.moderate.as_ref())
     }
 
@@ -24,12 +24,12 @@ impl SubredditsConfig {
         self.0.len()
     }
 
-    pub fn keys(&self) -> std::collections::hash_map::Keys<String, SubredditConfig> {
+    pub fn keys(&self) -> std::collections::hash_map::Keys<LowercaseString, SubredditConfig> {
         self.0.keys()
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SubredditConfig {
     pub status: Option<SubredditStatusConfig>,
     pub moderate: Option<SubredditModerateConfig>,
