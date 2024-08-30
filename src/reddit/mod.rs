@@ -93,7 +93,6 @@ impl<'a> RedditClient<'a> {
         let status = StatusClient::new("https://discordstatus.com")?;
 
         let subreddits_config = args.get_subreddits_config()?;
-        panic!("{subreddits_config:?}");
 
         let mut subreddit_names = HashSet::new();
         for sub in &args.subreddits {
