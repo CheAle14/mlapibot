@@ -1,7 +1,7 @@
 {% extends "base.md" %}
 
 {% block content %}
-The image(s) in your post appear to contain a common scam. This usually takes the form of your account being reported, with you needing to contact some user claiming to be support to reverse or appeal. This is a scam.
+Your post appears relate to a common scam usually taking the form of your account being reported, with you needing to contact some user claiming to be support to reverse or appeal. This is a scam.
 
 These scams use very similar wording when targeting both Discord and Steam accounts, so I can find it difficult to accurately identify which particular scam you are facing. As such, please refer to the appropriate section:
 

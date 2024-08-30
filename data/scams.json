@@ -281,7 +281,23 @@
                 }
             ],
             "remove": true,
-            "template": "accountreport"
+            "template": "accountreport",
+            "title": [
+                {
+                    "children": [
+                        "mass",
+                        [
+                            "report",
+                            "reported"
+                        ],
+                        [
+                            "account",
+                            "profile"
+                        ]
+                    ],
+                    "type": "ordered"
+                }
+            ]
         },
         {
             "name": "doneReading",
