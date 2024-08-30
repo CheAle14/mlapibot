@@ -321,7 +321,15 @@ impl<'a> RedditClient<'a> {
                     template_context.insert("removal_reason", &modconf.removal_reason);
                     true
                 }
-                _ => false,
+                _ => {
+                    println!(
+                        "Not modding post (mod config? {}, should remove = {} and can_mod is {}",
+                        modconf.is_some(),
+                        detected.remove,
+                        post.can_mod_post()
+                    );
+                    false
+                }
             };
 
             let imgur_link = match (ctx.images.len() > 0, imgur.as_mut()) {
