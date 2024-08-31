@@ -30,7 +30,7 @@ impl Subreddit {
             args.scratch_dir
                 .join(format!("r_{}_status.json", data.name)),
         );
-        let status_only = args.subreddits.iter().find(|&s| s == &data.name).is_none();
+        let status_only = args.subreddits.iter().find(|&s| s == &name).is_none();
         Self {
             data,
             seen,

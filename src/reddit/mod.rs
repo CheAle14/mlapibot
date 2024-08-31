@@ -96,7 +96,7 @@ impl<'a> RedditClient<'a> {
 
         let mut subreddit_names = HashSet::new();
         for sub in &args.subreddits {
-            subreddit_names.insert(LowercaseString::new(sub));
+            subreddit_names.insert(sub.clone());
         }
         for key in subreddits_config.keys() {
             subreddit_names.insert(key.clone());
@@ -318,7 +318,7 @@ impl<'a> RedditClient<'a> {
             let mut template_context = tera::Context::new();
 
             let is_mod = match (modconf, detected.remove) {
-                (Some(modconf), true) if post.can_mod_post() => {
+                (Some(modconf), true) if post.moderation().is_some() => {
                     template_context.insert("removal_reason", &modconf.removal_reason);
                     true
                 }
@@ -327,7 +327,7 @@ impl<'a> RedditClient<'a> {
                         "Not modding post (mod config? {}, should remove = {} and can_mod is {}",
                         modconf.is_some(),
                         detected.remove,
-                        post.can_mod_post()
+                        post.moderation().is_some()
                     );
                     false
                 }
@@ -371,17 +371,26 @@ impl<'a> RedditClient<'a> {
     }
 
     fn check_subreddits(&mut self) -> anyhow::Result<()> {
+        println!("Looping through {} subreddits", self.subreddits.len());
         for subreddit in self.subreddits.iter_mut() {
             if subreddit.status_only {
+                println!("Subreddit is status only");
                 continue;
             }
             for post in subreddit.newest_unseen().context("get newest unseen")? {
+                let is_removed = post.moderation().map(|m| m.removed).unwrap_or_default();
+
                 println!(
-                    "Saw {:?} {:?} by /u/{}",
+                    "Saw {:?} {:?} by /u/{} (removed? {is_removed})",
                     post.name(),
                     post.title(),
-                    post.author()
+                    post.author(),
                 );
+
+                if is_removed {
+                    continue;
+                }
+
                 subreddit.set_seen(&post);
 
                 let modconf = self.subreddits_config.get_moderate(subreddit.name());

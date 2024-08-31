@@ -6,6 +6,7 @@ use context::Context;
 use reddit::{config::SubredditsConfig, RedditClient};
 use serde::Deserialize;
 use statuspage::incident::IncidentImpact;
+use utils::LowercaseString;
 
 mod analysis;
 mod context;
@@ -92,7 +93,7 @@ struct RedditInfo {
     scratch_dir: PathBuf,
     /// The subreddits whose posts are monitored
     #[arg(short, long)]
-    subreddits: Vec<String>,
+    subreddits: Vec<LowercaseString>,
     #[arg(long, default_value = "false")]
     dry_run: bool,
     /// If present, bind a HTTP listener to the provided address to listen for status webhooks.

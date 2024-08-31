@@ -15,6 +15,18 @@ impl LowercaseString {
     }
 }
 
+impl From<&'_ str> for LowercaseString {
+    fn from(value: &'_ str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<String> for LowercaseString {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 impl std::fmt::Display for LowercaseString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)

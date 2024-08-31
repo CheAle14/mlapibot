@@ -59,6 +59,9 @@ fn fix_url(mut url: Url) -> Option<Url> {
 
 fn extract_filename(url: &Url) -> Option<&str> {
     let path = url.path();
+    if path.trim().len() == 0 {
+        return None;
+    }
     let index = path.find('/').unwrap_or_else(|| path.find('\\').unwrap());
     let filename = &path[index + 1..];
 
