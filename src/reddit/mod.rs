@@ -371,10 +371,8 @@ impl<'a> RedditClient<'a> {
     }
 
     fn check_subreddits(&mut self) -> anyhow::Result<()> {
-        println!("Looping through {} subreddits", self.subreddits.len());
         for subreddit in self.subreddits.iter_mut() {
             if subreddit.status_only {
-                println!("Subreddit is status only");
                 continue;
             }
             for post in subreddit.newest_unseen().context("get newest unseen")? {
