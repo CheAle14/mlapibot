@@ -262,30 +262,65 @@
                 {
                     "children": [
                         [
-                            "decieve",
-                            "decieved",
-                            "mistakenly",
-                            "accidentally"
+                            "discord agent",
+                            "discord staff",
+                            "discord support"
                         ],
                         [
-                            "reported",
-                            "reporting"
+                            "said",
+                            "told me"
                         ],
                         "your",
                         [
                             "account",
                             "profile"
+                        ],
+                        [
+                            "suspended",
+                            "banned",
+                            "deleted",
+                            "blocked"
                         ]
                     ],
                     "type": "ordered"
-                }
+                },
+                {
+    "children": [
+        [
+            "decieve",
+            "decieved",
+            "mistakenly",
+            "accidentally"
+        ],
+        [
+            {
+                "children": [
+                    "filed",
+                    "report"
+                ],
+                "type": "ordered"
+            },
+            "reported",
+            "reporting"
+        ],
+        "your",
+        [
+            "account",
+            "profile"
+        ]
+    ],
+    "type": "ordered"
+}
             ],
             "remove": true,
             "template": "accountreport",
             "title": [
                 {
                     "children": [
-                        "mass",
+                        [
+                            "accidentally",
+                            "mass"
+                        ],
                         [
                             "report",
                             "reported"
