@@ -170,6 +170,15 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
                 for img in result.get_trigger_images(&ctx)? {
                     img.save(&args.trigger)?;
                 }
+
+                if args.markdown {
+                    let templates = tera::Tera::new("./data/templates/*.md").unwrap();
+                    let template = templates
+                        .render(&anal.template, &tera::Context::new())
+                        .unwrap();
+
+                    println!("\r\n{template}");
+                }
             }
             None => {
                 println!("Nothing detected");

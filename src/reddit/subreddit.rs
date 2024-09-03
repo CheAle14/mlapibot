@@ -141,4 +141,14 @@ impl Subreddit {
     pub fn set_seen(&mut self, post: &Submission) {
         self.seen.set_seen(&post.name(), post.created_utc());
     }
+
+    #[inline(always)]
+    pub fn retry(&mut self, post: &Submission) -> bool {
+        self.seen.add_retrying(post.name())
+    }
+
+    #[inline(always)]
+    pub fn stop_retrying(&mut self, post: &Submission) {
+        self.seen.remove_retrying(post.name())
+    }
 }

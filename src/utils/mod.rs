@@ -1,7 +1,9 @@
 mod lowercase;
+mod submission_ext;
 mod words;
 
 pub use lowercase::*;
+pub use submission_ext::*;
 pub use words::*;
 
 pub fn clamp<'a>(text: &'a str, length: usize) -> &'a str {

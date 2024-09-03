@@ -20,7 +20,7 @@ use crate::{
     context,
     imgur::{self, ImgurClient},
     tryw,
-    utils::{is_debug, LowercaseString},
+    utils::{is_debug, LowercaseString, SubmissionExt},
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post, create_inbox_message,
@@ -377,19 +377,32 @@ impl<'a> RedditClient<'a> {
             }
             for post in subreddit.newest_unseen().context("get newest unseen")? {
                 let is_removed = post.moderation().map(|m| m.removed).unwrap_or_default();
-
-                println!(
-                    "Saw {:?} {:?} by /u/{} (removed? {is_removed})",
-                    post.name(),
-                    post.title(),
-                    post.author(),
-                );
-
                 if is_removed {
                     continue;
                 }
 
                 subreddit.set_seen(&post);
+
+                if post.has_unknown_media() {
+                    if subreddit.retry(&post) {
+                        println!(
+                            "Saw {:?} {:?} by /u/{} with unknown media. Skipping for now",
+                            post.name(),
+                            post.title(),
+                            post.author(),
+                        );
+                    }
+                    continue;
+                } else {
+                    // If it previously had unknown media, we need to stop retrying it.
+                    subreddit.stop_retrying(&post);
+                    println!(
+                        "Saw {:?} {:?} by /u/{}",
+                        post.name(),
+                        post.title(),
+                        post.author(),
+                    );
+                }
 
                 let modconf = self.subreddits_config.get_moderate(subreddit.name());
                 Self::check_post(

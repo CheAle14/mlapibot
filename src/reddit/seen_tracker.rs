@@ -15,6 +15,7 @@ struct SeenData {
 pub struct SeenTracker {
     seen_file: PathBuf,
     seen_data: Option<SeenData>,
+    retrying: Vec<ThingId>,
 }
 
 fn into_timestamp(utc: f64) -> DateTime<Utc> {
@@ -30,6 +31,7 @@ impl SeenTracker {
         Self {
             seen_file,
             seen_data,
+            retrying: Vec::new(),
         }
     }
 
@@ -47,7 +49,7 @@ impl SeenTracker {
         if let Some(seen) = &self.seen_data {
             iter.retain(|s| {
                 let utc = into_timestamp(s.created_utc());
-                utc > seen.seen_time
+                utc > seen.seen_time || self.retrying.contains(s.name())
             });
             iter
         } else {
@@ -68,5 +70,20 @@ impl SeenTracker {
         });
         let mut file = std::fs::File::create(&self.seen_file).expect("can open file");
         serde_json::to_writer(&mut file, &self.seen_data).expect("can write seen data");
+    }
+
+    pub fn add_retrying(&mut self, id: &ThingId) -> bool {
+        if !self.retrying.contains(id) {
+            self.retrying.push(id.clone());
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn remove_retrying(&mut self, id: &ThingId) {
+        if let Some(idx) = self.retrying.iter().position(|x| x == id) {
+            self.retrying.remove(idx);
+        }
     }
 }
