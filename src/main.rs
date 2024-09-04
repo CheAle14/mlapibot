@@ -36,6 +36,14 @@ enum SubCommand {
     /// Analyzes all images in the sub-folders, expecting them to be detected by the analyzer whose name
     /// is equal to the image folder name. If that folder is `none`, then expects no detection from any.
     TestRun(TestRunInfo),
+    /// Prints all templates or the markdown of the specified template.
+    Template(TemplateInfo),
+}
+
+#[derive(Args)]
+struct TemplateInfo {
+    /// The template the print out, or if absent prints the names of all templates.
+    template: Option<String>,
 }
 
 #[derive(Args)]
@@ -257,6 +265,25 @@ fn test_folder(analyzers: &[Analyzer], args: TestRunInfo) -> anyhow::Result<()> 
     Ok(())
 }
 
+fn print_templates(info: TemplateInfo) -> anyhow::Result<()> {
+    let tera = tera::Tera::new("./data/templates/*.md").unwrap();
+
+    match info.template {
+        Some(name) => {
+            let rendered = tera.render(&name, &tera::Context::new()).unwrap();
+            println!("{rendered}");
+            Ok(())
+        }
+        None => {
+            for name in tera.get_template_names() {
+                println!("- {name}");
+            }
+
+            Ok(())
+        }
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
@@ -276,5 +303,6 @@ fn main() -> anyhow::Result<()> {
             run_reddit(&analyzers, &reddit)
         }
         SubCommand::TestRun(args) => test_folder(&analyzers, args),
+        SubCommand::Template(args) => print_templates(args),
     }
 }

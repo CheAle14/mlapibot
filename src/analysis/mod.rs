@@ -163,7 +163,7 @@ impl Detection {
 }
 
 fn default_template() -> String {
-    String::from("default")
+    String::from("default.md")
 }
 
 fn default_true() -> bool {
