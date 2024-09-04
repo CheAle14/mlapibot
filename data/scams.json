@@ -219,6 +219,16 @@
                 "your account might get deleted eternally",
                 {
                     "children": [
+                        "system",
+                        "your",
+                        ["profile", "account"],
+                        "massive",
+                        "reports"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
                         "reason",
                         [
                             "process",
