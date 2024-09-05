@@ -105,14 +105,14 @@ impl Message {
     }
 
     #[inline(always)]
-    pub fn content(mut self, content: impl AsRef<str>) -> Self {
+    pub fn content(mut self, content: impl Into<String>) -> Self {
         self.with_content(content);
         self
     }
 
     #[inline(always)]
-    pub fn with_content(&mut self, content: impl AsRef<str>) -> &mut Self {
-        self.content = Some(content.as_ref().to_string());
+    pub fn with_content(&mut self, content: impl Into<String>) -> &mut Self {
+        self.content = Some(content.into());
         self
     }
 
@@ -274,10 +274,10 @@ pub fn create_generic_error_message(content: impl AsRef<str>, err: impl Debug) -
 }
 
 pub fn create_multiple_error_message(
-    content: impl AsRef<str>,
+    content: impl Into<String>,
     errs: Vec<anyhow::Error>,
 ) -> Message {
-    let content = content.as_ref();
+    let content: String = content.into();
     eprintln!("Multiple error: {content}");
     let mut message = Message::builder().content(content);
 

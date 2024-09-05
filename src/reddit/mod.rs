@@ -143,11 +143,11 @@ impl<'a> RedditClient<'a> {
     fn _send_warnings(
         webhook: &mut Option<WebhookClient>,
         warnings: Vec<anyhow::Error>,
+        context: impl Into<String>,
     ) -> anyhow::Result<()> {
         if warnings.len() > 0 {
             if let Some(webhook) = webhook {
-                let message =
-                    create_multiple_error_message("Warnings when doing inbox test", warnings);
+                let message = create_multiple_error_message(context, warnings);
                 webhook.send(&message)?;
             }
         }
@@ -155,8 +155,12 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn send_warnings(&mut self, warnings: Vec<anyhow::Error>) -> anyhow::Result<()> {
-        Self::_send_warnings(&mut self.webhook, warnings)
+    fn send_warnings(
+        &mut self,
+        warnings: Vec<anyhow::Error>,
+        context: impl Into<String>,
+    ) -> anyhow::Result<()> {
+        Self::_send_warnings(&mut self.webhook, warnings, context)
     }
 
     fn run_inbox_test(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
@@ -165,7 +169,7 @@ impl<'a> RedditClient<'a> {
             Result::Err
         );
 
-        self.send_warnings(warnings)?;
+        self.send_warnings(warnings, "Warnings in inbox test")?;
 
         match get_best_analysis(&ctx, &self.analzyers) {
             Ok(Some((detection, detected))) => {
@@ -294,7 +298,13 @@ impl<'a> RedditClient<'a> {
         post: Submission,
     ) -> anyhow::Result<()> {
         let (ctx, warnings) = tryw!(context::Context::from_submission(&post), Result::Err);
-        Self::_send_warnings(webhook, warnings)?;
+        if warnings.len() > 0 {
+            Self::_send_warnings(
+                webhook,
+                warnings,
+                format!("Warnings with post {:?}, {:?}", post.id(), post.permalink()),
+            )?;
+        }
 
         let result = match analysis::get_best_analysis(&ctx, analzyers) {
             Ok(result) => result,
