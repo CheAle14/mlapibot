@@ -23,8 +23,9 @@ use crate::{
     utils::{is_debug, LowercaseString, SubmissionExt},
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
-        create_error_processing_message, create_error_processing_post, create_inbox_message,
-        create_multiple_error_message, Message as DiscordMessage, WebhookClient,
+        create_error_processing_message, create_error_processing_post,
+        create_generic_error_message, create_inbox_message, create_multiple_error_message,
+        Message as DiscordMessage, WebhookClient,
     },
     RedditInfo,
 };
@@ -345,11 +346,20 @@ impl<'a> RedditClient<'a> {
 
             let imgur_link = match (ctx.images.len() > 0, imgur.as_mut()) {
                 (true, Some(imgur)) => {
-                    let album = imgur::upload_images(imgur, &ctx, &detection, detected)
-                        .context("uploading to imgur")?;
-                    let url = format!("https://imgur.com/a/{}", album.id);
-                    template_context.insert("imgur_url", &url);
-                    Some(url)
+                    match imgur::upload_images(imgur, &ctx, &detection, detected) {
+                        Ok(album) => {
+                            let url = format!("https://imgur.com/a/{}", album.id);
+                            template_context.insert("imgur_url", &url);
+                            Some(url)
+                        }
+                        Err(e) => {
+                            let msg = create_generic_error_message("Uploading to imgur", e);
+                            if let Some(webhook) = webhook {
+                                let _ = webhook.send(&msg);
+                            }
+                            None
+                        }
+                    }
                 }
                 (_, _) => None,
             };

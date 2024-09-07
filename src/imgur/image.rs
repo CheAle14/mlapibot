@@ -4,7 +4,6 @@ use crate::ocr::image::ImageSource;
 
 #[derive(Deserialize)]
 pub struct Image {
-    pub id: String,
     #[serde(rename = "deletehash")]
     pub delete_hash: String,
 }

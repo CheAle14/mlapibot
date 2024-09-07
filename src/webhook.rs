@@ -265,8 +265,8 @@ fn get_error_embed(err: impl Debug) -> MessageEmbed {
     MessageEmbed::builder().description(&actual)
 }
 
-pub fn create_generic_error_message(content: impl AsRef<str>, err: impl Debug) -> Message {
-    let content = content.as_ref();
+pub fn create_generic_error_message(content: impl Into<String>, err: impl Debug) -> Message {
+    let content: String = content.into();
     eprintln!("Error {content}: {err:?}");
     Message::builder()
         .content(content)
