@@ -100,7 +100,12 @@ impl ImgurClient {
             form
         };
 
-        let response: BasicResponse<Image> = self.post("/image").multipart(form).send()?.json()?;
+        let response = self.post("/image").multipart(form).send()?;
+
+        let str = response.text()?;
+        let _ = std::fs::write("imgur_out.json", &str);
+
+        let response: BasicResponse<Image> = serde_json::from_str(&str)?;
         Ok(response.data)
     }
 

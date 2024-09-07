@@ -2,8 +2,9 @@ use serde::Deserialize;
 
 use crate::ocr::image::ImageSource;
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Image {
+    pub id: String,
     #[serde(rename = "deletehash")]
     pub delete_hash: String,
 }

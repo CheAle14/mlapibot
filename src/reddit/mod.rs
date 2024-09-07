@@ -7,7 +7,7 @@ use std::{
 use anyhow::{bail, Context};
 use config::{SubredditModerateConfig, SubredditsConfig};
 use roux::{
-    client::{AuthedClient, OAuthClient, RedditClient as RouxRedditClient},
+    client::{OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
 };
 use status_tracker::CachedIncidentSubmissions;
