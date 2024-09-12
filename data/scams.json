@@ -217,11 +217,15 @@
                 "please contact our corporate security head for assistance by sending a friend request on Discord",
                 "the user who performed the reports already provided a followup statement that you are not involved",
                 "your account might get deleted eternally",
+                "the provided evidence does not meet the criteria for validation",
                 {
                     "children": [
                         "system",
                         "your",
-                        ["profile", "account"],
+                        [
+                            "profile",
+                            "account"
+                        ],
                         "massive",
                         "reports"
                     ],
@@ -295,32 +299,32 @@
                     "type": "ordered"
                 },
                 {
-    "children": [
-        [
-            "decieve",
-            "decieved",
-            "mistakenly",
-            "accidentally"
-        ],
-        [
-            {
-                "children": [
-                    "filed",
-                    "report"
-                ],
-                "type": "ordered"
-            },
-            "reported",
-            "reporting"
-        ],
-        "your",
-        [
-            "account",
-            "profile"
-        ]
-    ],
-    "type": "ordered"
-}
+                    "children": [
+                        [
+                            "decieve",
+                            "decieved",
+                            "mistakenly",
+                            "accidentally"
+                        ],
+                        [
+                            {
+                                "children": [
+                                    "filed",
+                                    "report"
+                                ],
+                                "type": "ordered"
+                            },
+                            "reported",
+                            "reporting"
+                        ],
+                        "your",
+                        [
+                            "account",
+                            "profile"
+                        ]
+                    ],
+                    "type": "ordered"
+                }
             ],
             "remove": true,
             "template": "accountreport",
