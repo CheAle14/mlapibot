@@ -13,6 +13,8 @@ use super::{subreddit::RouxSubreddit, RouxClient};
 pub struct StatusSubmission {
     post_id: ThingId,
     last_updated: DateTime<Utc>,
+    #[serde(default)]
+    removal_count: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -142,17 +144,30 @@ impl StatusTracker {
             StatusSubmission {
                 post_id: submission.name().clone(),
                 last_updated: incident_last_updated,
+                removal_count: 0,
             },
         );
 
         self.save()
     }
 
-    pub fn remove(&mut self, incident_id: &str) -> anyhow::Result<()> {
-        let any = self.map.posts.remove(incident_id).is_some();
-        if any {
+    pub fn potentially_remove(&mut self, incident_id: &str) -> anyhow::Result<()> {
+        let do_remove = if let Some(thing) = self.map.posts.get_mut(incident_id) {
+            thing.removal_count += 1;
+            if thing.removal_count > 60 {
+                true
+            } else {
+                self.save()?;
+                false
+            }
+        } else {
+            false
+        };
+
+        if do_remove && self.map.posts.remove(incident_id).is_some() {
             self.save()?;
         }
+
         Ok(())
     }
 

@@ -116,7 +116,7 @@ impl Subreddit {
                 _ => unreachable!("we create this as a text post"),
             };
             self.status.update(reddit, &incident.id, update, text)?;
-            self.status.remove(&incident.id)?;
+            self.status.potentially_remove(&incident.id)?;
         }
 
         Ok(())
