@@ -256,15 +256,19 @@ impl<'a> RedditClient<'a> {
 
             item.mark_read()?;
 
-            if let Some(webhook) = &mut self.webhook {
-                let inbox = create_inbox_message(&item);
-                webhook.send(&inbox)?;
-            }
-
             let author = match item.author() {
                 Some(s) => s.as_str(),
                 None => "",
             };
+
+            if author == "AutoModerator" {
+                continue;
+            }
+
+            if let Some(webhook) = &mut self.webhook {
+                let inbox = create_inbox_message(&item);
+                webhook.send(&inbox)?;
+            }
 
             if subject == "test" {
                 self.run_inbox_test(&item)?;
