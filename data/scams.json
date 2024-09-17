@@ -309,8 +309,8 @@
                         [
                             {
                                 "children": [
-                                    "filed",
-                                    "report"
+                                    ["threw", "filed"],
+                                    ["report", "tickets"]
                                 ],
                                 "type": "ordered"
                             },
