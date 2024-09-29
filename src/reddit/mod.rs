@@ -6,7 +6,9 @@ use std::{
 
 use anyhow::{bail, Context};
 use config::{SubredditModerateConfig, SubredditsConfig};
+use flairs::{FlairChangeConfig, SubredditFlairConfig};
 use roux::{
+    api::ThingId,
     client::{OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
 };
@@ -31,6 +33,7 @@ use crate::{
 };
 
 pub mod config;
+mod flairs;
 mod ratelimiter;
 mod seen_tracker;
 mod status_tracker;
@@ -219,13 +222,19 @@ impl<'a> RedditClient<'a> {
         };
 
         let name = LowercaseString::new(submission.subreddit());
-        let modconf = self.subreddits_config.get_moderate(&name);
+
+        let subconf = self.subreddits_config.get(&name);
+        let modconf = subconf.map(|c| c.moderate.as_ref()).flatten();
+        let flairconf = subconf.map(|c| &c.flairs);
+
         Self::check_post(
             &mut self.webhook,
             &self.analzyers,
             &mut self.imgur,
             modconf,
+            flairconf,
             &self.templates,
+            false,
             self.dry_run,
             submission,
         )?;
@@ -298,10 +307,20 @@ impl<'a> RedditClient<'a> {
         analzyers: &[Analyzer],
         imgur: &mut Option<ImgurClient>,
         modconf: Option<&SubredditModerateConfig>,
+        flairs: Option<&SubredditFlairConfig>,
         templates: &Tera,
+        has_seen: bool,
         dry_run: bool,
         post: Submission,
     ) -> anyhow::Result<()> {
+        if let Some(flairs) = flairs {
+            Self::check_post_flairs(dry_run, &post, webhook, flairs)?;
+        }
+
+        if has_seen {
+            return Ok(());
+        }
+
         let (ctx, warnings) = tryw!(context::Context::from_submission(&post), Result::Err);
         if warnings.len() > 0 {
             Self::_send_warnings(
@@ -405,21 +424,12 @@ impl<'a> RedditClient<'a> {
                     continue;
                 }
 
-                subreddit.set_seen(&post);
+                let has_seen = subreddit.is_seen(&post);
 
                 if post.has_unknown_media() {
-                    if subreddit.retry(&post) {
-                        println!(
-                            "Saw {:?} {:?} by /u/{} with unknown media. Skipping for now",
-                            post.name(),
-                            post.title(),
-                            post.author(),
-                        );
-                    }
                     continue;
-                } else {
-                    // If it previously had unknown media, we need to stop retrying it.
-                    subreddit.stop_retrying(&post);
+                } else if !has_seen {
+                    subreddit.set_seen(&post);
                     println!(
                         "Saw {:?} {:?} by /u/{}",
                         post.name(),
@@ -428,13 +438,18 @@ impl<'a> RedditClient<'a> {
                     );
                 }
 
-                let modconf = self.subreddits_config.get_moderate(subreddit.name());
+                let subconf = self.subreddits_config.get(subreddit.name());
+                let modconf = subconf.map(|c| c.moderate.as_ref()).flatten();
+                let flairconf = subconf.map(|c| &c.flairs);
+
                 Self::check_post(
                     &mut self.webhook,
                     &self.analzyers,
                     &mut self.imgur,
                     modconf,
+                    flairconf,
                     &self.templates,
+                    has_seen,
                     self.dry_run,
                     post,
                 )?;

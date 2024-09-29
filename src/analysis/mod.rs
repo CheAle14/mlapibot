@@ -14,7 +14,7 @@ pub mod func_analyzer;
 pub mod pattern_analyzer;
 pub mod str_analyzer;
 
-mod str_matchers;
+pub mod str_matchers;
 
 #[derive(Debug, Clone)]
 pub struct DetectedWord {

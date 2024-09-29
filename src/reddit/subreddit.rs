@@ -130,10 +130,8 @@ impl Subreddit {
             .limit(25);
 
         let data = self.data.latest(Some(options))?;
-        let mut children = self.seen.filter_seen(data.children);
-
+        let mut children = data.children;
         children.reverse();
-        println!("Saw {} posts in latest", children.len());
 
         Ok(children)
     }
@@ -142,13 +140,7 @@ impl Subreddit {
         self.seen.set_seen(&post.name(), post.created_utc());
     }
 
-    #[inline(always)]
-    pub fn retry(&mut self, post: &Submission) -> bool {
-        self.seen.add_retrying(post.name())
-    }
-
-    #[inline(always)]
-    pub fn stop_retrying(&mut self, post: &Submission) {
-        self.seen.remove_retrying(post.name())
+    pub fn is_seen(&self, post: &Submission) -> bool {
+        self.seen.is_seen(post)
     }
 }

@@ -206,6 +206,19 @@ pub fn create_detection_message(
     message
 }
 
+pub fn create_change_flair_message(submission: &Submission, now_flair: &str) -> Message {
+    let embed = MessageEmbed::builder()
+        .title("Flair updated")
+        .description(format!(
+            "Was `{:?}` now `{now_flair}`",
+            submission.link_flair_template_id()
+        ))
+        .reddit_link(submission.permalink())
+        .author(MessageEmbedAuthor::new(submission.author()));
+
+    Message::builder().embed(embed)
+}
+
 pub fn create_inbox_message(message: &RedditMessage) -> Message {
     let subject = clamp(&message.subject(), 128);
     let description = clamp(&message.body(), 4096);

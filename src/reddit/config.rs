@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 use crate::{utils::LowercaseString, SubredditStatusConfig};
 
+use super::flairs::SubredditFlairConfig;
+
 #[derive(Debug, Deserialize)]
 pub struct SubredditsConfig(HashMap<LowercaseString, SubredditConfig>);
 
@@ -33,6 +35,8 @@ impl SubredditsConfig {
 pub struct SubredditConfig {
     pub status: Option<SubredditStatusConfig>,
     pub moderate: Option<SubredditModerateConfig>,
+    #[serde(default)]
+    pub flairs: SubredditFlairConfig,
 }
 
 #[derive(Debug, Deserialize)]
