@@ -218,6 +218,7 @@
                 "the user who performed the reports already provided a followup statement that you are not involved",
                 "your account might get deleted eternally",
                 "the provided evidence does not meet the criteria for validation",
+                "for the appeal please contact the discord support who handled this report",
                 {
                     "children": [
                         "system",
@@ -311,8 +312,14 @@
                         [
                             {
                                 "children": [
-                                    ["threw", "filed"],
-                                    ["report", "tickets"]
+                                    [
+                                        "threw",
+                                        "filed"
+                                    ],
+                                    [
+                                        "report",
+                                        "tickets"
+                                    ]
                                 ],
                                 "type": "ordered"
                             },
