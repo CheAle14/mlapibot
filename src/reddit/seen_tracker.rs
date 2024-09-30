@@ -4,6 +4,8 @@ use chrono::{DateTime, TimeZone, Utc};
 use roux::{api::ThingId, util::FeedOption};
 use serde::{Deserialize, Serialize};
 
+use crate::utils::into_timestamp;
+
 use super::Submission;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,10 +18,6 @@ struct SeenData {
 pub struct SeenTracker {
     seen_file: PathBuf,
     seen_data: SeenData,
-}
-
-fn into_timestamp(utc: f64) -> DateTime<Utc> {
-    (Utc).timestamp_millis_opt((utc * 1000.0) as i64).unwrap()
 }
 
 impl SeenTracker {

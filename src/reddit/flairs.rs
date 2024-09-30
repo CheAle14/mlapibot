@@ -1,7 +1,8 @@
+use chrono::Utc;
 use serde::Deserialize;
 
 use crate::{
-    utils::LowercaseString,
+    utils::{into_timestamp, LowercaseString},
     webhook::{create_change_flair_message, WebhookClient},
 };
 
@@ -24,6 +25,13 @@ impl RedditClient<'_> {
         webhook: &mut Option<WebhookClient>,
         flairs: &SubredditFlairConfig,
     ) -> anyhow::Result<()> {
+        let utc = into_timestamp(post.created_utc());
+        let diff = Utc::now() - utc;
+        if diff.abs().num_seconds() < 15 {
+            // delay to ignore any posts immediately removed by AutoMod.
+            return Ok(());
+        }
+
         let post_flair_id = match post.link_flair_template_id() {
             Some(id) => id.as_str(),
             None => return Ok(()),
