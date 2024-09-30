@@ -21,13 +21,18 @@ pub struct FlairChangeConfig {
 impl RedditClient<'_> {
     pub(super) fn check_post_flairs(
         dry_run: bool,
+        subreddit: &Subreddit,
         post: &Submission,
         webhook: &mut Option<WebhookClient>,
         flairs: &SubredditFlairConfig,
     ) -> anyhow::Result<()> {
+        if subreddit.is_moderator(post.author().as_str()) {
+            return Ok(());
+        }
+
         let utc = into_timestamp(post.created_utc());
         let diff = Utc::now() - utc;
-        if diff.abs().num_seconds() < 15 {
+        if diff.abs().num_seconds() < 30 {
             // delay to ignore any posts immediately removed by AutoMod.
             return Ok(());
         }

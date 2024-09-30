@@ -222,6 +222,10 @@ impl<'a> RedditClient<'a> {
         };
 
         let name = LowercaseString::new(submission.subreddit());
+        let Some(subreddit) = self.subreddits.iter().find(|s| s.name() == &name) else {
+            message.reply("That subreddit is not monitored")?;
+            return Ok(());
+        };
 
         let subconf = self.subreddits_config.get(&name);
         let modconf = subconf.map(|c| c.moderate.as_ref()).flatten();
@@ -236,6 +240,7 @@ impl<'a> RedditClient<'a> {
             &self.templates,
             false,
             self.dry_run,
+            subreddit,
             submission,
         )?;
         Ok(())
@@ -311,10 +316,11 @@ impl<'a> RedditClient<'a> {
         templates: &Tera,
         has_seen: bool,
         dry_run: bool,
+        subreddit: &Subreddit,
         post: Submission,
     ) -> anyhow::Result<()> {
         if let Some(flairs) = flairs {
-            Self::check_post_flairs(dry_run, &post, webhook, flairs)?;
+            Self::check_post_flairs(dry_run, subreddit, &post, webhook, flairs)?;
         }
 
         if has_seen {
@@ -451,6 +457,7 @@ impl<'a> RedditClient<'a> {
                     &self.templates,
                     has_seen,
                     self.dry_run,
+                    &subreddit,
                     post,
                 )?;
             }

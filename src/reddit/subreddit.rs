@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use roux::util::FeedOption;
+use roux::{
+    api::{moderator::ModeratorData, ThingId},
+    util::FeedOption,
+};
 use statuspage::{incident::IncidentImpact, StatusClient};
 
 use crate::{utils::LowercaseString, RedditInfo, SubredditStatusConfig};
@@ -18,6 +21,7 @@ pub struct Subreddit {
     seen: SeenTracker,
     status: StatusTracker,
     lower: LowercaseString,
+    moderators: Vec<ModeratorData>,
     // whether we are only using this subreddit to send status info
     pub status_only: bool,
 }
@@ -30,14 +34,21 @@ impl Subreddit {
             args.scratch_dir
                 .join(format!("r_{}_status.json", data.name)),
         );
+
         let status_only = args.subreddits.iter().find(|&s| s == &name).is_none();
+        let moderators = data.moderators().unwrap();
         Self {
             data,
             seen,
             status,
             lower: name,
             status_only,
+            moderators: moderators.data.children,
         }
+    }
+
+    pub fn is_moderator(&self, username: &str) -> bool {
+        self.moderators.iter().any(|m| m.name == username)
     }
 
     pub fn name(&self) -> &LowercaseString {
