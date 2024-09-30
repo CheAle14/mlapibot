@@ -219,6 +219,16 @@
                 "your account might get deleted eternally",
                 "the provided evidence does not meet the criteria for validation",
                 "for the appeal please contact the discord support who handled this report",
+                "to prevent your account from getting suspended",
+                {
+                    "children": [
+                        "temporarily",
+                        "change",
+                        "your",
+                        "email"
+                    ],
+                    "type": "ordered"
+                },
                 {
                     "children": [
                         "system",
