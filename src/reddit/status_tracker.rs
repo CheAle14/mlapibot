@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io, path::PathBuf, sync::mpsc::Sender};
 
 use chrono::{DateTime, Utc};
-use roux::{api::ThingId, builders::submission::SubmissionSubmitBuilder};
+use roux::{api::ThingFullname, builders::submission::SubmissionSubmitBuilder};
 use serde::{Deserialize, Serialize};
 use statuspage::incident::{Incident, IncidentStatus};
 
@@ -11,7 +11,7 @@ use super::{subreddit::RouxSubreddit, RouxClient};
 
 #[derive(Serialize, Deserialize)]
 pub struct StatusSubmission {
-    post_id: ThingId,
+    post_id: ThingFullname,
     last_updated: DateTime<Utc>,
     #[serde(default)]
     removal_count: usize,

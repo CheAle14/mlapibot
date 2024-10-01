@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, path::PathBuf, time::Duration};
 
 use chrono::{DateTime, TimeZone, Utc};
-use roux::{api::ThingId, util::FeedOption};
+use roux::{api::ThingFullname, util::FeedOption};
 use serde::{Deserialize, Serialize};
 
 use crate::utils::into_timestamp;
@@ -12,7 +12,7 @@ use super::Submission;
 struct SeenData {
     seen_time: DateTime<Utc>,
     #[serde(default)]
-    seen_ids: VecDeque<ThingId>,
+    seen_ids: VecDeque<ThingFullname>,
 }
 
 pub struct SeenTracker {
@@ -51,7 +51,7 @@ impl SeenTracker {
         self.seen_data.seen_time >= utc || self.seen_data.seen_ids.contains(post.name())
     }
 
-    pub fn set_seen(&mut self, id: &ThingId, _timestamp: f64) {
+    pub fn set_seen(&mut self, id: &ThingFullname, _timestamp: f64) {
         // seen_time represents the last post seen before
         // switching over to the vecdeque, so don't update it
         //

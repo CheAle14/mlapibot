@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use roux::{
-    api::{moderator::ModeratorData, ThingId},
+    api::{moderator::ModeratorData, ThingFullname},
     util::FeedOption,
 };
 use statuspage::{incident::IncidentImpact, StatusClient};

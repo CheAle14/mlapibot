@@ -6,9 +6,9 @@ use std::{
 
 use anyhow::{bail, Context};
 use config::{SubredditModerateConfig, SubredditsConfig};
-use flairs::{FlairChangeConfig, SubredditFlairConfig};
+use flairs::{FlairChangeConfig, PostFlairCache, SubredditFlairConfig};
 use roux::{
-    api::ThingId,
+    api::ThingFullname,
     client::{OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
 };
@@ -60,6 +60,7 @@ pub struct RedditClient<'a> {
     dry_run: bool,
     status_webhook: Option<String>,
     admin: Option<String>,
+    flair_cache: PostFlairCache,
 }
 
 impl<'a> RedditClient<'a> {
@@ -141,6 +142,7 @@ impl<'a> RedditClient<'a> {
             dry_run: args.dry_run,
             status_webhook: args.status_webhook.clone(),
             admin: args.admin.clone(),
+            flair_cache: PostFlairCache::default(),
         })
     }
 
@@ -237,6 +239,7 @@ impl<'a> RedditClient<'a> {
             &mut self.imgur,
             modconf,
             flairconf,
+            &mut self.flair_cache,
             &self.templates,
             false,
             self.dry_run,
@@ -313,6 +316,7 @@ impl<'a> RedditClient<'a> {
         imgur: &mut Option<ImgurClient>,
         modconf: Option<&SubredditModerateConfig>,
         flairs: Option<&SubredditFlairConfig>,
+        flair_cache: &mut PostFlairCache,
         templates: &Tera,
         has_seen: bool,
         dry_run: bool,
@@ -320,7 +324,7 @@ impl<'a> RedditClient<'a> {
         post: Submission,
     ) -> anyhow::Result<()> {
         if let Some(flairs) = flairs {
-            Self::check_post_flairs(dry_run, subreddit, &post, webhook, flairs)?;
+            Self::check_post_flairs(dry_run, subreddit, &post, webhook, flairs, flair_cache)?;
         }
 
         if has_seen {
@@ -454,6 +458,7 @@ impl<'a> RedditClient<'a> {
                     &mut self.imgur,
                     modconf,
                     flairconf,
+                    &mut self.flair_cache,
                     &self.templates,
                     has_seen,
                     self.dry_run,
