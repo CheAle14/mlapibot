@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::AddAssign};
 
 use func_analyzer::FuncAnalyzer;
 use image::DynamicImage;
@@ -75,6 +75,13 @@ impl DetectedItem {
         }
 
         (min, max)
+    }
+}
+
+impl AddAssign for DetectedItem {
+    fn add_assign(&mut self, rhs: Self) {
+        self.words.extend(rhs.words);
+        self.score += rhs.score;
     }
 }
 

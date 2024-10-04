@@ -346,6 +346,44 @@
                 },
                 {
                     "children": [
+                        {
+                            "children": [
+                                "username",
+                                "similar",
+                                "yours"
+                            ],
+                            "type": "ordered"
+                        },
+                        [
+                            "spamming",
+                            "phishing"
+                        ],
+                        [
+                            "accidentally",
+                            "mistakenly"
+                        ],
+                        [
+                            "reported",
+                            {
+                                "children": [
+                                    [
+                                        "threw",
+                                        "filed"
+                                    ],
+                                    [
+                                        "report",
+                                        "tickets"
+                                    ]
+                                ],
+                                "type": "ordered"
+                            },
+                            "reporting"
+                        ]
+                    ],
+                    "type": "all"
+                },
+                {
+                    "children": [
                         [
                             {
                                 "children": [

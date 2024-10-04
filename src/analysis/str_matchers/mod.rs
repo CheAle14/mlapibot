@@ -1,7 +1,9 @@
+mod all;
 mod any;
 mod ordered;
 mod phrase;
 
+pub use all::*;
 pub use any::*;
 pub use ordered::*;
 pub use phrase::*;
@@ -13,6 +15,7 @@ use crate::{analysis::DetectedItem, utils::Words};
 pub enum MatcherKind {
     Phrase(PhraseMatcher),
     Ordered(OrderedMatcher),
+    All(AllMatcher),
     Any(AnyMatcher),
 }
 
@@ -79,6 +82,7 @@ impl<'de> Visitor<'de> for MatcherKindVisitor {
         match tag.as_str() {
             "ordered" => Ok(MatcherKind::Ordered(OrderedMatcher(children))),
             "any" => Ok(MatcherKind::Any(AnyMatcher(children))),
+            "all" => Ok(MatcherKind::All(AllMatcher(children))),
             s => Err(A::Error::unknown_variant(s, &["ordered", "any"])),
         }
     }
@@ -128,6 +132,7 @@ impl Matcher for MatcherKind {
             MatcherKind::Phrase(v) => v.matches(words, debug),
             MatcherKind::Ordered(v) => v.matches(words, debug),
             MatcherKind::Any(v) => v.matches(words, debug),
+            MatcherKind::All(v) => v.matches(words, debug),
         }
     }
 }
