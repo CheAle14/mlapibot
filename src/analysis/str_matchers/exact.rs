@@ -50,4 +50,17 @@ mod tests {
         assert!(result.words.contains_key(&4));
         assert!(result.words.contains_key(&5));
     }
+
+    #[test]
+    pub fn test_exact_match_uppercase() {
+        let exact = ExactMatcher::new("quick brown fox");
+        let test = Words::new("hello world the QUICK brOWN Fox jumped over the lazy dog");
+
+        let result = exact.matches(&test.as_words(), true).unwrap();
+
+        assert_eq!(result.words.len(), 3);
+        assert!(result.words.contains_key(&3));
+        assert!(result.words.contains_key(&4));
+        assert!(result.words.contains_key(&5));
+    }
 }

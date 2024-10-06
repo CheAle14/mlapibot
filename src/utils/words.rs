@@ -12,6 +12,7 @@ pub struct Words {
 
 impl Words {
     pub fn clean(text: &mut String) {
+        text.make_ascii_lowercase();
         text.retain(allowed_char);
     }
 
