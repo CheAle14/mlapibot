@@ -1,10 +1,12 @@
 mod all;
 mod any;
+mod exact;
 mod ordered;
 mod phrase;
 
 pub use all::*;
 pub use any::*;
+pub use exact::*;
 pub use ordered::*;
 pub use phrase::*;
 use serde::{de::Visitor, Deserialize};
@@ -17,6 +19,7 @@ pub enum MatcherKind {
     Ordered(OrderedMatcher),
     All(AllMatcher),
     Any(AnyMatcher),
+    Exact(ExactMatcher),
 }
 
 struct MatcherKindVisitor;
@@ -67,23 +70,41 @@ impl<'de> Visitor<'de> for MatcherKindVisitor {
 
         let mut tag = None;
         let mut children = None;
+        let mut phrase = None;
 
         while let Some(key) = map.next_key::<String>()? {
             match key.as_str() {
                 "type" => tag = Some(map.next_value::<String>()?),
                 "children" => children = Some(map.next_value::<Vec<MatcherKind>>()?),
-                other => return Err(A::Error::unknown_field(other, &["type", "children"])),
+                "phrase" => phrase = Some(map.next_value::<String>()?),
+                other => {
+                    return Err(A::Error::unknown_field(
+                        other,
+                        &["type", "children", "phrase"],
+                    ))
+                }
             }
         }
 
-        let tag = tag.unwrap();
-        let children = children.unwrap();
+        let tag = tag.expect("'type' field set");
 
         match tag.as_str() {
-            "ordered" => Ok(MatcherKind::Ordered(OrderedMatcher(children))),
-            "any" => Ok(MatcherKind::Any(AnyMatcher(children))),
-            "all" => Ok(MatcherKind::All(AllMatcher(children))),
-            s => Err(A::Error::unknown_variant(s, &["ordered", "any"])),
+            "ordered" => Ok(MatcherKind::Ordered(OrderedMatcher(
+                children.expect("'children' set for ordered"),
+            ))),
+            "any" => Ok(MatcherKind::Any(AnyMatcher(
+                children.expect("'children' set for any"),
+            ))),
+            "all" => Ok(MatcherKind::All(AllMatcher(
+                children.expect("'children' set for all"),
+            ))),
+            "exact" => Ok(MatcherKind::Exact(ExactMatcher::new(
+                phrase.expect("'phrase' set for exact"),
+            ))),
+            s => Err(A::Error::unknown_variant(
+                s,
+                &["ordered", "any", "all", "exact"],
+            )),
         }
     }
 }
@@ -133,6 +154,7 @@ impl Matcher for MatcherKind {
             MatcherKind::Ordered(v) => v.matches(words, debug),
             MatcherKind::Any(v) => v.matches(words, debug),
             MatcherKind::All(v) => v.matches(words, debug),
+            MatcherKind::Exact(v) => v.matches(words, debug),
         }
     }
 }

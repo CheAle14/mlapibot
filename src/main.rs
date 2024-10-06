@@ -181,9 +181,11 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
 
                 if args.markdown {
                     let templates = tera::Tera::new("./data/templates/*.md").unwrap();
-                    let template = templates
-                        .render(&anal.template, &tera::Context::new())
-                        .unwrap();
+
+                    let template = match anal.template.name() {
+                        Some(text) => templates.render(text, &tera::Context::new()).unwrap(),
+                        None => String::from("<analyzer has no template>"),
+                    };
 
                     println!("\r\n{template}");
                 }

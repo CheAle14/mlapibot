@@ -397,21 +397,35 @@ impl<'a> RedditClient<'a> {
                 (_, _) => None,
             };
 
-            let template = templates
-                .render(&detected.template, &template_context)
-                .with_context(|| format!("rendering to template {:?}", detected.template))?;
-
             if !dry_run {
-                let own_comment = post
-                    .comment(&template)
-                    .with_context(|| format!("reply to {:?}", post.name()))?;
+                let own_comment = match detected.template.name() {
+                    Some(text) => {
+                        let template =
+                            templates.render(text, &template_context).with_context(|| {
+                                format!("rendering to template {:?}", detected.template)
+                            })?;
+
+                        let comment = post
+                            .comment(&template)
+                            .with_context(|| format!("reply to {:?}", post.name()))?;
+
+                        Some(comment)
+                    }
+                    None => None,
+                };
 
                 if is_mod {
                     post.remove(false)?;
-                    own_comment.distinguish(Distinguish::Moderator, true)?;
+
+                    if let Some(own_comment) = own_comment {
+                        own_comment.distinguish(Distinguish::Moderator, true)?;
+                    }
                 } else if detected.report {
-                    post.report("Appears to be a common repost")
-                        .with_context(|| format!("report {:?}", post.name()))?;
+                    post.report(&format!(
+                        "Appears to be a common repost ({})",
+                        detected.name
+                    ))
+                    .with_context(|| format!("report {:?}", post.name()))?;
                 }
 
                 if let Some(webhook) = webhook {

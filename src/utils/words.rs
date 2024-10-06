@@ -53,6 +53,10 @@ impl Words {
         &self.phrase
     }
 
+    pub fn len(&self) -> usize {
+        self.words.len()
+    }
+
     pub fn iter_words(&self) -> impl Iterator<Item = &str> {
         self.words
             .iter()
@@ -82,5 +86,15 @@ mod tests {
         let matcher = Words::new("hello world goes here");
 
         assert_eq!(matcher.as_words(), vec!["hello", "world", "goes", "here"]);
+    }
+
+    #[test]
+    pub fn test_phrase_matcher_split_numbers() {
+        let matcher = Words::new("some 10mb goes 10 mb here");
+
+        assert_eq!(
+            matcher.as_words(),
+            vec!["some", "10mb", "goes", "10", "mb", "here"]
+        );
     }
 }

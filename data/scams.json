@@ -184,7 +184,7 @@
             "remove": true
         },
         {
-            "ignore_self_posts": true,
+            "ignore_self_posts": false,
             "name": "Account report",
             "ocr": [
                 "we recommend contacting the users who have been reported and encouraging them to reach out",
@@ -427,6 +427,32 @@
                         ]
                     ],
                     "type": "ordered"
+                }
+            ]
+        },
+        {
+            "body": [
+                {
+                    "phrase": "10mb",
+                    "type": "exact"
+                },
+                {
+                    "phrase": "10 mb",
+                    "type": "exact"
+                }
+            ],
+            "ignore_self_posts": false,
+            "name": "10MB upload limit",
+            "report": true,
+            "template": null,
+            "title": [
+                {
+                    "phrase": "10mb",
+                    "type": "exact"
+                },
+                {
+                    "phrase": "10 mb",
+                    "type": "exact"
                 }
             ]
         },

@@ -177,36 +177,40 @@ fn default_true() -> bool {
     true
 }
 
-fn deserialse_template<'de, D>(de: D) -> Result<String, D::Error>
+// Any value that is present is considered Some value, including null.
+// https://github.com/serde-rs/serde/issues/984#issuecomment-314143738
+fn deserialize_some<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where
+    T: Deserialize<'de>,
     D: Deserializer<'de>,
 {
-    struct StrVisitor;
+    Deserialize::deserialize(deserializer).map(Some)
+}
 
-    impl<'de> Visitor<'de> for StrVisitor {
-        type Value = String;
+#[derive(Deserialize)]
+struct RawTemplateName {
+    #[serde(default, deserialize_with = "deserialize_some")]
+    template: Option<Option<String>>,
+}
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "string or str")
-        }
+#[derive(Debug, Deserialize)]
+#[serde(from = "RawTemplateName")]
+pub struct TemplateName(Option<String>);
 
-        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
-        {
-            Ok(format!("{v}.md"))
-        }
-
-        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
-        {
-            Ok(format!("{v}.md"))
+impl From<RawTemplateName> for TemplateName {
+    fn from(value: RawTemplateName) -> Self {
+        match value.template {
+            Some(None) => Self(None),
+            None => Self(Some(default_template())),
+            Some(Some(text)) => Self(Some(format!("{text}.md"))),
         }
     }
+}
 
-    let visitor = StrVisitor;
-    de.deserialize_string(visitor)
+impl TemplateName {
+    pub fn name(&self) -> Option<&str> {
+        self.0.as_ref().map(|s| s.as_str())
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -218,8 +222,8 @@ pub struct Analyzer {
     pub remove: bool,
     #[serde(default = "default_true")]
     pub ignore_self_posts: bool,
-    #[serde(default = "default_template", deserialize_with = "deserialse_template")]
-    pub template: String,
+    #[serde(flatten)]
+    pub template: TemplateName,
     blacklist: Option<MatcherKind>,
     #[serde(flatten)]
     kind: AnalyzerKind,
@@ -294,4 +298,33 @@ pub fn get_best_analysis<'yzer>(
 
     let best = best.map(|(_, d, a)| (d, a));
     Ok(best)
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+
+    use super::*;
+
+    #[test]
+    pub fn test_template_name_deserialize() {
+        #[derive(Deserialize)]
+        struct TestContainer {
+            #[serde(flatten)]
+            template: TemplateName,
+        }
+
+        const MISSING: &str = r#"{}"#;
+        const PRESENT: &str = r#"{"template":"hello"}"#;
+        const NULL: &str = r#"{"template":null}"#;
+
+        let missing: TestContainer = serde_json::from_str(MISSING).unwrap();
+        assert_eq!(missing.template.0, Some(default_template()));
+
+        let present: TestContainer = serde_json::from_str(PRESENT).unwrap();
+        assert_eq!(present.template.0, Some(String::from("hello.md")));
+
+        let null: TestContainer = serde_json::from_str(NULL).unwrap();
+        assert_eq!(null.template.0, None);
+    }
 }
