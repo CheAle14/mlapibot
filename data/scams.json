@@ -443,7 +443,7 @@
             ],
             "ignore_self_posts": false,
             "name": "10MB upload limit",
-            "report": true,
+            "report": false,
             "template": null,
             "title": [
                 {
