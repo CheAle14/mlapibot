@@ -27,7 +27,10 @@ impl Matcher for OrderedMatcher {
                     detection.words.insert(key + start_idx, value);
                 }
 
-                println!("  Found {len} words between {min} and {max}");
+                if debug {
+                    let slice = &words[min..max + 1];
+                    println!("  Found {len} words between {min} and {max} ({slice:?})");
+                }
 
                 start_idx = max;
             } else {

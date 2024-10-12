@@ -289,17 +289,27 @@
                         [
                             "discord agent",
                             "discord staff",
-                            "discord support"
+                            "discord support",
+                            "discord mailed"
                         ],
                         [
+                            "saying",
                             "said",
                             "told me"
                         ],
-                        "your",
-                        [
-                            "account",
-                            "profile"
-                        ],
+                        {
+                            "children": [
+                                [
+                                    "your",
+                                    "the users"
+                                ],
+                                [
+                                    "account",
+                                    "profile"
+                                ]
+                            ],
+                            "type": "ordered"
+                        },
                         [
                             "suspended",
                             "banned",
@@ -313,6 +323,7 @@
                     "children": [
                         [
                             "massive",
+                            "massively",
                             "apologize",
                             "decieve",
                             "decieved",
@@ -336,10 +347,24 @@
                             "reported",
                             "reporting"
                         ],
-                        "your",
                         [
-                            "account",
-                            "profile"
+                            {
+                                "children": [
+                                    "your",
+                                    [
+                                        "account",
+                                        "profile"
+                                    ]
+                                ],
+                                "type": "ordered"
+                            },
+                            {
+                                "children": [
+                                    "you",
+                                    "for"
+                                ],
+                                "type": "ordered"
+                            }
                         ]
                     ],
                     "type": "ordered"
