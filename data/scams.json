@@ -81,7 +81,26 @@
                 "you've won a giveaway you just won a 10 discord nitro",
                 "follow these steps to claim the 10 nitro gift code",
                 "you won 15x boosts",
-                "you were randomly selected to win 15x discord boosts from spooked"
+                "you were randomly selected to win 15x discord boosts from spooked",
+                {
+                    "children": [
+                        "here",
+                        "your",
+                        "discord",
+                        "nitro",
+                        "gift"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
+                        "protect",
+                        "automated",
+                        "claiming",
+                        "nitro"
+                    ],
+                    "type": "ordered"
+                }
             ],
             "remove": true
         },
