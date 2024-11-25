@@ -451,6 +451,16 @@
                         ]
                     ],
                     "type": "ordered"
+                },
+                {
+                    "children": [
+                        "contact",
+                        "assigned",
+                        "support",
+                        "on",
+                        "discord"
+                    ],
+                    "type": "ordered"
                 }
             ],
             "remove": true,
