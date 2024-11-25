@@ -271,16 +271,16 @@ pub fn create_deleted_downvoted_comment(comment: &CreatedCommentWithLinkInfo) ->
     )
 }
 
-fn get_error_embed(err: impl Debug) -> MessageEmbed {
-    let text = format!("{err:?}");
+fn get_error_embed(err: impl ToString) -> MessageEmbed {
+    let text = err.to_string();
     let clamped = clamp(&text, 4096 - (3 + 3 + 2 + 2));
     let actual = format!("```\r\n{clamped}\r\n```");
     MessageEmbed::builder().description(&actual)
 }
 
-pub fn create_generic_error_message(content: impl Into<String>, err: impl Debug) -> Message {
+pub fn create_generic_error_message(content: impl Into<String>, err: impl ToString) -> Message {
     let content: String = content.into();
-    eprintln!("Error {content}: {err:?}");
+    eprintln!("Error {content}: {}", err.to_string());
     Message::builder()
         .content(content)
         .embed(get_error_embed(err))

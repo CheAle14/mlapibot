@@ -1,4 +1,10 @@
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    fmt::Display,
+    panic::{catch_unwind, resume_unwind},
+    path::PathBuf,
+};
 
 use analysis::{get_best_analysis, load_scams, Analyzer};
 use clap::{Args, CommandFactory, Parser, Subcommand};
@@ -7,6 +13,7 @@ use reddit::{config::SubredditsConfig, RedditClient};
 use serde::Deserialize;
 use statuspage::incident::IncidentImpact;
 use utils::LowercaseString;
+use webhook::WebhookClient;
 
 mod analysis;
 mod context;
@@ -200,17 +207,43 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
 }
 
 fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
-    let mut client = RedditClient::new(analyzers, args)?;
-    match client.run() {
-        r @ Ok(()) => r,
-        Err(err) => {
-            // we might fail at sending the webhook, so make sure we log the underlying error
-            let message = crate::webhook::create_generic_error_message(
-                "A fatal error has occured in mlapibot!",
-                &err,
-            );
-            client.send_webhook(&message)?;
-            Err(err)
+    let webhook = args.status_webhook.clone();
+
+    let caught = catch_unwind(|| {
+        let mut client = RedditClient::new(analyzers, args)?;
+        match client.run() {
+            r @ Ok(()) => r,
+            Err(err) => {
+                // we might fail at sending the webhook, so make sure we log the underlying error
+                let message = crate::webhook::create_generic_error_message(
+                    "A fatal error has occured in mlapibot!",
+                    &err,
+                );
+                client.send_webhook(&message)?;
+                Err(err)
+            }
+        }
+    });
+
+    match caught {
+        Ok(result) => result,
+        Err(panic) => {
+            let displayable = panic.downcast_ref::<&str>();
+            let display = match displayable {
+                Some(error) => error.to_string(),
+                None => format!("Error cannot be displayed"),
+            };
+
+            if let Some(url) = webhook {
+                let mut webhook = WebhookClient::new(url)?;
+                let message = crate::webhook::create_generic_error_message(
+                    "A panic has occured in mlapibot!",
+                    &display,
+                );
+                webhook.send(&message)?;
+            }
+
+            resume_unwind(panic);
         }
     }
 }
