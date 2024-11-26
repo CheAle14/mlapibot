@@ -386,7 +386,10 @@ impl<'a> RedditClient<'a> {
                             Some(url)
                         }
                         Err(e) => {
-                            let msg = create_generic_error_message("Uploading to imgur", e);
+                            let msg = create_generic_error_message(
+                                "Uploading to imgur",
+                                format!("{e:?}"),
+                            );
                             if let Some(webhook) = webhook {
                                 let _ = webhook.send(&msg);
                             }

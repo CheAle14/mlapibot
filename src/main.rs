@@ -217,7 +217,7 @@ fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
                 // we might fail at sending the webhook, so make sure we log the underlying error
                 let message = crate::webhook::create_generic_error_message(
                     "A fatal error has occured in mlapibot!",
-                    &err,
+                    format!("{err:?}"),
                 );
                 client.send_webhook(&message)?;
                 Err(err)
