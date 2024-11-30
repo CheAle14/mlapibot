@@ -49,7 +49,8 @@ impl ImgurClient {
 
     #[inline(always)]
     fn request(&self, method: reqwest::Method, endpoint: &str) -> RequestBuilder {
-        let url = format!("{}{}.json", Self::BASE_URL, endpoint);
+        let url = format!("{}{}", Self::BASE_URL, endpoint);
+        println!("[imgur] {method} {url}");
         self.client.request(method, url)
     }
 
@@ -73,7 +74,7 @@ impl ImgurClient {
     pub fn create_album(&mut self, album: AlbumBuilder) -> anyhow::Result<Album> {
         use std::io::Write;
 
-        let mut response = self.post("/album").form(&album).send()?;
+        let mut response = self.post("/album").json(&album).send()?;
 
         if let Err(error) = response.error_for_status_ref() {
             let f = std::fs::File::create("imgur-error.txt")?;
@@ -125,18 +126,24 @@ impl ImgurClient {
         Ok(response.data)
     }
 
-    pub fn add_to_album(&mut self, album: &Album, images: &[Image]) -> anyhow::Result<()> {
-        let mut hashes = String::with_capacity(images.len() * 10);
-        for img in &images[..images.len() - 1] {
-            hashes.push_str(&img.delete_hash);
-            hashes.push(',');
-        }
-        hashes.push_str(&images.last().unwrap().delete_hash);
+    // pub fn add_to_album(&mut self, album: &Album, images: &[Image]) -> anyhow::Result<()> {
+    //     let mut hashes = String::with_capacity(images.len() * 10);
+    //     for img in &images[..images.len() - 1] {
+    //         hashes.push_str(&img.delete_hash);
+    //         hashes.push(',');
+    //     }
+    //     hashes.push_str(&images.last().unwrap().delete_hash);
 
-        let form = multipart::Form::new().text("deletehashes", hashes);
+    //     let form = multipart::Form::new().text("deletehashes", hashes);
 
-        let url = format!("/album/{}/add", album.delete_hash);
-        self.post(&url).multipart(form).send()?.error_for_status()?;
+    //     let url = format!("/album/{}/add", album.delete_hash);
+    //     self.post(&url).multipart(form).send()?.error_for_status()?;
+    //     Ok(())
+    // }
+
+    pub fn update_album(&mut self, deletehash: &str, album: AlbumBuilder) -> anyhow::Result<()> {
+        let url = format!("/album/{deletehash}");
+        self.post(&url).json(&album).send()?.error_for_status()?;
         Ok(())
     }
 
@@ -186,7 +193,10 @@ pub fn upload_images(
             images.push(uploaded);
         }
     }
-    let album = client.create_album(AlbumBuilder::builder().title("/u/mlapibot OCR"))?;
-    client.add_to_album(&album, &images)?;
+    let album = client.create_album(
+        AlbumBuilder::builder()
+            .title("/u/mlapibot OCR")
+            .delete_hashes(images.iter().map(|x| x.delete_hash.as_str())),
+    )?;
     Ok(album)
 }
