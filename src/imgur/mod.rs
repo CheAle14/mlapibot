@@ -1,3 +1,5 @@
+use std::io::BufWriter;
+
 use album::{Album, AlbumBuilder};
 use anyhow::Context as AnyhowContext;
 use image::{Image, ImageBuilder};
@@ -69,13 +71,27 @@ impl ImgurClient {
     // 8jbQ8JO0goORG13
 
     pub fn create_album(&mut self, album: AlbumBuilder) -> anyhow::Result<Album> {
-        let response: BasicResponse<Album> = self
-            .post("/album")
-            .form(&album)
-            .send()?
-            .error_for_status()?
-            .json()?;
-        Ok(response.data)
+        use std::io::Write;
+
+        let mut response = self.post("/album").form(&album).send()?;
+
+        if let Err(error) = response.error_for_status_ref() {
+            let f = std::fs::File::create("imgur-error.txt")?;
+            let mut writer = BufWriter::new(f);
+
+            for (key, value) in response.headers() {
+                writeln!(writer, "{key}: {}", value.to_str().unwrap_or("<not utf8>"))?;
+            }
+
+            writeln!(writer, "\n\n")?;
+
+            response.copy_to(&mut writer)?;
+
+            return Err(error.into());
+        }
+
+        let content: BasicResponse<Album> = response.json()?;
+        Ok(content.data)
     }
 
     pub fn upload_image(&mut self, image: ImageBuilder) -> anyhow::Result<Image> {
