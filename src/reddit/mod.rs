@@ -1,16 +1,18 @@
 use std::{
     collections::HashSet,
+    io::BufWriter,
     path::PathBuf,
     sync::mpsc::{self, RecvTimeoutError},
 };
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use config::{SubredditModerateConfig, SubredditsConfig};
 use flairs::{FlairChangeConfig, PostFlairCache, SubredditFlairConfig};
 use roux::{
     api::ThingFullname,
     client::{OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
+    util::RouxError,
 };
 use status_tracker::CachedIncidentSubmissions;
 use statuspage::StatusClient;
@@ -517,7 +519,34 @@ impl<'a> RedditClient<'a> {
     }
 
     fn check_own_comments(&mut self) -> anyhow::Result<()> {
-        for comment in self.client.comments(None)? {
+        use std::io::Write;
+
+        let comments = match self.client.comments(None) {
+            Ok(t) => t,
+            Err(e) => match e.kind {
+                roux::util::error::RouxErrorKind::FullNetwork(response, error) => {
+                    let file = std::fs::File::create("comments-error.txt").unwrap();
+                    let mut writer = BufWriter::new(file);
+                    for (name, value) in response.headers() {
+                        writeln!(
+                            writer,
+                            "{}: {}",
+                            name.as_str(),
+                            value.to_str().unwrap_or("<not utf8>")
+                        )?;
+                    }
+                    writeln!(writer, "\n\n")?;
+                    let bytes = response.bytes()?;
+                    let mut slice: &[u8] = &bytes;
+                    std::io::copy(&mut slice, &mut writer)?;
+                    writer.flush()?;
+                    return Err(error.into());
+                }
+                _ => return Err(e.into()),
+            },
+        };
+
+        for comment in comments {
             if !comment.score_hidden() && comment.score() < 0 {
                 println!(
                     "Removing downvoted {:?} on {:?} by /u/{}",
