@@ -270,6 +270,14 @@ pub fn create_deleted_downvoted_comment(comment: &CreatedCommentWithLinkInfo) ->
             .reddit_link(comment.permalink()),
     )
 }
+pub fn create_moderator_downvoted_comment(comment: &CreatedCommentWithLinkInfo) -> Message {
+    Message::builder().embed(
+        MessageEmbed::builder()
+            .title("Distinguished comment downvoted")
+            .description(format!("For {}", comment.link_title()))
+            .reddit_link(comment.permalink()),
+    )
+}
 
 fn get_error_embed(err: impl Into<String>) -> MessageEmbed {
     let text = err.into();
