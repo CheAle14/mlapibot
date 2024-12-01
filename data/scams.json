@@ -34,8 +34,6 @@
                 "discord has gifted you nitro for 1 month",
                 "i got a nitro left over incase you want it because my friends didnt want it",
                 "you won 10 nitro gift congratulations",
-                "you have won 10 nitro gift code",
-                "congratulations you have won a nitro",
                 "selected as the lucky winner for the nitro giveaway",
                 "free boost",
                 "invite this bot to your server, wait 1 day and your server will have 30 boosts.",
@@ -64,7 +62,6 @@
                 "offical new years discord bot",
                 "you've been gifted 1 year of nitro",
                 "has gifted you nitro boosts for 1 year",
-                "you have won 99 99 nitro",
                 "you've won the discord snowsgiving event",
                 "to claim your prize select your prize below",
                 "you won the 30x server boosts discord event to redeem your boosts add me to your server",
@@ -77,7 +74,6 @@
                 "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
                 "you have been gifted 14x boosts for your server",
                 "you won the 14x boosts giveaway",
-                "you won x1 nitro classic x14 server boost",
                 "you've won a giveaway you just won a 10 discord nitro",
                 "follow these steps to claim the 10 nitro gift code",
                 "you won 15x boosts",
@@ -97,6 +93,14 @@
                         "protect",
                         "automated",
                         "claiming",
+                        "nitro"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
+                        "you",
+                        "won",
                         "nitro"
                     ],
                     "type": "ordered"
