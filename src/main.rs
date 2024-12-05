@@ -207,7 +207,11 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
 }
 
 fn run_reddit(analyzers: &[Analyzer], args: &RedditInfo) -> anyhow::Result<()> {
-    let webhook = args.status_webhook.clone();
+    let webhook = args
+        .get_credentials()
+        .map(|creds| creds.webhook_url.clone())
+        .ok()
+        .flatten();
 
     let caught = catch_unwind(|| {
         let mut client = RedditClient::new(analyzers, args)?;
