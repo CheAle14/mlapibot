@@ -399,17 +399,20 @@
                             "children": [
                                 "username",
                                 "similar",
-                                "yours"
+                                "yours",
+                                "your account"
                             ],
                             "type": "ordered"
                         },
                         [
                             "spamming",
-                            "phishing"
+                            "phishing",
+                            "fraud"
                         ],
                         [
                             "accidentally",
-                            "mistakenly"
+                            "mistakenly",
+                            "confusing"
                         ],
                         [
                             "reported",
@@ -421,7 +424,7 @@
                                     ],
                                     [
                                         "report",
-                                        "tickets"
+                                        "ticket"
                                     ]
                                 ],
                                 "type": "ordered"
@@ -459,7 +462,6 @@
                 {
                     "children": [
                         "contact",
-                        "assigned",
                         "support",
                         "on",
                         "discord"
