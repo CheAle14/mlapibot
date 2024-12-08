@@ -24,7 +24,7 @@ pub struct ImgurClient {
     client: reqwest::blocking::Client,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct BasicResponse<T> {
     pub data: T,
     pub success: bool,
@@ -62,6 +62,11 @@ impl ImgurClient {
     #[inline(always)]
     fn post(&self, endpoint: &str) -> RequestBuilder {
         self.request(Method::POST, endpoint)
+    }
+
+    #[inline(always)]
+    fn put(&self, endpoint: &str) -> RequestBuilder {
+        self.request(Method::PUT, endpoint)
     }
 
     #[inline(always)]
@@ -143,7 +148,7 @@ impl ImgurClient {
 
     pub fn update_album(&mut self, deletehash: &str, album: AlbumBuilder) -> anyhow::Result<()> {
         let url = format!("/album/{deletehash}");
-        self.post(&url).json(&album).send()?.error_for_status()?;
+        self.put(&url).json(&album).send()?.error_for_status()?;
         Ok(())
     }
 
@@ -193,10 +198,14 @@ pub fn upload_images(
             images.push(uploaded);
         }
     }
-    let album = client.create_album(
+    let album = client.create_album(AlbumBuilder::builder().title("/u/mlapibot OCR"))?;
+
+    client.update_album(
+        &album.delete_hash,
         AlbumBuilder::builder()
-            .title("/u/mlapibot OCR")
+            .cover(images.first().unwrap().id.as_str())
             .delete_hashes(images.iter().map(|x| x.delete_hash.as_str())),
     )?;
+
     Ok(album)
 }
