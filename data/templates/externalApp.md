@@ -2,10 +2,12 @@
 
 {% block content %}
 
-This post appears to show a spam bot being invoked by a user.  
-Users are able to install bots (apps) onto their own accounts, allowing them to use them in DMs 
-and in servers that allow them to. If you do not want users to have this ability, remove the **Use External Apps** permission from them.
+This post could be asking about a bot somehow being in a server without being added.   
+If so, it is likely one of two options:
 
-You can see which user invoked the bot by right clicking on the message and selecting 'View Interaction Info'
+1. It is a bot that has been installed onto a user account, allowing the user to use the bot in DMs and in servers that allow it.  
+You can disable the **Use External Apps** permission to stop this.
+2. It is a webhook that was added by someone with the Manage Webhooks permission.  
+You can remove the webhook under the channel's Integration settings.
 
 {% endblock content %}

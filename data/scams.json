@@ -494,13 +494,7 @@
         {
             "name": "externalApp",
             "ocr": [
-                {
-                    "children": [
-                        "message could not be loaded",
-                        "app"
-                    ],
-                    "type": "ordered"
-                },
+                "message could not be loaded",
                 "solara is back",
                 "solara executor"
             ],
