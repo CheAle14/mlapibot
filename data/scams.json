@@ -490,30 +490,19 @@
             ]
         },
         {
-            "body": [
+            "name": "externalApp",
+            "ocr": [
                 {
-                    "phrase": "10mb",
-                    "type": "exact"
+                    "children": [
+                        "message could not be loaded",
+                        "app"
+                    ],
+                    "type": "ordered"
                 },
-                {
-                    "phrase": "10 mb",
-                    "type": "exact"
-                }
+                "solara is back",
+                "solara executor"
             ],
-            "ignore_self_posts": false,
-            "name": "10MB upload limit",
-            "report": false,
-            "template": null,
-            "title": [
-                {
-                    "phrase": "10mb",
-                    "type": "exact"
-                },
-                {
-                    "phrase": "10 mb",
-                    "type": "exact"
-                }
-            ]
+            "template": "externalApp"
         },
         {
             "name": "doneReading",
