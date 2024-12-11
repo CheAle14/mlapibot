@@ -131,6 +131,7 @@ impl AlignmentKind {
 type Alignment = Vec<AlignmentKind>;
 
 pub fn score(arr: &Alignment, i: &[&str], j: &[&str], debug: bool) -> f32 {
+    let sum_needle_chars: f32 = i.iter().map(|s| s.len()).sum::<usize>() as f32;
     let mut first_match = arr.len();
     let mut last_match = 0;
     let mut mapped: Vec<(Option<&str>, Option<&str>)> = Vec::with_capacity(arr.len());
@@ -259,20 +260,24 @@ pub fn score(arr: &Alignment, i: &[&str], j: &[&str], debug: bool) -> f32 {
 
     let selected = &selected[selected_start..selected_end];
 
-    let total = i.len() as f32;
     let mut sum = 0.0;
     for (i, j) in selected {
         match (i, j) {
-            (Some(i), Some(j)) => sum += string_similiarity(i, j),
+            (Some(i), Some(j)) => {
+                let weight = i.len() as f32 / sum_needle_chars;
+                let sim = string_similiarity(i, j);
+                //println!("      {i}/{j}: {sim} * {weight}");
+                sum += sim * weight
+            }
             _ => (),
         }
     }
 
     if debug {
-        println!("    {sum} out of {sum}");
+        println!("    {sum}");
     }
 
-    sum / total
+    sum
 }
 
 fn _pretty_print_alignment(al: &Alignment) {
@@ -405,5 +410,26 @@ mod tests {
         let result = analyzer.analyze(&ctx).unwrap();
         let result = result.unwrap();
         assert!(result.best_score() >= THRESHOLD);
+    }
+
+    #[test]
+    pub fn share_not_loaded() {
+        let phrase = "message could not be loaded";
+        let analyzer = StrAnalzyer {
+            ocr: None,
+            title: Some(MatcherKind::Phrase(PhraseMatcher(Words::new(phrase)))),
+            body: None,
+        };
+
+        let ctx = Context {
+            kind: ContextKind::CliPath(PathBuf::new()),
+            images: Vec::new(),
+            title: Some(String::from("your message could not be delivered this is usually because you dont share a server with the recipient or the recipient is only accepting direct messages from friends you ca nsee the full list of reasons here")),
+            body: None,
+            debug: true,
+        };
+
+        let result = analyzer.analyze(&ctx).unwrap();
+        assert!(result.is_none());
     }
 }
