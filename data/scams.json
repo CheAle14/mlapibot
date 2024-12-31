@@ -494,9 +494,7 @@
         {
             "name": "externalApp",
             "ocr": [
-                "message could not be loaded",
-                "solara is back",
-                "solara executor"
+                "message could not be loaded"
             ],
             "template": "externalApp"
         },
