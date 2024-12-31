@@ -501,6 +501,15 @@
             "template": "externalApp"
         },
         {
+            "name": "externalAppConfident",
+            "ocr": [
+                "solara is back",
+                "solara executor"
+            ],
+            "remove": true,
+            "template": "externalApp"
+        },
+        {
             "name": "doneReading",
             "ocr": [
                 "done reading check out other channels",
