@@ -246,6 +246,17 @@
                 "use the password that i asked you to copy",
                 {
                     "children": [
+                        "somebody",
+                        "else",
+                        "access",
+                        "my",
+                        "account",
+                        ["report", "reported"]
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
                         "temporarily",
                         "change",
                         "your",
@@ -466,6 +477,14 @@
                         "support",
                         "on",
                         "discord"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
+                        ["contact", "reach out"],
+                        "corporate",
+                        "security"
                     ],
                     "type": "ordered"
                 }
