@@ -30,7 +30,7 @@ impl StrAnalzyer {
                 if context.debug {
                     println!("OCR Image {idx}:");
                 }
-                if let Some(result) = ocr.matches(&words, context.debug) {
+                if let Some(result) = ocr.best_match(&words, context.debug) {
                     detection.add_image(idx, result);
                 }
             }
@@ -39,7 +39,7 @@ impl StrAnalzyer {
             if let Some(ctx) = &context.title {
                 let words = Words::new(ctx);
                 let words = words.as_words();
-                if let Some(value) = title.matches(&words, context.debug) {
+                if let Some(value) = title.best_match(&words, context.debug) {
                     println!("min-max: {:?}", value.min_max_word_indexes());
                     detection.set_title(value);
                 }
@@ -49,7 +49,7 @@ impl StrAnalzyer {
             if let Some(ctx) = &context.body {
                 let words = Words::new(ctx);
                 let words = words.as_words();
-                if let Some(value) = body.matches(&words, context.debug) {
+                if let Some(value) = body.best_match(&words, context.debug) {
                     detection.set_body(value);
                 }
             }

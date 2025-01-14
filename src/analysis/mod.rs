@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::AddAssign};
+use std::{collections::HashMap, fmt::Debug, ops::AddAssign};
 
 use func_analyzer::FuncAnalyzer;
 use image::DynamicImage;
@@ -22,11 +22,23 @@ pub struct DetectedWord {
     pub matched: bool,
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct DetectedItem {
     /// the words that were present or triggered
     pub words: HashMap<usize, DetectedWord>,
     pub score: f32,
+}
+
+impl Debug for DetectedItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (min, max) = self.min_max_word_indexes();
+        f.debug_struct("DetectedItem")
+            .field("words", &self.words)
+            .field("score", &self.score)
+            .field("min_idx", &min)
+            .field("max_idx", &max)
+            .finish()
+    }
 }
 
 impl DetectedItem {

@@ -17,38 +17,45 @@ impl PhraseMatcher {
 }
 
 impl Matcher for PhraseMatcher {
-    fn matches(&self, haystack: &[&str], debug: bool) -> Option<DetectedItem> {
+    fn matches(&self, haystack: &[&str], debug: bool) -> Vec<DetectedItem> {
         let words = self.0.as_words();
 
         if words.len() == 1 {
+            let word = words[0];
             if debug {
-                println!("  Looking for single {:?}", words[0])
+                println!("  Looking for single {:?}", word)
             }
 
-            let mut best_score = 0.0;
-            let mut best_idx = 0;
+            let mut all_matches = Vec::new();
 
-            for (idx, word) in haystack.iter().enumerate() {
-                if words[0] == *word {
+            for (idx, other) in haystack.iter().enumerate() {
+                if *other == word {
                     let mut d = DetectedItem::new(1.0);
                     d.mark_match(idx);
-                    return Some(d);
+                    all_matches.push(d);
+                    continue;
                 }
 
-                let sim = string_similiarity(words[0], word);
-                if sim > best_score {
-                    best_score = sim;
-                    best_idx = idx;
+                let sim = string_similiarity(word, other);
+
+                if sim > THRESHOLD {
+                    let mut d = DetectedItem::new(sim);
+                    d.mark_match(idx);
+                    all_matches.push(d);
                 }
             }
 
-            if best_score > THRESHOLD {
-                let mut d = DetectedItem::new(best_score);
-                d.mark_match(best_idx);
-                return Some(d);
-            } else {
-                return None;
+            if debug {
+                if all_matches.len() > 0 {
+                    print!("   ^> found @ ");
+                    for det in &all_matches {
+                        print!("{} ", det.min_max_word_indexes().0);
+                    }
+                    println!("");
+                }
             }
+
+            return all_matches;
         }
 
         if debug {
@@ -63,7 +70,7 @@ impl Matcher for PhraseMatcher {
         }
 
         if score < THRESHOLD {
-            return None;
+            return Vec::new();
         }
 
         let mut item = DetectedItem::new(score);
@@ -75,7 +82,7 @@ impl Matcher for PhraseMatcher {
             }
         }
 
-        Some(item)
+        vec![item]
     }
 }
 

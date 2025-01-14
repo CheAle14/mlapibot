@@ -119,26 +119,32 @@ impl<'de> Deserialize<'de> for MatcherKind {
 }
 
 pub trait Matcher {
-    fn matches(&self, words: &[&str], debug: bool) -> Option<DetectedItem>;
+    fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem>;
+
+    fn best_match(&self, words: &[&str], debug: bool) -> Option<DetectedItem> {
+        let mut all = self.matches(words, debug);
+        all.sort_unstable_by(|a, b| a.score.total_cmp(&b.score));
+        all.into_iter().next()
+    }
 
     fn any_matches(&self, ctx: &crate::context::Context) -> bool {
         for img in &ctx.images {
             let words = img.words();
-            if self.matches(&words, ctx.debug).is_some() {
+            if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
         }
         if let Some(title) = &ctx.title {
             let words = Words::new(title);
             let words = words.as_words();
-            if self.matches(&words, ctx.debug).is_some() {
+            if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
         }
         if let Some(body) = &ctx.body {
             let words = Words::new(body);
             let words = words.as_words();
-            if self.matches(&words, ctx.debug).is_some() {
+            if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
         }
@@ -148,7 +154,7 @@ pub trait Matcher {
 }
 
 impl Matcher for MatcherKind {
-    fn matches(&self, words: &[&str], debug: bool) -> Option<DetectedItem> {
+    fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
         match &self {
             MatcherKind::Phrase(v) => v.matches(words, debug),
             MatcherKind::Ordered(v) => v.matches(words, debug),

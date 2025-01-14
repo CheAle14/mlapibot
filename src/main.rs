@@ -165,6 +165,9 @@ fn test_single(analyzers: &[Analyzer], args: &TestInfo) -> anyhow::Result<()> {
             .iter()
             .find(|a| &a.name == name)
             .expect("analzyer exists by that name");
+
+        std::fs::write("analyzer.txt", format!("{analyzer:#?}")).unwrap();
+
         match analyzer.analyze(&ctx)? {
             Some(detect) => {
                 println!("{name} saw: {:?}", detect.get_markdown(&ctx)?)

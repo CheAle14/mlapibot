@@ -7,39 +7,52 @@ use super::{Matcher, MatcherKind};
 #[derive(Debug, PartialEq)]
 pub struct OrderedMatcher(pub Vec<MatcherKind>);
 
-impl Matcher for OrderedMatcher {
-    fn matches(&self, words: &[&str], debug: bool) -> Option<crate::analysis::DetectedItem> {
-        let mut start_idx = 0;
+fn recursive_matches(
+    words: &[&str],
+    matchers: &[MatcherKind],
+    debug: bool,
+    base: DetectedItem,
+    start_idx: usize,
+) -> Vec<DetectedItem> {
+    if matchers.len() == 0 {
+        return vec![base];
+    }
 
-        let mut score_sum = 0.0;
-        let mut detection = DetectedItem::new(0.0);
+    let next = &matchers[0];
 
-        for child in self.0.iter() {
-            let words = &words[start_idx..];
-            if let Some(next) = child.matches(words, debug) {
-                score_sum += next.score;
-                let len = next.words.len();
-                let (min, max) = next.min_max_word_indexes();
-                let min = start_idx + min;
-                let max = start_idx + max;
+    let result = next.matches(&words[start_idx..], debug);
+    if result.len() == 0 {
+        return Vec::new();
+    }
 
-                for (key, value) in next.words {
-                    detection.words.insert(key + start_idx, value);
-                }
+    let mut results = Vec::new();
 
-                if debug {
-                    let slice = &words[min..max + 1];
-                    println!("  Found {len} words between {min} and {max} ({slice:?})");
-                }
-
-                start_idx = max;
-            } else {
-                return None;
-            }
+    for result in result {
+        let mut this = base.clone();
+        for (idx, word) in result.words {
+            this.words.insert(start_idx + idx, word);
         }
+        this.score += result.score;
 
-        detection.score = score_sum / self.0.len() as f32;
-        Some(detection)
+        let (min, _) = this.min_max_word_indexes();
+
+        let next = recursive_matches(words, &matchers[1..], debug, this, min);
+        for next in next {
+            results.push(next);
+        }
+    }
+
+    results
+}
+
+impl Matcher for OrderedMatcher {
+    fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
+        let mut v = recursive_matches(words, &self.0, debug, DetectedItem::new(0.0), 0);
+        v.retain_mut(|d| {
+            d.score /= self.0.len() as f32;
+            d.score > 0.8
+        });
+        v
     }
 }
 
@@ -53,6 +66,44 @@ mod tests {
     use super::OrderedMatcher;
 
     #[test]
+    pub fn test_multi_match() {
+        let ordered = OrderedMatcher(vec![
+            MatcherKind::Phrase(PhraseMatcher::new("hello")),
+            MatcherKind::Phrase(PhraseMatcher::new("world")),
+        ]);
+
+        let text = Words::new("hello there hello some other world");
+        let words = text.as_words();
+
+        let result = ordered.matches(&words, true);
+
+        assert_eq!(result.len(), 2);
+
+        let mut opt_one = Some("**hello** there hello some other **world**");
+        let mut opt_two = Some("hello there **hello** some other **world**");
+
+        for result in result {
+            let mut s = String::with_capacity(text.full_text().len());
+            result.write_markdown(&text.as_words(), &mut s).unwrap();
+            if let Some(opt) = &opt_one {
+                if s == *opt {
+                    opt_one = None;
+                    continue;
+                }
+            }
+            if let Some(opt) = &opt_two {
+                if s == *opt {
+                    opt_two = None;
+                    continue;
+                }
+            }
+            panic!("unrecognised {s:?}");
+        }
+        assert_eq!(opt_one, None);
+        assert_eq!(opt_two, None);
+    }
+
+    #[test]
     pub fn test_matches() {
         let ordered = OrderedMatcher(vec![
             MatcherKind::Phrase(PhraseMatcher::new("hello")),
@@ -62,7 +113,7 @@ mod tests {
         let text = Words::new("hello there some other world");
         let words = text.as_words();
 
-        let det = ordered.matches(&words, true).unwrap();
+        let det = &ordered.matches(&words, true)[0];
 
         let mut s = String::with_capacity(text.full_text().len());
         det.write_markdown(&words, &mut s).unwrap();
@@ -83,7 +134,7 @@ mod tests {
 
         let det = ordered.matches(&words, true);
 
-        assert!(det.is_none())
+        assert!(det.is_empty())
     }
 
     #[test]
@@ -98,6 +149,6 @@ mod tests {
 
         let det = ordered.matches(&words, true);
 
-        assert!(det.is_none())
+        assert!(det.is_empty())
     }
 }

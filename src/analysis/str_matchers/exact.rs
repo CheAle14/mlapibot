@@ -13,7 +13,7 @@ impl ExactMatcher {
 }
 
 impl Matcher for ExactMatcher {
-    fn matches(&self, words: &[&str], debug: bool) -> Option<crate::analysis::DetectedItem> {
+    fn matches(&self, words: &[&str], debug: bool) -> Vec<crate::analysis::DetectedItem> {
         let check_words = self.0.as_words();
         for (start_idx, window) in words.windows(self.0.len()).enumerate() {
             if (&check_words) == window {
@@ -24,11 +24,11 @@ impl Matcher for ExactMatcher {
                 for i in start_idx..start_idx + check_words.len() {
                     item.mark_match(i);
                 }
-                return Some(item);
+                return vec![item];
             }
         }
 
-        None
+        Vec::new()
     }
 }
 
@@ -43,7 +43,7 @@ mod tests {
         let exact = ExactMatcher::new("quick brown fox");
         let test = Words::new("hello world the quick brown fox jumped over the lazy dog");
 
-        let result = exact.matches(&test.as_words(), true).unwrap();
+        let result = &exact.matches(&test.as_words(), true)[0];
 
         assert_eq!(result.words.len(), 3);
         assert!(result.words.contains_key(&3));
@@ -56,7 +56,7 @@ mod tests {
         let exact = ExactMatcher::new("quick brown fox");
         let test = Words::new("hello world the QUICK brOWN Fox jumped over the lazy dog");
 
-        let result = exact.matches(&test.as_words(), true).unwrap();
+        let result = &exact.matches(&test.as_words(), true)[0];
 
         assert_eq!(result.words.len(), 3);
         assert!(result.words.contains_key(&3));
