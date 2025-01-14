@@ -244,6 +244,17 @@
                 "for the appeal please contact the discord support who handled this report",
                 "to prevent your account from getting suspended",
                 "use the password that i asked you to copy",
+                "contact the reported user",
+                {
+                    "children": [
+                        "account",
+                        "suspended",
+                        "no",
+                        "proof",
+                        "given"
+                    ],
+                    "type": "ordered"
+                },
                 {
                     "children": [
                         "somebody",
@@ -371,7 +382,8 @@
                                     [
                                         "threw",
                                         "filed",
-                                        "filing"
+                                        "filing",
+                                        "filled"
                                     ],
                                     [
                                         "report",
