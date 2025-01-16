@@ -1,4 +1,10 @@
-use std::{collections::HashMap, fmt::Debug, ops::AddAssign};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeSet, HashMap},
+    fmt::Debug,
+    hash::Hash,
+    ops::AddAssign,
+};
 
 use func_analyzer::FuncAnalyzer;
 use image::DynamicImage;
@@ -16,7 +22,7 @@ pub mod str_analyzer;
 
 pub mod str_matchers;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DetectedWord {
     /// whether this word was part of the threshold triggering phrase
     pub matched: bool,
@@ -88,12 +94,53 @@ impl DetectedItem {
 
         (min, max)
     }
+
+    pub fn range(&self) -> usize {
+        let (min, max) = self.min_max_word_indexes();
+        max - min
+    }
 }
 
 impl AddAssign for DetectedItem {
     fn add_assign(&mut self, rhs: Self) {
         self.words.extend(rhs.words);
         self.score += rhs.score;
+    }
+}
+
+impl PartialEq for DetectedItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.words == other.words && self.score == other.score
+    }
+}
+
+impl Eq for DetectedItem {}
+
+impl Hash for DetectedItem {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let mut ordered = BTreeSet::new();
+        for word in self.words.keys() {
+            ordered.insert(*word);
+        }
+        ordered.hash(state);
+        state.write_u32(self.score as u32);
+    }
+}
+
+impl PartialOrd for DetectedItem {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DetectedItem {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.score.total_cmp(&other.score) {
+            Ordering::Equal => {}
+            ord => return ord,
+        }
+
+        self.range().cmp(&other.range())
     }
 }
 

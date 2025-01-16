@@ -6,7 +6,7 @@ use crate::{analysis::DetectedItem, utils::Words};
 use super::Matcher;
 
 #[derive(Debug, PartialEq)]
-pub struct PhraseMatcher(Words);
+pub struct PhraseMatcher(pub Words);
 
 impl PhraseMatcher {
     pub fn new(text: impl Into<String>) -> Self {

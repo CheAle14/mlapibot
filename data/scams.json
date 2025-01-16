@@ -1,6 +1,25 @@
 {
     "scams": [
         {
+            "name": "emailFreeNitro",
+            "ocr": [
+                "we'd like to directly apologize for the recent issues regarding your discord account which resulted in a temporary ban",
+                "we're working diligently to make sure this does not occur again in the future",
+                "we'd like to give you three months of discord nitro as a thank you for your patience during this situation",
+                {
+                    "children": [
+                        "discords",
+                        "email",
+                        "service",
+                        "compromised"
+                    ],
+                    "type": "ordered"
+                }
+            ],
+            "remove": true,
+            "template": "emailFreeNitro"
+        },
+        {
             "blacklist": [
                 "epic games",
                 "epic game",
@@ -262,7 +281,10 @@
                         "access",
                         "my",
                         "account",
-                        ["report", "reported"]
+                        [
+                            "report",
+                            "reported"
+                        ]
                     ],
                     "type": "ordered"
                 },
@@ -494,7 +516,10 @@
                 },
                 {
                     "children": [
-                        ["contact", "reach out"],
+                        [
+                            "contact",
+                            "reach out"
+                        ],
                         "corporate",
                         "security"
                     ],

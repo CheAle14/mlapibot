@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::Deserialize;
 
 use crate::analysis::DetectedItem;
@@ -11,47 +13,74 @@ fn recursive_matches(
     words: &[&str],
     matchers: &[MatcherKind],
     debug: bool,
-    base: DetectedItem,
-    start_idx: usize,
+    depth: usize,
 ) -> Vec<DetectedItem> {
     if matchers.len() == 0 {
-        return vec![base];
+        return vec![];
     }
+
+    let word = match &matchers[0] {
+        MatcherKind::Phrase(phrase) => phrase.0.full_text(),
+        o => panic!("unexpected outer {o:?}"),
+    };
+
+    println!("{}Recursed for {word:?}", " ".repeat(depth));
 
     let next = &matchers[0];
 
-    let result = next.matches(&words[start_idx..], debug);
+    let result = next.matches(words, debug);
     if result.len() == 0 {
+        println!("{}  No matches", " ".repeat(depth));
         return Vec::new();
     }
+    println!("{}  {} matches", " ".repeat(depth), result.len());
+    if matchers.len() == 1 {
+        return result;
+    }
 
-    let mut results = Vec::new();
+    let mut absolute_min = usize::MAX;
+    for result in &result {
+        let (min, _) = result.min_max_word_indexes();
+        absolute_min = absolute_min.min(min);
+    }
 
-    for result in result {
-        let mut this = base.clone();
-        for (idx, word) in result.words {
-            this.words.insert(start_idx + idx, word);
-        }
-        this.score += result.score;
+    let next = recursive_matches(&words[absolute_min..], &matchers[1..], debug, depth + 1);
 
-        let (min, _) = this.min_max_word_indexes();
+    let mut outcome = HashSet::new();
+    for next in next {
+        let (min, _) = next.min_max_word_indexes();
+        for this in &result {
+            let (this_min, _) = this.min_max_word_indexes();
 
-        let next = recursive_matches(words, &matchers[1..], debug, this, min);
-        for next in next {
-            results.push(next);
+            if (min + absolute_min) < this_min {
+                continue;
+            }
+
+            let mut new = this.clone();
+            new.score += next.score;
+
+            for (idx, word) in &next.words {
+                new.words.insert(absolute_min + idx, word.clone());
+            }
+
+            outcome.insert(new);
         }
     }
 
-    results
+    outcome.into_iter().collect()
 }
 
 impl Matcher for OrderedMatcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
-        let mut v = recursive_matches(words, &self.0, debug, DetectedItem::new(0.0), 0);
+        let mut v = recursive_matches(words, &self.0, debug, 0);
         v.retain_mut(|d| {
             d.score /= self.0.len() as f32;
             d.score > 0.8
         });
+        v.sort_unstable();
+
+        std::fs::write("ordered.txt", format!("{v:#?}"));
+
         v
     }
 }
