@@ -19,21 +19,12 @@ fn recursive_matches(
         return vec![];
     }
 
-    let word = match &matchers[0] {
-        MatcherKind::Phrase(phrase) => phrase.0.full_text(),
-        o => panic!("unexpected outer {o:?}"),
-    };
-
-    println!("{}Recursed for {word:?}", " ".repeat(depth));
-
     let next = &matchers[0];
 
     let result = next.matches(words, debug);
     if result.len() == 0 {
-        println!("{}  No matches", " ".repeat(depth));
         return Vec::new();
     }
-    println!("{}  {} matches", " ".repeat(depth), result.len());
     if matchers.len() == 1 {
         return result;
     }
@@ -78,8 +69,6 @@ impl Matcher for OrderedMatcher {
             d.score > 0.8
         });
         v.sort_unstable();
-
-        std::fs::write("ordered.txt", format!("{v:#?}"));
 
         v
     }
