@@ -14,6 +14,15 @@
                         "compromised"
                     ],
                     "type": "ordered"
+                },
+                {
+                    "children": [
+                        "discords",
+                        "email",
+                        "servers",
+                        "compromised"
+                    ],
+                    "type": "ordered"
                 }
             ],
             "remove": true,
