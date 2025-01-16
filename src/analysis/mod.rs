@@ -135,7 +135,7 @@ impl PartialOrd for DetectedItem {
 
 impl Ord for DetectedItem {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.score.total_cmp(&other.score) {
+        match other.score.total_cmp(&self.score) {
             Ordering::Equal => {}
             ord => return ord,
         }

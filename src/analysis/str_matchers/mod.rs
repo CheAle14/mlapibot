@@ -123,7 +123,7 @@ pub trait Matcher {
 
     fn best_match(&self, words: &[&str], debug: bool) -> Option<DetectedItem> {
         let mut all = self.matches(words, debug);
-        all.sort_unstable_by(|a, b| a.score.total_cmp(&b.score));
+        all.sort_unstable();
         all.into_iter().next()
     }
 
