@@ -516,15 +516,6 @@
                 },
                 {
                     "children": [
-                        "contact",
-                        "support",
-                        "on",
-                        "discord"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
                         [
                             "contact",
                             "reach out"
