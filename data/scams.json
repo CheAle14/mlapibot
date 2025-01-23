@@ -275,6 +275,14 @@
                 "contact the reported user",
                 {
                     "children": [
+                        "verification",
+                        "process",
+                        "purchase"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
                         "account",
                         "suspended",
                         "no",
