@@ -20,6 +20,7 @@ pub enum Rate {
 impl Ratelimiter {
     const REDDIT_SECONDS: u64 = 15;
     const STATUS_SECONDS: u64 = 60 * 5;
+    const REDDIT_DELAY: u64 = 6;
 
     pub fn new() -> Self {
         let now = Instant::now();
@@ -60,33 +61,33 @@ impl Ratelimiter {
 
         let least = min_many!(subreddits, inbox, status, downvotes);
 
-        if status >= Self::STATUS_SECONDS && least >= 5 {
+        if status >= Self::STATUS_SECONDS && least >= Self::REDDIT_DELAY {
             Rate::StatusReady
-        } else if subreddits >= Self::REDDIT_SECONDS && least >= 5 {
+        } else if subreddits >= Self::REDDIT_SECONDS && least >= Self::REDDIT_DELAY {
             Rate::SubredditsReady
-        } else if inbox >= Self::REDDIT_SECONDS && least >= 5 {
+        } else if inbox >= Self::REDDIT_SECONDS && least >= Self::REDDIT_DELAY {
             Rate::InboxReady
-        } else if downvotes >= Self::REDDIT_SECONDS && least >= 5 {
+        } else if downvotes >= Self::REDDIT_SECONDS && least >= Self::REDDIT_DELAY {
             Rate::DownvotesReady
         } else {
             let reddit_max = max_many!(inbox, subreddits, downvotes);
 
             let reddit_secs = if reddit_max >= Self::REDDIT_SECONDS {
-                5
+                Self::REDDIT_DELAY
             } else {
                 Self::REDDIT_SECONDS - reddit_max
             };
 
             let status_secs = if status >= Self::STATUS_SECONDS {
-                5
+                Self::REDDIT_DELAY
             } else {
                 Self::STATUS_SECONDS - status
             };
 
             let next = std::cmp::min(reddit_secs, status_secs);
 
-            let secs = if least < 5 {
-                std::cmp::max(next, 5)
+            let secs = if least < Self::REDDIT_DELAY {
+                std::cmp::max(next, Self::REDDIT_DELAY)
             } else {
                 next
             };
