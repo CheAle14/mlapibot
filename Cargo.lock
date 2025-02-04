@@ -2130,8 +2130,8 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "statuspage"
-version = "0.3.1"
-source = "git+https://github.com/CheAle14/statuspage.git#b9e0d7d60fa90e8091660dec4c784e3fbf55b31d"
+version = "0.3.3"
+source = "git+https://github.com/CheAle14/statuspage.git#4de55dc21dd57738926fa245cdaa48370338c9c4"
 dependencies = [
  "chrono",
  "reqwest 0.12.5",

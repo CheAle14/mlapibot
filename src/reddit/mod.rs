@@ -14,8 +14,8 @@ use roux::{
     models::Distinguish,
     util::RouxError,
 };
-use status_tracker::CachedIncidentSubmissions;
-use statuspage::StatusClient;
+use status_tracker::{CachedIncidentSubmissions, WebhookEvent};
+use statuspage::{status::StatusIndicator, StatusClient};
 use subreddit::Subreddit;
 use tera::Tera;
 
@@ -58,6 +58,7 @@ pub struct RedditClient<'a> {
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
     status: StatusClient,
+    last_status: StatusIndicator,
     subreddits_config: SubredditsConfig,
     dry_run: bool,
     status_webhook: Option<String>,
@@ -145,6 +146,7 @@ impl<'a> RedditClient<'a> {
             status_webhook: args.status_webhook.clone(),
             admin: args.admin.clone(),
             flair_cache: PostFlairCache::default(),
+            last_status: StatusIndicator::None,
         })
     }
 
@@ -284,9 +286,11 @@ impl<'a> RedditClient<'a> {
                 continue;
             }
 
-            if let Some(webhook) = &mut self.webhook {
-                let inbox = create_inbox_message(&item);
-                webhook.send(&inbox)?;
+            if self.last_status != StatusIndicator::Critical {
+                if let Some(webhook) = &mut self.webhook {
+                    let inbox = create_inbox_message(&item);
+                    webhook.send(&inbox)?;
+                }
             }
 
             if subject == "test" {
@@ -507,6 +511,7 @@ impl<'a> RedditClient<'a> {
 
     fn check_status(&mut self) -> anyhow::Result<()> {
         let summary = self.status.get_summary()?;
+        self.last_status = summary.status.indicator;
         println!(
             "Status is {:?}, with {} incidents",
             summary.status.indicator,
@@ -578,6 +583,23 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn handle_webhook_event(&mut self, event: WebhookEvent) -> anyhow::Result<()> {
+        match event {
+            status_tracker::WebhookEvent::IncidentUpdate(incident) => {
+                println!("[status-recv] got incident webhook");
+                let incident = *incident;
+                let cache = CachedIncidentSubmissions::new(vec![incident]);
+                self.update_status_with(cache, false)?;
+            }
+            _ => {
+                println!("[status-recv] got unknown webhook, checking status");
+                self.check_status()?;
+                self.ratelimit.set_status();
+            }
+        };
+        Ok(())
+    }
+
     pub fn run(&mut self) -> anyhow::Result<()> {
         let (tx, rx) = mpsc::channel();
 
@@ -587,24 +609,23 @@ impl<'a> RedditClient<'a> {
         }
 
         loop {
-            match self.ratelimit.get() {
-                ratelimiter::Rate::NoneReadyFor(dur) => match rx.recv_timeout(dur) {
-                    Ok(event) => match event {
-                        status_tracker::WebhookEvent::IncidentUpdate(incident) => {
-                            println!("[status-recv] got incident webhook");
-                            let incident = *incident;
-                            let cache = CachedIncidentSubmissions::new(vec![incident]);
-                            self.update_status_with(cache, false)?;
+            match self.ratelimit.get(self.last_status) {
+                ratelimiter::Rate::NoneReadyFor(dur) => {
+                    self.ratelimit.set_webhook();
+                    match rx.recv_timeout(dur) {
+                        Ok(event) => {
+                            self.handle_webhook_event(event)?;
                         }
-                        _ => {
-                            println!("[status-recv] got unknown webhook, checking status");
-                            self.check_status()?;
-                            self.ratelimit.set_status();
-                        }
-                    },
-                    Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
-                    Err(RecvTimeoutError::Timeout) => continue,
-                },
+                        Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
+                        Err(RecvTimeoutError::Timeout) => continue,
+                    }
+                }
+                ratelimiter::Rate::WebhookCheck => {
+                    self.ratelimit.set_webhook();
+                    while let Ok(event) = rx.try_recv() {
+                        self.handle_webhook_event(event)?;
+                    }
+                }
                 ratelimiter::Rate::InboxReady => {
                     println!("Checking inbox");
                     self.check_inbox().context("check inbox")?;
