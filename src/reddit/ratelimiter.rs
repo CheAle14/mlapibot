@@ -8,8 +8,6 @@ pub struct Ratelimiter {
     last_subreddits: Instant,
     last_status: Instant,
     last_downvotes: Instant,
-
-    last_webhook: Instant,
 }
 
 pub enum Rate {
@@ -18,24 +16,12 @@ pub enum Rate {
     InboxReady,
     SubredditsReady,
     DownvotesReady,
-
-    WebhookCheck,
 }
 
 impl Ratelimiter {
     const REDDIT_SECONDS: u64 = 15;
     const STATUS_SECONDS: u64 = 60 * 5;
     const REDDIT_DELAY: u64 = 6;
-    const ENSURE_WEBHOOK_CHECKED: u64 = 30;
-
-    const fn delay_for(status: StatusIndicator) -> u64 {
-        match status {
-            StatusIndicator::None | StatusIndicator::Maintenance => Self::STATUS_SECONDS,
-            StatusIndicator::Minor => 180,
-            StatusIndicator::Major => 120,
-            StatusIndicator::Critical => 60,
-        }
-    }
 
     pub fn new() -> Self {
         let now = Instant::now();
@@ -52,13 +38,10 @@ impl Ratelimiter {
             last_downvotes: now
                 .checked_sub(Duration::from_secs(Self::REDDIT_SECONDS * 2))
                 .unwrap(),
-            last_webhook: now
-                .checked_sub(Duration::from_secs(Self::ENSURE_WEBHOOK_CHECKED * 2))
-                .unwrap(),
         }
     }
 
-    pub fn get(&self, current_status: StatusIndicator) -> Rate {
+    pub fn get(&self) -> Rate {
         let now = Instant::now();
         let subreddits = now
             .checked_duration_since(self.last_subreddits)
@@ -76,16 +59,10 @@ impl Ratelimiter {
             .checked_duration_since(self.last_downvotes)
             .unwrap_or(Duration::from_secs(0))
             .as_secs();
-        let webhook = now
-            .checked_duration_since(self.last_webhook)
-            .unwrap_or(Duration::from_secs(0))
-            .as_secs();
 
         let least = min_many!(subreddits, inbox, status, downvotes);
 
-        if webhook >= Self::ENSURE_WEBHOOK_CHECKED {
-            Rate::WebhookCheck
-        } else if status >= Self::delay_for(current_status) && least >= Self::REDDIT_DELAY {
+        if status >= Self::STATUS_SECONDS && least >= Self::REDDIT_DELAY {
             Rate::StatusReady
         } else if subreddits >= Self::REDDIT_SECONDS && least >= Self::REDDIT_DELAY {
             Rate::SubredditsReady
@@ -134,9 +111,5 @@ impl Ratelimiter {
 
     pub fn set_downvotes(&mut self) {
         self.last_downvotes = Instant::now();
-    }
-
-    pub fn set_webhook(&mut self) {
-        self.last_webhook = Instant::now();
     }
 }

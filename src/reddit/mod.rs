@@ -609,21 +609,21 @@ impl<'a> RedditClient<'a> {
         }
 
         loop {
-            match self.ratelimit.get(self.last_status) {
+            while let Ok(event) = rx.try_recv() {
+                self.handle_webhook_event(event)?;
+            }
+
+            match self.ratelimit.get() {
                 ratelimiter::Rate::NoneReadyFor(dur) => {
-                    self.ratelimit.set_webhook();
+                    // We have nothing to do for that duration,
+                    // so we may as well block the thread nicely
+                    // by waiting for a webhook
                     match rx.recv_timeout(dur) {
                         Ok(event) => {
                             self.handle_webhook_event(event)?;
                         }
                         Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
                         Err(RecvTimeoutError::Timeout) => continue,
-                    }
-                }
-                ratelimiter::Rate::WebhookCheck => {
-                    self.ratelimit.set_webhook();
-                    while let Ok(event) = rx.try_recv() {
-                        self.handle_webhook_event(event)?;
                     }
                 }
                 ratelimiter::Rate::InboxReady => {
