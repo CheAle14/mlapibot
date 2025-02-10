@@ -276,6 +276,14 @@
                 "you may appeal by contacting the designated discord support staff",
                 {
                     "children": [
+                        "illegal",
+                        "investigation",
+                        "case"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
                         "verification",
                         "process",
                         "purchase"
