@@ -968,6 +968,23 @@
                 }
             ],
             "template": "chainspam"
+        },
+        {
+            "name": "emailNewLoginLocation",
+            "ocr": [
+                {
+                    "children": [
+                        "login",
+                        "location",
+                        "detected",
+                        "check",
+                        "email"
+                    ],
+                    "type": "ordered"
+                }
+            ],
+            "report": true,
+            "template": "emailNewLoginLocation"
         }
     ]
 }
