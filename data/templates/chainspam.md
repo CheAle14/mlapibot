@@ -1,7 +1,7 @@
 {% extends "base.md" %}
 
 {% block content %}
-The image(s) you've submitted appear to show a [chain letter-like](https://en.wikipedia.org/wiki/Chain_letter) message.
+The image(s) or text in your post appears to show a [chain letter-like](https://en.wikipedia.org/wiki/Chain_letter) message.
 
 These messages are almost always false, and almost always spam.  
 They serve no purpose other than spreading from server to server spamming people.  
