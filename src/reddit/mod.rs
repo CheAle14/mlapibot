@@ -62,6 +62,7 @@ pub struct RedditClient<'a> {
     subreddits_config: SubredditsConfig,
     dry_run: bool,
     status_webhook: Option<String>,
+    #[expect(unused)]
     admin: Option<String>,
     flair_cache: PostFlairCache,
 }
@@ -214,7 +215,11 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn redo_from_message(&mut self, message: RedditMessage) -> anyhow::Result<()> {
+    fn try_redo_from_message(
+        &mut self,
+        author: &str,
+        message: &RedditMessage,
+    ) -> anyhow::Result<()> {
         let submission = match self.client.get_submission_by_link(message.body()) {
             Ok(t) => t,
             Err(e) => {
@@ -226,6 +231,26 @@ impl<'a> RedditClient<'a> {
                 return Ok(());
             }
         };
+
+        let mut is_mod = false;
+        let mods = self
+            .client
+            .subreddit(submission.subreddit().as_str())
+            .moderators()?;
+        for moderator in mods.data.children {
+            if author == moderator.name {
+                is_mod = true;
+                break;
+            }
+        }
+
+        if !is_mod {
+            eprintln!(
+                "  {author} attempted unauthorized redo of {}",
+                submission.permalink()
+            );
+            return Ok(());
+        }
 
         let name = LowercaseString::new(submission.subreddit());
         let Some(subreddit) = self.subreddits.iter().find(|s| s.name() == &name) else {
@@ -296,13 +321,7 @@ impl<'a> RedditClient<'a> {
             if subject == "test" {
                 self.run_inbox_test(&item)?;
             } else if subject == "redo" {
-                if let Some(admin) = self.admin.as_ref() {
-                    if author == admin {
-                        self.redo_from_message(item)?;
-                    }
-                } else {
-                    eprintln!("  User attempted unauthorized redo");
-                }
+                self.try_redo_from_message(author, &item)?;
             } else if author == "" {
                 if let Some(subreddit) = subject.strip_prefix("invitation to moderate /r/") {
                     let sub = self.client.subreddit(subreddit);
