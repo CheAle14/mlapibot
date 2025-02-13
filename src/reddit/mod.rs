@@ -62,7 +62,7 @@ pub struct RedditClient<'a> {
     subreddits_config: SubredditsConfig,
     dry_run: bool,
     status_webhook: Option<String>,
-    #[expect(unused)]
+    #[allow(unused)]
     admin: Option<String>,
     flair_cache: PostFlairCache,
 }
