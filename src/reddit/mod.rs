@@ -34,6 +34,7 @@ use crate::{
     RedditInfo,
 };
 
+mod cached_submission;
 pub mod config;
 mod flairs;
 mod ratelimiter;

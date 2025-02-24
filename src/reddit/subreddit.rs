@@ -79,29 +79,23 @@ impl Subreddit {
                 if self.status.needs_update(incident) {
                     let cached =
                         CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
-                    let text = match &cached.kind {
-                        roux::builders::submission::SubmissionSubmitKind::SelfText { text } => {
-                            text.as_str()
-                        }
-                        _ => unreachable!("we create this as a text post"),
-                    };
 
-                    self.status.update(reddit, &incident.id, update, text)?;
+                    self.status.update(reddit, &incident.id, update, cached)?;
                 }
             } else if incident.impact >= config.min_impact {
                 unseen.remove(&incident.id);
+
                 let cached =
                     CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
 
-                if let Some(flair) = config.flair_id.as_ref() {
-                    let cloned = cached.clone().with_flair_id(flair.as_str());
-
-                    self.status
-                        .add(incident.id.as_str(), update, reddit, &self.data, &cloned)?;
-                } else {
-                    self.status
-                        .add(incident.id.as_str(), update, reddit, &self.data, cached)?;
-                }
+                self.status.add(
+                    incident.id.as_str(),
+                    update,
+                    reddit,
+                    &self.data,
+                    config.flair_id.as_ref().map(|s| s.as_str()),
+                    cached,
+                )?;
             }
         }
 
@@ -120,13 +114,7 @@ impl Subreddit {
 
             CachedIncidentSubmissions::add(&mut cached.cache, &incident)?;
             let cached = CachedIncidentSubmissions::get_submission(&mut cached.cache, &incident)?;
-            let text = match &cached.kind {
-                roux::builders::submission::SubmissionSubmitKind::SelfText { text } => {
-                    text.as_str()
-                }
-                _ => unreachable!("we create this as a text post"),
-            };
-            self.status.update(reddit, &incident.id, update, text)?;
+            self.status.update(reddit, &incident.id, update, cached)?;
             self.status.potentially_remove(&incident.id)?;
         }
 

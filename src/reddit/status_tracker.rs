@@ -1,5 +1,6 @@
 use std::{collections::HashMap, io, path::PathBuf, sync::mpsc::Sender};
 
+use base64ct::Encoding;
 use chrono::{DateTime, Utc};
 use roux::{api::ThingFullname, builders::submission::SubmissionSubmitBuilder};
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,7 @@ use statuspage::incident::{Incident, IncidentStatus};
 
 use crate::utils::clamp;
 
-use super::{subreddit::RouxSubreddit, RouxClient};
+use super::{cached_submission::CachedSubmission, subreddit::RouxSubreddit, RouxClient};
 
 #[derive(Serialize, Deserialize)]
 pub struct StatusSubmission {
@@ -15,6 +16,8 @@ pub struct StatusSubmission {
     last_updated: DateTime<Utc>,
     #[serde(default)]
     removal_count: usize,
+    #[serde(default)] // backwards compat
+    hash: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -133,10 +136,17 @@ impl StatusTracker {
         incident_last_updated: DateTime<Utc>,
         reddit: &RouxClient,
         subreddit: &RouxSubreddit,
-        submission: &SubmissionSubmitBuilder,
+        flair_id: Option<&str>,
+        cached: &CachedSubmission,
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", subreddit.name);
-        let submission = reddit.submit(&subreddit.name, submission)?;
+
+        let submission = match flair_id {
+            Some(flair_id) => cached.to_builder().with_flair_id(flair_id),
+            None => cached.to_builder(),
+        };
+
+        let submission = reddit.submit(&subreddit.name, &submission)?;
         println!("Incident posted as {:?}", submission.name());
 
         self.map.posts.insert(
@@ -145,6 +155,7 @@ impl StatusTracker {
                 post_id: submission.name().clone(),
                 last_updated: incident_last_updated,
                 removal_count: 0,
+                hash: cached.get_hash().to_owned(),
             },
         );
 
@@ -176,11 +187,14 @@ impl StatusTracker {
         reddit: &RouxClient,
         incident_id: &str,
         incident_last_updated: DateTime<Utc>,
-        text: &str,
+        cached: &CachedSubmission,
     ) -> anyhow::Result<()> {
         if let Some(state) = self.map.posts.get_mut(incident_id) {
-            reddit.edit(text, &state.post_id)?;
-            state.last_updated = incident_last_updated;
+            if state.hash != cached.get_hash() {
+                reddit.edit(cached.get_body(), &state.post_id)?;
+                state.last_updated = incident_last_updated;
+                state.hash = cached.get_hash().to_owned();
+            }
         }
         Ok(())
     }
@@ -188,7 +202,7 @@ impl StatusTracker {
 
 pub struct CachedIncidentSubmissions {
     pub incidents: Vec<Incident>,
-    pub cache: HashMap<String, SubmissionSubmitBuilder>,
+    pub cache: HashMap<String, CachedSubmission>,
 }
 
 impl CachedIncidentSubmissions {
@@ -200,22 +214,19 @@ impl CachedIncidentSubmissions {
     }
 
     pub fn add(
-        this: &mut HashMap<String, SubmissionSubmitBuilder>,
+        this: &mut HashMap<String, CachedSubmission>,
         incident: &Incident,
     ) -> anyhow::Result<()> {
         let title = get_title(incident)?;
         let body = get_markdown(incident)?;
-        this.insert(
-            incident.id.clone(),
-            SubmissionSubmitBuilder::text(title, body),
-        );
+        this.insert(incident.id.clone(), CachedSubmission::new(title, body));
         Ok(())
     }
 
     pub fn get_submission<'a>(
-        this: &'a mut HashMap<String, SubmissionSubmitBuilder>,
+        this: &'a mut HashMap<String, CachedSubmission>,
         incident: &Incident,
-    ) -> anyhow::Result<&'a SubmissionSubmitBuilder> {
+    ) -> anyhow::Result<&'a CachedSubmission> {
         if !this.contains_key(&incident.id) {
             Self::add(this, incident)?;
         }
