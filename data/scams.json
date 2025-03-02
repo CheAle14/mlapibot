@@ -621,7 +621,7 @@
                 "verification required",
                 "we've detected something out of the ordinary going on"
             ],
-            "report": true,
+            "remove": true,
             "template": "phone"
         },
         {
@@ -946,7 +946,6 @@
             "template": "timestamp"
         },
         {
-            "name": "CyberAttack",
             "body": [
                 {
                     "children": [
@@ -964,6 +963,7 @@
                     "type": "ordered"
                 }
             ],
+            "name": "CyberAttack",
             "ocr": [
                 "there will be people trying to send you gore racist insults unholy lewd pictures",
                 "send this to your friends as well to spread the message",
