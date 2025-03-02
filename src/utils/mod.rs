@@ -1,8 +1,11 @@
+mod cache;
 mod lowercase;
 mod submission_ext;
 mod words;
 
 use chrono::{DateTime, TimeZone, Utc};
+
+pub use cache::*;
 pub use lowercase::*;
 pub use submission_ext::*;
 pub use words::*;

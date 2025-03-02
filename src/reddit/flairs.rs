@@ -54,13 +54,13 @@ pub struct PostFlairCache {
 impl RedditClient<'_> {
     pub(super) fn check_post_flairs(
         dry_run: bool,
-        subreddit: &Subreddit,
+        subreddit: &mut Subreddit,
         post: &Submission,
         webhook: &mut Option<WebhookClient>,
         flairs: &SubredditFlairConfig,
         cache: &mut PostFlairCache,
     ) -> anyhow::Result<()> {
-        if subreddit.is_moderator(post.author().as_str()) {
+        if subreddit.is_moderator(post.author().as_str())? {
             return Ok(());
         }
 

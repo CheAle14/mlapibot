@@ -24,7 +24,7 @@ use crate::{
     context,
     imgur::{self, ImgurClient},
     tryw,
-    utils::{is_debug, LowercaseString, SubmissionExt},
+    utils::{is_debug, Cached, LowercaseString, SubmissionExt},
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post,
@@ -112,10 +112,12 @@ impl<'a> RedditClient<'a> {
             subreddit_names.insert(key.clone());
         }
 
-        let subreddits: Vec<Subreddit> = subreddit_names
+        let subreddits: Result<Vec<Subreddit>, _> = subreddit_names
             .into_iter()
             .map(|name| Subreddit::new(args, client.subreddit(name.as_str()), name))
             .collect();
+
+        let subreddits = subreddits?;
 
         println!(
             "Logged in as /u/{}; monitoring {} with {} total known subreddits in {}",
@@ -254,7 +256,7 @@ impl<'a> RedditClient<'a> {
         }
 
         let name = LowercaseString::new(submission.subreddit());
-        let Some(subreddit) = self.subreddits.iter().find(|s| s.name() == &name) else {
+        let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.name() == &name) else {
             message.reply("That subreddit is not monitored")?;
             return Ok(());
         };
@@ -346,7 +348,7 @@ impl<'a> RedditClient<'a> {
         templates: &Tera,
         has_seen: bool,
         dry_run: bool,
-        subreddit: &Subreddit,
+        subreddit: &mut Subreddit,
         post: Submission,
     ) -> anyhow::Result<()> {
         if let Some(flairs) = flairs {
@@ -389,7 +391,18 @@ impl<'a> RedditClient<'a> {
 
             let is_mod = match (modconf, detected.remove) {
                 (Some(modconf), true) if post.moderation().is_some() => {
-                    template_context.insert("removal_reason", &modconf.removal_reason);
+                    let reason_id = modconf
+                        .removal_reasons
+                        .get(&detected.name)
+                        .map(String::as_str)
+                        .unwrap_or_else(|| &modconf.default_removal_reason);
+
+                    let reason = subreddit
+                        .get_removal_reason(reason_id)?
+                        .map(|r| r.message.as_str())
+                        .unwrap_or("<error: removal reason not found>");
+
+                    template_context.insert("removal_reason", reason);
                     true
                 }
                 _ => {
@@ -505,7 +518,7 @@ impl<'a> RedditClient<'a> {
                     &self.templates,
                     has_seen,
                     self.dry_run,
-                    &subreddit,
+                    subreddit,
                     post,
                 )?;
             }

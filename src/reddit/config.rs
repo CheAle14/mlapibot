@@ -41,5 +41,8 @@ pub struct SubredditConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct SubredditModerateConfig {
-    pub removal_reason: String,
+    /// The removal reason ID to use for a particular analzyer
+    pub removal_reasons: HashMap<String, String>,
+    /// If the analzyer is not in the above map, the default reason to use.
+    pub default_removal_reason: String,
 }

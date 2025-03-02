@@ -1,12 +1,19 @@
-use std::collections::HashSet;
-
-use roux::{
-    api::{moderator::ModeratorData, ThingFullname},
-    util::FeedOption,
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
 };
-use statuspage::{incident::IncidentImpact, StatusClient};
 
-use crate::{utils::LowercaseString, RedditInfo, SubredditStatusConfig};
+use anyhow::Context;
+use roux::{
+    api::{moderator::ModeratorData, subreddit::RemovalReason},
+    util::{FeedOption, RouxError},
+};
+use statuspage::StatusClient;
+
+use crate::{
+    utils::{Cached, LowercaseString},
+    RedditInfo, SubredditStatusConfig,
+};
 
 use super::{
     seen_tracker::SeenTracker,
@@ -16,18 +23,25 @@ use super::{
 
 pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
 
+type SubCached<T> = Cached<T, RouxSubreddit, RouxError>;
+
 pub struct Subreddit {
     data: RouxSubreddit,
     seen: SeenTracker,
     status: StatusTracker,
     lower: LowercaseString,
-    moderators: Vec<ModeratorData>,
+    moderators: SubCached<Vec<ModeratorData>>,
+    removal_reasons: SubCached<HashMap<String, RemovalReason>>,
     // whether we are only using this subreddit to send status info
     pub status_only: bool,
 }
 
 impl Subreddit {
-    pub fn new(args: &RedditInfo, data: RouxSubreddit, name: LowercaseString) -> Self {
+    pub fn new(
+        args: &RedditInfo,
+        data: RouxSubreddit,
+        name: LowercaseString,
+    ) -> anyhow::Result<Self> {
         let file = args.scratch_dir.join(format!("r_{}_last.json", data.name));
         let seen = SeenTracker::new(file);
         let status = StatusTracker::new(
@@ -35,20 +49,33 @@ impl Subreddit {
                 .join(format!("r_{}_status.json", data.name)),
         );
 
+        let mut removal_reasons = Cached::new(Duration::from_secs(60 * 60), &data, |ctx| {
+            ctx.list_removal_reasons().map(|d| d.data)
+        })
+        .context("init cache removal reasons")?;
+
         let status_only = args.subreddits.iter().find(|&s| s == &name).is_none();
-        let moderators = data.moderators().unwrap();
-        Self {
+
+        let moderators = Cached::new(Duration::from_secs(15 * 60), &data, |ctx| {
+            ctx.moderators().map(|d| d.data.children)
+        })
+        .context("init moderators")?;
+
+        Ok(Self {
             data,
             seen,
             status,
             lower: name,
             status_only,
-            moderators: moderators.data.children,
-        }
+            removal_reasons,
+            moderators: moderators,
+        })
     }
 
-    pub fn is_moderator(&self, username: &str) -> bool {
-        self.moderators.iter().any(|m| m.name == username)
+    pub fn is_moderator(&mut self, username: &str) -> Result<bool, RouxError> {
+        self.moderators
+            .data(&self.data)
+            .map(|ls| ls.iter().any(|m| m.name == username))
     }
 
     pub fn name(&self) -> &LowercaseString {
@@ -141,5 +168,9 @@ impl Subreddit {
 
     pub fn is_seen(&self, post: &Submission) -> bool {
         self.seen.is_seen(post)
+    }
+
+    pub fn get_removal_reason(&mut self, id: &str) -> Result<Option<&RemovalReason>, RouxError> {
+        self.removal_reasons.data(&self.data).map(|map| map.get(id))
     }
 }
