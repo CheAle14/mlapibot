@@ -36,6 +36,24 @@ pub struct Subreddit {
     pub status_only: bool,
 }
 
+fn minimal_urldecode(text: &mut String) {
+    const GT: &str = "&gt;";
+
+    while let Some(idx) = text.find(GT) {
+        text.replace_range(idx..(idx + GT.len()), ">");
+    }
+}
+
+fn fetch_removal_reasons(ctx: &RouxSubreddit) -> Result<HashMap<String, RemovalReason>, RouxError> {
+    let mut map = ctx.list_removal_reasons()?.data;
+
+    for value in map.values_mut() {
+        minimal_urldecode(&mut value.message);
+    }
+
+    Ok(map)
+}
+
 impl Subreddit {
     pub fn new(
         args: &RedditInfo,
@@ -49,10 +67,9 @@ impl Subreddit {
                 .join(format!("r_{}_status.json", data.name)),
         );
 
-        let mut removal_reasons = Cached::new(Duration::from_secs(60 * 60), &data, |ctx| {
-            ctx.list_removal_reasons().map(|d| d.data)
-        })
-        .context("init cache removal reasons")?;
+        let removal_reasons =
+            Cached::new(Duration::from_secs(60 * 60), &data, fetch_removal_reasons)
+                .context("init cache removal reasons")?;
 
         let status_only = args.subreddits.iter().find(|&s| s == &name).is_none();
 
@@ -172,5 +189,20 @@ impl Subreddit {
 
     pub fn get_removal_reason(&mut self, id: &str) -> Result<Option<&RemovalReason>, RouxError> {
         self.removal_reasons.data(&self.data).map(|map| map.get(id))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn test_removal_decode() {
+        const BEFORE: &str = "&gt; hello &gt;&gt;&gt; more text &gt;here";
+
+        const AFTER: &str = "> hello >>> more text >here";
+
+        let mut text = String::from(BEFORE);
+        super::minimal_urldecode(&mut text);
+
+        assert_eq!(text, AFTER);
     }
 }
