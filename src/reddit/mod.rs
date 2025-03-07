@@ -9,7 +9,7 @@ use anyhow::{anyhow, bail, Context};
 use config::{SubredditModerateConfig, SubredditsConfig};
 use flairs::{FlairChangeConfig, PostFlairCache, SubredditFlairConfig};
 use roux::{
-    api::{Distinguished, ThingFullname},
+    api::{subreddit::ModActionType, Distinguished, ThingFullname},
     client::{OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
     util::RouxError,
@@ -218,6 +218,84 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn try_run_media_count(&mut self, author: &str, message: &RedditMessage) -> anyhow::Result<()> {
+        use std::fmt::Write;
+
+        let sub = self.client.subreddit(message.body());
+
+        let our_sub = self.subreddits.iter_mut().find(|s| s.name() == &sub.name);
+        match our_sub {
+            Some(sub) => {
+                if !sub.is_moderator(author)? {
+                    message.reply("You are not a moderator of that subreddit!")?;
+                    return Ok(());
+                }
+            }
+            None => {
+                message.reply("I am not monitoring that subreddit!")?;
+                return Ok(());
+            }
+        }
+
+        let mut removed_ids: HashSet<ThingFullname> = HashSet::new();
+        let mut approved_ids: HashSet<ThingFullname> = HashSet::new();
+
+        let mut removed_media = 0;
+        let mut approved_media = 0;
+        let mut unknown_media = 0;
+
+        let utc_end = 1740096000.0;
+        let mut after = None;
+
+        let mut output = String::with_capacity(128);
+
+        'outer: loop {
+            let page = sub.list_mod_log(after.clone(), Some(500), None, None)?;
+
+            for (idx, action) in page.into_iter().enumerate() {
+                let Some(fullname) = action.target_fullname else {
+                    continue;
+                };
+
+                if action.moderator != "AutoModerator" {
+                    match action.action {
+                        ModActionType::RemoveComment => {
+                            removed_ids.insert(fullname);
+                        }
+                        ModActionType::ApproveComment => {
+                            approved_ids.insert(fullname);
+                        }
+                        _ => (),
+                    };
+                } else if action.details == "Media in comments" {
+                    if removed_ids.contains(&fullname) {
+                        removed_media += 1;
+                    } else if approved_ids.contains(&fullname) {
+                        approved_media += 1;
+                    } else {
+                        unknown_media += 1;
+                        let _ = writeln!(output, "unknown: {:?}", action.target_permalink);
+                    }
+                }
+
+                if idx == 499 {
+                    after = Some(action.id);
+                }
+
+                if action.created_utc < utc_end {
+                    break 'outer;
+                }
+            }
+        }
+
+        let total = removed_media + approved_media + unknown_media;
+        let _ = writeln!(output, "Found {total} media in comments.\nRemoved: {removed_media}\nApproved: {approved_media}\nUnknown: {unknown_media}");
+
+        message.reply(&output)?;
+
+        Ok(())
+    }
+
     fn try_redo_from_message(
         &mut self,
         author: &str,
@@ -325,6 +403,8 @@ impl<'a> RedditClient<'a> {
                 self.run_inbox_test(&item)?;
             } else if subject == "redo" {
                 self.try_redo_from_message(author, &item)?;
+            } else if subject == "media" {
+                self.try_run_media_count(author, &item)?;
             } else if author == "" {
                 if let Some(subreddit) = subject.strip_prefix("invitation to moderate /r/") {
                     let sub = self.client.subreddit(subreddit);

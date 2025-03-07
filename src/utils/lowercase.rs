@@ -44,3 +44,9 @@ impl<'de> Deserialize<'de> for LowercaseString {
         }
     }
 }
+
+impl PartialEq<String> for LowercaseString {
+    fn eq(&self, other: &String) -> bool {
+        self.0.eq_ignore_ascii_case(&other)
+    }
+}
