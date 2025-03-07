@@ -274,7 +274,7 @@ impl<'a> RedditClient<'a> {
                         approved_media += 1;
                     } else {
                         unknown_media += 1;
-                        let _ = writeln!(output, "unknown: {:?}", action.target_permalink);
+                        let _ = writeln!(output, "unknown: {:?}  ", action.target_permalink);
                     }
                 }
 
@@ -289,7 +289,7 @@ impl<'a> RedditClient<'a> {
         }
 
         let total = removed_media + approved_media + unknown_media;
-        let _ = writeln!(output, "Found {total} media in comments.\nRemoved: {removed_media}\nApproved: {approved_media}\nUnknown: {unknown_media}");
+        let _ = writeln!(output, "\nFound {total} media in comments.\nRemoved: {removed_media}\nApproved: {approved_media}\nUnknown: {unknown_media}");
 
         message.reply(&output)?;
 
