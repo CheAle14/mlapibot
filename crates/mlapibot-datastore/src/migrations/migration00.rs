@@ -24,6 +24,17 @@ impl Initial {
                 PRIMARY KEY (Subreddit, PostFullname)
             );
 
+            CREATE TABLE IncidentPosts (
+                IncidentId      TEXT    NOT NULL,
+                Subreddit       TEXT    NOT NULL,
+                PostFullname    TEXT    NOT NULL,
+                UpdatedAt       TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                BodyHash        TEXT    NOT NULL,
+                IsResolved      BOOLEAN DEFAULT FALSE,
+
+                PRIMARY KEY (IncidentId, Subreddit)
+            );
+
             COMMIT;
         ",
         )?;

@@ -12,6 +12,8 @@ macro_rules! migrations {
         pub fn ensure_updated(db: &mut MlapiDb) -> rusqlite::Result<()> {
             let mut version = db.get_migration_version()?;
 
+            let original = version;
+
             $(
                 if version < $idx {
                     println!("[db] applying {}::{} ({version})", stringify!($mod), stringify!($struct));
@@ -25,6 +27,10 @@ macro_rules! migrations {
                     }
                 }
             )*
+
+            if original != version {
+                println!("[db] Migration complete!");
+            }
 
             Ok(())
         }

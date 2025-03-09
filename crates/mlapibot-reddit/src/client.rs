@@ -65,7 +65,7 @@ impl<'a> RedditClient<'a> {
     pub fn new(
         analzyers: &'a [Analyzer],
         data_dir: PathBuf,
-        scratch_dir: PathBuf,
+        database_path: PathBuf,
         subreddits: Vec<LowercaseString>,
         dry_run: bool,
         status_webhook: Option<String>,
@@ -79,17 +79,7 @@ impl<'a> RedditClient<'a> {
         let found: Vec<_> = templates.get_template_names().collect();
         assert!(found.len() > 0);
 
-        let db = MlapiDb::new(scratch_dir.join("database.db")).context("initialize db")?;
-
-        db.set_analyzed(
-            "t3_1j7efiy",
-            "Account report",
-            Some("t1_mgwb68x"),
-            false,
-            true,
-        )?;
-
-        return Err(anyhow::anyhow!("bail"));
+        let db = MlapiDb::new(database_path).context("initialize db")?;
 
         let config = roux::Config::new(
             Self::USER_AGENT,
@@ -128,12 +118,7 @@ impl<'a> RedditClient<'a> {
             .map(|name| {
                 let status_only = subreddits.iter().find(|&s| s == &name).is_none();
 
-                Subreddit::new(
-                    &scratch_dir,
-                    status_only,
-                    client.subreddit(name.as_str()),
-                    name,
-                )
+                Subreddit::new(status_only, client.subreddit(name.as_str()), name)
             })
             .collect();
 
@@ -600,7 +585,13 @@ impl<'a> RedditClient<'a> {
                 (None, false, false)
             };
 
-            db.set_analyzed(post.name().full(), &detected.name, reply, reported, removed)?;
+            db.set_analyzed(
+                post.name().full(),
+                &detected.name,
+                reply.as_ref().map(|s| s.as_str()),
+                reported,
+                removed,
+            )?;
         } else {
             db.set_ignored(post.name().full())?;
         }
@@ -631,7 +622,7 @@ impl<'a> RedditClient<'a> {
                     continue;
                 } else if !has_seen {
                     self.db
-                        .set_seen(subreddit.name(), post.name().full())
+                        .set_seen(subreddit.name().as_str(), post.name().full())
                         .context("add monitor")?;
 
                     println!(
@@ -673,7 +664,14 @@ impl<'a> RedditClient<'a> {
         for subreddit in &mut self.subreddits {
             if let Some(config) = self.subreddits_config.get_status(subreddit.name()) {
                 subreddit
-                    .update_status(&self.client, &self.status, &mut cached, is_summary, config)
+                    .update_status(
+                        &self.db,
+                        &self.client,
+                        &self.status,
+                        &mut cached,
+                        is_summary,
+                        config,
+                    )
                     .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
             }
         }

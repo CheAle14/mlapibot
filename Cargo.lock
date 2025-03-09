@@ -1467,6 +1467,7 @@ dependencies = [
 name = "mlapibot-datastore"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "rusqlite",
 ]
 
@@ -2170,6 +2171,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37e34486da88d8e051c7c0e23c3f15fd806ea8546260aa2fec247e97242ec143"
 dependencies = [
  "bitflags 2.9.0",
+ "chrono",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",

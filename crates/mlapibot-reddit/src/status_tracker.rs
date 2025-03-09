@@ -1,33 +1,10 @@
-use std::{collections::HashMap, io, path::PathBuf, sync::mpsc::Sender};
+use std::{collections::HashMap, sync::mpsc::Sender};
 
-use chrono::{DateTime, Utc};
-use roux::api::ThingFullname;
-use serde::{Deserialize, Serialize};
 use statuspage::incident::{Incident, IncidentStatus};
 
 use crate::utils::clamp;
 
-use super::{RouxClient, cached_submission::CachedSubmission, subreddit::RouxSubreddit};
-
-#[derive(Serialize, Deserialize)]
-pub struct StatusSubmission {
-    post_id: ThingFullname,
-    last_updated: DateTime<Utc>,
-    #[serde(default)]
-    removal_count: usize,
-    #[serde(default)] // backwards compat
-    hash: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct StatusMap {
-    pub posts: HashMap<String, StatusSubmission>,
-}
-
-pub struct StatusTracker {
-    pub map: StatusMap,
-    path: PathBuf,
-}
+use super::cached_submission::CachedSubmission;
 
 pub fn get_title(incident: &Incident) -> anyhow::Result<String> {
     Ok(format!(
@@ -93,112 +70,6 @@ pub fn get_markdown(incident: &Incident) -> anyhow::Result<String> {
 
     Ok(text)
 }
-
-impl StatusTracker {
-    pub fn new(path: PathBuf) -> Self {
-        let map = match std::fs::File::open(&path) {
-            Ok(file) => serde_json::from_reader(file).expect("can parse status file as json"),
-            Err(e) if e.kind() == io::ErrorKind::NotFound => StatusMap {
-                posts: HashMap::new(),
-            },
-            Err(e) => panic!("Failed to open {path:?}: {e:?}"),
-        };
-
-        Self { map, path }
-    }
-
-    pub fn is_tracking(&self, incident_id: &str) -> bool {
-        self.map.posts.contains_key(incident_id)
-    }
-
-    pub fn needs_update(&self, incident: &Incident) -> bool {
-        if incident.updated_at.is_none() {
-            // clearly no updates
-            return false;
-        }
-        if let Some(inc) = self.map.posts.get(&incident.id) {
-            inc.last_updated < incident.updated_at.unwrap()
-        } else {
-            false
-        }
-    }
-
-    fn save(&self) -> anyhow::Result<()> {
-        let file = std::fs::File::create(&self.path)?;
-        serde_json::to_writer(file, &self.map)?;
-        Ok(())
-    }
-
-    pub fn add(
-        &mut self,
-        incident_id: &str,
-        incident_last_updated: DateTime<Utc>,
-        reddit: &RouxClient,
-        subreddit: &RouxSubreddit,
-        flair_id: Option<&str>,
-        cached: &CachedSubmission,
-    ) -> anyhow::Result<()> {
-        println!("Sending incident to /r/{}", subreddit.name);
-
-        let submission = match flair_id {
-            Some(flair_id) => cached.to_builder().with_flair_id(flair_id),
-            None => cached.to_builder(),
-        };
-
-        let submission = reddit.submit(&subreddit.name, &submission)?;
-        println!("Incident posted as {:?}", submission.name());
-
-        self.map.posts.insert(
-            incident_id.to_owned(),
-            StatusSubmission {
-                post_id: submission.name().clone(),
-                last_updated: incident_last_updated,
-                removal_count: 0,
-                hash: cached.get_hash().to_owned(),
-            },
-        );
-
-        self.save()
-    }
-
-    pub fn potentially_remove(&mut self, incident_id: &str) -> anyhow::Result<()> {
-        let do_remove = if let Some(thing) = self.map.posts.get_mut(incident_id) {
-            thing.removal_count += 1;
-            if thing.removal_count > 60 {
-                true
-            } else {
-                self.save()?;
-                false
-            }
-        } else {
-            false
-        };
-
-        if do_remove && self.map.posts.remove(incident_id).is_some() {
-            self.save()?;
-        }
-
-        Ok(())
-    }
-
-    pub fn update(
-        &mut self,
-        reddit: &RouxClient,
-        incident_id: &str,
-        incident_last_updated: DateTime<Utc>,
-        cached: &CachedSubmission,
-    ) -> anyhow::Result<()> {
-        if let Some(state) = self.map.posts.get_mut(incident_id) {
-            if state.hash != cached.get_hash() {
-                reddit.edit(cached.get_body(), &state.post_id)?;
-                state.last_updated = incident_last_updated;
-                state.hash = cached.get_hash().to_owned();
-            }
-        }
-        Ok(())
-    }
-}
-
 pub struct CachedIncidentSubmissions {
     pub incidents: Vec<Incident>,
     pub cache: HashMap<String, CachedSubmission>,

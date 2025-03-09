@@ -72,7 +72,7 @@ impl RedditArgs {
             let mut client = RedditClient::new(
                 &analyzers,
                 data_dir,
-                scratch_dir,
+                scratch_dir.join("database.db"),
                 subreddits,
                 dry_run,
                 status_webhook,

@@ -11,14 +11,7 @@ impl MlapiDb {
         Ok(r > 0)
     }
 
-    pub fn set_seen(
-        &self,
-        subreddit: impl Into<String>,
-        post_fullname: impl Into<String>,
-    ) -> rusqlite::Result<()> {
-        let subreddit: String = subreddit.into();
-        let post_fullname: String = post_fullname.into();
-
+    pub fn set_seen(&self, subreddit: &str, post_fullname: &str) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO Monitored (Subreddit, PostFullname, State) VALUES (?1, ?2, ?3)",
             (subreddit, post_fullname, crate::monitored::SEEN),
@@ -39,14 +32,11 @@ impl MlapiDb {
     pub fn set_analyzed(
         &self,
         post_fullname: &str,
-        analyzer: impl Into<String>,
-        reply: Option<impl Into<String>>,
+        analyzer: &str,
+        reply: Option<&str>,
         reported: bool,
         removed: bool,
     ) -> rusqlite::Result<()> {
-        let analyzer: String = analyzer.into();
-        let reply: Option<String> = reply.map(Into::into);
-
         match reply {
             None => self.conn.execute(
                 "
