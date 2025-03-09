@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
+use mlapibot_datastore::MlapiDb;
 use roux::{
     api::{moderator::ModeratorData, subreddit::RemovalReason},
     util::{FeedOption, RouxError},
@@ -17,7 +18,6 @@ use crate::config::SubredditStatusConfig;
 
 use super::{
     RouxClient, Submission,
-    seen_tracker::SeenTracker,
     status_tracker::{CachedIncidentSubmissions, StatusTracker},
 };
 
@@ -27,7 +27,6 @@ type SubCached<T> = Cached<T, RouxSubreddit, RouxError>;
 
 pub struct Subreddit {
     data: RouxSubreddit,
-    seen: SeenTracker,
     status: StatusTracker,
     lower: LowercaseString,
     moderators: SubCached<Vec<ModeratorData>>,
@@ -62,7 +61,6 @@ impl Subreddit {
         name: LowercaseString,
     ) -> anyhow::Result<Self> {
         let file = scratch_dir.join(format!("r_{}_last.json", data.name));
-        let seen = SeenTracker::new(file);
         let status = StatusTracker::new(scratch_dir.join(format!("r_{}_status.json", data.name)));
 
         let removal_reasons =
@@ -76,7 +74,6 @@ impl Subreddit {
 
         Ok(Self {
             data,
-            seen,
             status,
             lower: name,
             status_only,
@@ -162,25 +159,13 @@ impl Subreddit {
     }
 
     pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<Submission>> {
-        let options = self
-            .seen
-            .get_options()
-            .unwrap_or_else(|| FeedOption::new())
-            .limit(25);
+        let options = FeedOption::new().limit(25);
 
         let data = self.data.latest(Some(options))?;
         let mut children = data.children;
         children.reverse();
 
         Ok(children)
-    }
-
-    pub fn set_seen(&mut self, post: &Submission) {
-        self.seen.set_seen(&post.name(), post.created_utc());
-    }
-
-    pub fn is_seen(&self, post: &Submission) -> bool {
-        self.seen.is_seen(post)
     }
 
     pub fn get_removal_reason(&mut self, id: &str) -> Result<Option<&RemovalReason>, RouxError> {

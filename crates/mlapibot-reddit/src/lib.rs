@@ -4,7 +4,6 @@ pub mod config;
 pub mod exts;
 mod flairs;
 mod ratelimiter;
-mod seen_tracker;
 mod status_tracker;
 mod subreddit;
 mod utils;

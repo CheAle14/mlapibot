@@ -4,6 +4,7 @@ members = [
     "bin/mlapibot-bin",
     "crates/mlapibot-analysis",
     "crates/mlapibot-common",
+    "crates/mlapibot-datastore",
     "crates/mlapibot-imgur",
     "crates/mlapibot-ocr",
     "crates/mlapibot-reddit",

@@ -2,6 +2,7 @@
 *.png
 *.json
 *.txt
+*.db
 
 !tests/**/*.png
 /.vs

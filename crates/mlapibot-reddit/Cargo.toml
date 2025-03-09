@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 mlapibot-analysis = { path = "../mlapibot-analysis" }
 mlapibot-common = { path = "../mlapibot-common" }
+mlapibot-datastore = { path = "../mlapibot-datastore" }
 mlapibot-imgur = { path = "../mlapibot-imgur" }
 mlapibot-ocr = { path = "../mlapibot-ocr" }
 mlapibot-webhook = { path = "../mlapibot-webhook" }

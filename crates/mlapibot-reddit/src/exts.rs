@@ -1,10 +1,12 @@
-use mlapibot_analysis::Context;
+use mlapibot_analysis::{Context, Url, parse_url};
 use mlapibot_common::{Detection, Words};
+use roux::api::submission::SubmissionDataMediaMetadata;
 
 use crate::Submission;
 
 pub trait SubmissionExt {
     fn has_unknown_media(&self) -> bool;
+    fn get_misc_links(&self) -> Vec<Url>;
 }
 
 impl SubmissionExt for Submission {
@@ -18,6 +20,40 @@ impl SubmissionExt for Submission {
             }
         }
         false
+    }
+
+    fn get_misc_links(&self) -> Vec<Url> {
+        let mut fixed_urls = Vec::new();
+        if let Some(gallery) = self.gallery_data() {
+            if let Some(metadata) = self.media_metadata() {
+                for img in &gallery.items {
+                    if let Some(meta) = metadata.get(&img.media_id) {
+                        match meta {
+                            SubmissionDataMediaMetadata::Image { s, .. } => {
+                                if let Some(url) = parse_url(&s.u) {
+                                    fixed_urls.push(url);
+                                } else {
+                                    eprintln!("Invalid url: {meta:?}");
+                                }
+                            }
+                            SubmissionDataMediaMetadata::RedditVideo { .. } => (),
+                            SubmissionDataMediaMetadata::AnimatedImage { .. } => (),
+                            SubmissionDataMediaMetadata::Unknown => (),
+                        }
+                    } else {
+                        eprintln!("Gallery item not present: {img:?}");
+                    }
+                }
+            }
+        }
+
+        if let Some(link) = self.url() {
+            if let Some(url) = parse_url(link) {
+                fixed_urls.push(url);
+            }
+        }
+
+        fixed_urls
     }
 }
 

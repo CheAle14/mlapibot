@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, bail};
 use mlapibot_common::LowercaseString;
+use mlapibot_datastore::MlapiDb;
 use roux::{
     api::{Distinguished, ThingFullname, subreddit::ModActionType},
     client::{OAuthClient, RedditClient as RouxRedditClient},
@@ -38,7 +39,9 @@ use crate::{
 
 pub struct RedditClient<'a> {
     // data_dir: PathBuf,
+    db: MlapiDb,
     analzyers: &'a [Analyzer],
+    own_name: String,
     client: RouxClient,
     subreddits: Vec<Subreddit>,
     ratelimit: crate::ratelimiter::Ratelimiter,
@@ -75,6 +78,18 @@ impl<'a> RedditClient<'a> {
         let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
         let found: Vec<_> = templates.get_template_names().collect();
         assert!(found.len() > 0);
+
+        let db = MlapiDb::new(scratch_dir.join("database.db")).context("initialize db")?;
+
+        db.set_analyzed(
+            "t3_1j7efiy",
+            "Account report",
+            Some("t1_mgwb68x"),
+            false,
+            true,
+        )?;
+
+        return Err(anyhow::anyhow!("bail"));
 
         let config = roux::Config::new(
             Self::USER_AGENT,
@@ -137,6 +152,8 @@ impl<'a> RedditClient<'a> {
         }
 
         Ok(Self {
+            db,
+            own_name: credentials.username,
             client,
             subreddits,
             analzyers,
@@ -347,6 +364,7 @@ impl<'a> RedditClient<'a> {
         let flairconf = subconf.map(|c| &c.flairs);
 
         Self::check_post(
+            &self.db,
             &mut self.webhook,
             &self.analzyers,
             &mut self.imgur,
@@ -422,6 +440,7 @@ impl<'a> RedditClient<'a> {
     }
 
     fn check_post(
+        db: &MlapiDb,
         webhook: &mut Option<WebhookClient>,
         analzyers: &[Analyzer],
         imgur: &mut Option<ImgurClient>,
@@ -443,11 +462,14 @@ impl<'a> RedditClient<'a> {
         }
 
         let mut warnings = Vec::new();
-        let ctx = mlapibot_analysis::Context::new_title_and_body(
+        let ctx = mlapibot_analysis::Context::new_submission(
+            post.get_misc_links().into_iter(),
             post.title(),
             post.selftext(),
             &mut warnings,
         )?;
+
+        println!("Context: {ctx:?}");
 
         if warnings.len() > 0 {
             Self::_send_warnings(
@@ -533,7 +555,7 @@ impl<'a> RedditClient<'a> {
                 (_, _) => None,
             };
 
-            if !dry_run {
+            let (reply, removed, reported) = if !dry_run {
                 let own_comment = match detected.template.name() {
                     Some(text) => {
                         let template =
@@ -553,7 +575,7 @@ impl<'a> RedditClient<'a> {
                 if is_mod {
                     post.remove(false)?;
 
-                    if let Some(own_comment) = own_comment {
+                    if let Some(own_comment) = &own_comment {
                         own_comment.distinguish(Distinguish::Moderator, true)?;
                     }
                 } else if detected.report {
@@ -568,7 +590,19 @@ impl<'a> RedditClient<'a> {
                     let msg = create_detection_message(&post, &detection, detected, imgur_link);
                     webhook.send(&msg).context("send detection webhook")?;
                 }
-            }
+
+                (
+                    own_comment.map(|c| c.name().full().to_string()),
+                    is_mod,
+                    !is_mod && detected.report,
+                )
+            } else {
+                (None, false, false)
+            };
+
+            db.set_analyzed(post.name().full(), &detected.name, reply, reported, removed)?;
+        } else {
+            db.set_ignored(post.name().full())?;
         }
         Ok(())
     }
@@ -579,17 +613,27 @@ impl<'a> RedditClient<'a> {
                 continue;
             }
             for post in subreddit.newest_unseen().context("get newest unseen")? {
+                if post.author() == &self.own_name {
+                    continue;
+                }
+
                 let is_removed = post.moderation().map(|m| m.removed).unwrap_or_default();
                 if is_removed {
                     continue;
                 }
 
-                let has_seen = subreddit.is_seen(&post);
+                let has_seen = self
+                    .db
+                    .has_seen(post.name().full())
+                    .context("lookup seen")?;
 
                 if post.has_unknown_media() {
                     continue;
                 } else if !has_seen {
-                    subreddit.set_seen(&post);
+                    self.db
+                        .set_seen(subreddit.name(), post.name().full())
+                        .context("add monitor")?;
+
                     println!(
                         "Saw {:?} {:?} by /u/{}",
                         post.name(),
@@ -603,6 +647,7 @@ impl<'a> RedditClient<'a> {
                 let flairconf = subconf.map(|c| &c.flairs);
 
                 Self::check_post(
+                    &self.db,
                     &mut self.webhook,
                     &self.analzyers,
                     &mut self.imgur,
@@ -688,6 +733,7 @@ impl<'a> RedditClient<'a> {
                         comment.link_author()
                     );
                     comment.delete()?;
+                    self.db.set_mistaken(comment.name().full())?;
                     if let Some(webhook) = &mut self.webhook {
                         let message = create_deleted_downvoted_comment(&comment);
                         webhook.send(&message)?;

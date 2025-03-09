@@ -6,6 +6,8 @@ mod context;
 mod url;
 mod util;
 
+pub use util::parse_url;
+
 pub use context::*;
 pub use url::*;
 

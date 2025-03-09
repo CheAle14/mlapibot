@@ -45,6 +45,19 @@ pub struct OcrImage {
     ocr_boxes: Vec<Box>,
 }
 
+impl std::fmt::Debug for OcrImage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = String::with_capacity(self.ocr_words.iter().map(|i| i.len()).sum());
+
+        for word in &self.ocr_words {
+            s.push_str(&word);
+            s.push(' ');
+        }
+
+        f.debug_struct("OcrImage").field("ocr_words", &s).finish()
+    }
+}
+
 fn get_size(font: &FontRef, text: &str) -> (i32, i32) {
     let scaled = font.as_scaled(10.0);
 

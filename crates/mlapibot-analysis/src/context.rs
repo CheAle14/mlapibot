@@ -8,7 +8,7 @@ use crate::{
     util::{download_file, extract_image_links, fix_url},
 };
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Context {
     pub images: Vec<OcrImage>,
     pub title: Option<String>,
@@ -71,15 +71,22 @@ impl Context {
         Self::new(links.into_iter(), None, Some(text), warnings)
     }
 
-    pub fn new_title_and_body(
+    pub fn new_submission(
+        urls: impl Iterator<Item = Url> + ExactSizeIterator,
         title: impl Into<String>,
         body: impl Into<String>,
         warnings: &mut Vec<ContextWarning>,
     ) -> crate::error::Result<Self> {
-        Self::new_body(body, warnings).map(|mut this| {
-            this.title = Some(title.into());
-            this
-        })
+        let body: String = body.into();
+
+        let links = extract_image_links(&body).into_iter();
+
+        Self::new(
+            ChainedExactIter(urls, false, links),
+            Some(title.into()),
+            Some(body),
+            warnings,
+        )
     }
 }
 
@@ -90,3 +97,32 @@ impl std::fmt::Display for ContextWarning {
         write!(f, "unable to process {}: {}", self.0, self.1)
     }
 }
+
+struct ChainedExactIter<I>(I, bool, std::vec::IntoIter<Url>);
+
+impl<I: Iterator<Item = Url>> Iterator for ChainedExactIter<I> {
+    type Item = Url;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.1 {
+            self.2.next()
+        } else {
+            match self.0.next() {
+                Some(v) => Some(v),
+                None => {
+                    self.1 = true;
+                    self.2.next()
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (min0, _) = self.0.size_hint();
+        let (min1, _) = self.2.size_hint();
+
+        (min0 + min1, Some(min0 + min1))
+    }
+}
+
+impl<I: Iterator<Item = Url> + ExactSizeIterator> ExactSizeIterator for ChainedExactIter<I> {}
