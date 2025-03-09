@@ -454,8 +454,6 @@ impl<'a> RedditClient<'a> {
             &mut warnings,
         )?;
 
-        println!("Context: {ctx:?}");
-
         if warnings.len() > 0 {
             Self::_send_warnings(
                 webhook,
