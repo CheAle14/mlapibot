@@ -1,0 +1,22 @@
+[package]
+name = "mlapibot-bin"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mlapibot-common = { path = "../../crates/mlapibot-common" }
+mlapibot-webhook = { path = "../../crates/mlapibot-webhook" }
+mlapibot-analysis = { path = "../../crates/mlapibot-analysis" }
+mlapibot-reddit = { path = "../../crates/mlapibot-reddit" }
+
+anyhow = { workspace = true }
+serde_json = { workspace = true }
+tera = { workspace = true }
+
+clap = { version = "4.5.9", default-features = false, features = [
+    "std",
+    "help",
+    "usage",
+    "error-context",
+    "derive",
+] }

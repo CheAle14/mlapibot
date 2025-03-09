@@ -1,0 +1,14 @@
+[package]
+name = "mlapibot-imgur"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mlapibot-ocr = { path = "../mlapibot-ocr" }
+
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+image = { workspace = true }

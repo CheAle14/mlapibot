@@ -1,42 +1,25 @@
-[package]
-name = "mlapibot"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [
+    "bin/mlapibot-bin",
+    "crates/mlapibot-analysis",
+    "crates/mlapibot-common",
+    "crates/mlapibot-imgur",
+    "crates/mlapibot-ocr",
+    "crates/mlapibot-reddit",
+    "crates/mlapibot-webhook",
+]
 
-[features]
-true-run = []
-
-[dependencies]
-ab_glyph = "0.2.28"
+[workspace.dependencies]
 anyhow = "1.0.86"
+thiserror = "2.0.12"
+tempfile = "3.18.0"
+reqwest = { version = "0.12.5", features = ["blocking", "json", "multipart"] }
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.140"
+tera = { version = "1.20.0", default-features = false }
 image = { version = "0.25.1", default-features = false, features = [
     "png",
     "jpeg",
 ] }
-imageproc = { version = "0.25.0", default-features = false }
-leptess = "0.14.0"
-regex = "1.10.5"
-roux = { git = "https://github.com/CheAle14/roux.git", features = [
-    "blocking",
-    "log-json-on-error",
-] }
 ord-many = { git = "https://github.com/CheAle14/ord-many.git" }
-serde = { version = "1.0.204", features = ["derive"] }
-serde_json = "1.0.120"
-clap = { version = "4.5.9", default-features = false, features = [
-    "std",
-    "help",
-    "usage",
-    "error-context",
-    "derive",
-] }
-reqwest = { version = "0.12.5", features = ["blocking", "json", "multipart"] }
-tempfile = "3.10.1"
-tera = { version = "1.20.0", default-features = false }
-statuspage = { git = "https://github.com/CheAle14/statuspage.git" }
-chrono = { version = "0.4.38", features = ["serde"] }
-chrono-tz = "0.9.0"
-strsim = "0.11.1"
-rouille = "3.6.2"
-sha2 = "0.10.8"
-base64ct = { version = "1.6.0", features = ["alloc"] }

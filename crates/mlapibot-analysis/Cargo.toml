@@ -1,0 +1,17 @@
+[package]
+name = "mlapibot-analysis"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mlapibot-common = { path = "../mlapibot-common" }
+mlapibot-ocr = { path = "../mlapibot-ocr" }
+
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }
+ord-many = { workspace = true }
+
+strsim = "0.11.1"
