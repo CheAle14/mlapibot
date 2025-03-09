@@ -21,6 +21,9 @@ pub struct RedditArgs {
     subreddits: Vec<LowercaseString>,
     #[arg(long, default_value = "false")]
     dry_run: bool,
+    /// Whether we are running in production or not
+    #[arg(long, default_value = "true")]
+    debug: bool,
     /// If present, bind a HTTP listener to the provided address to listen for status webhooks.
     #[arg(long)]
     status_webhook: Option<String>,
@@ -58,6 +61,7 @@ impl RedditArgs {
             dry_run,
             status_webhook,
             admin,
+            debug,
         } = self;
 
         let analyzers = mlapibot_analysis::load_scams()?;
@@ -75,6 +79,7 @@ impl RedditArgs {
                 admin,
                 credentials,
                 subreddits_config,
+                debug,
             )?;
 
             client.run()

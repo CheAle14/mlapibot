@@ -29,7 +29,6 @@ use crate::{
     flairs::{PostFlairCache, SubredditFlairConfig},
     status_tracker::{CachedIncidentSubmissions, WebhookEvent},
     subreddit::Subreddit,
-    utils::is_debug,
     webhook::{
         create_deleted_downvoted_comment, create_detection_message,
         create_error_processing_message, create_error_processing_post, create_inbox_message,
@@ -54,6 +53,7 @@ pub struct RedditClient<'a> {
     #[allow(unused)]
     admin: Option<String>,
     flair_cache: PostFlairCache,
+    debug: bool,
 }
 
 impl<'a> RedditClient<'a> {
@@ -69,6 +69,7 @@ impl<'a> RedditClient<'a> {
         admin: Option<String>,
         credentials: RedditCredentials,
         subreddits_config: SubredditsConfig,
+        debug: bool,
     ) -> anyhow::Result<Self> {
         let templates_path = data_dir.join("templates").join("*.md");
         let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
@@ -128,11 +129,7 @@ impl<'a> RedditClient<'a> {
             credentials.username,
             subreddits.len(),
             subreddits_config.len(),
-            if is_debug() {
-                "debug mode"
-            } else {
-                "release mode"
-            }
+            if debug { "debug mode" } else { "release mode" }
         );
 
         if dry_run {
@@ -155,6 +152,7 @@ impl<'a> RedditClient<'a> {
             admin: admin,
             flair_cache: PostFlairCache::default(),
             last_status: StatusIndicator::None,
+            debug,
         })
     }
 
@@ -368,7 +366,7 @@ impl<'a> RedditClient<'a> {
         let inbox = self.client.unread()?;
         for item in inbox {
             let subject = if let Some(stripped) = item.subject().strip_prefix("[dev-only]") {
-                if is_debug() {
+                if self.debug {
                     stripped.trim_start()
                 } else {
                     continue;
