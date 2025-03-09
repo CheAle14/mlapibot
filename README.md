@@ -13,11 +13,10 @@ After that, you should be able to use cargo to handle the other dependencies.
 
 You can either specify a file path to an image which will be OCRed for any scams through
 
-    cargo run test --file <PATH>
+    cargo run test <PATH_OR_URL>
 
-or you can specify a http**S** link to an image which will be downloaded and then OCRed through
+If the PATH begins with http, it will be interpreted as a URL and first downloaded to a temporary file.
 
-    cargo run test --link <SECURE LINK>
 
 By default, the test command will write two files in the current direct:
 
@@ -25,6 +24,10 @@ By default, the test command will write two files in the current direct:
 - `trigger.png`, which will be another copy of the input image with every word that caused a scam to be detected bordered in red.
 
 These paths can be changed with the `--seen` and `--trigger` commands respectively.
+
+To debug a particular analyzer (entry in the `scams.json` as described below), pass its name via `--analyzer`.
+
+To print out the rendered markdown-formatted response, pass the `-m` or `--markdown` flag.
 
 #### Reddit bot
 
@@ -43,8 +46,7 @@ Optionally, it may also contain a Discord `webhook_url` URL, where various event
 You can also provide a `status.json` file which can contain a single object, where each key is the name of the subreddit as passed
 and the value corresponds to the status impact that causes the bot to post to that subreddit for any incident at or above the impact specified.
 
-This directory must be read and write as the program will write files to remember state, particularly the latest post it has seen
-in each subreddit it monitoring, and which posts it is keeping updated for status incidents.
+This directory will also be used to write an SQLite `database.db` to track posts and incident statuses.
 
 ### Data
 
