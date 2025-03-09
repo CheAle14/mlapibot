@@ -24,7 +24,10 @@ impl SubmissionExt for Submission {
 
     fn get_misc_links(&self) -> Vec<Url> {
         let mut fixed_urls = Vec::new();
-        if let Some(gallery) = self.gallery_data() {
+
+        if self.is_self() {
+            // do nothing, this is handled by the `body` passed in
+        } else if let Some(gallery) = self.gallery_data() {
             if let Some(metadata) = self.media_metadata() {
                 for img in &gallery.items {
                     if let Some(meta) = metadata.get(&img.media_id) {
@@ -45,9 +48,10 @@ impl SubmissionExt for Submission {
                     }
                 }
             }
-        }
-
-        if let Some(link) = self.url() {
+        } else if self.is_video() {
+            // do nothing
+        } else if let Some(link) = self.url() {
+            // finally, it is a link
             if let Some(url) = parse_url(link) {
                 fixed_urls.push(url);
             }
