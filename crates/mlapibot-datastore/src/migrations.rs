@@ -18,8 +18,11 @@ macro_rules! migrations {
                 if version < $idx {
                     println!("[db] applying {}::{} ({version})", stringify!($mod), stringify!($struct));
 
-                    match apply_migration(db, $idx, $mod::$struct::up) {
-                        Ok(()) => version = $idx,
+                    match $mod::$struct.apply(db) {
+                        Ok(()) => {
+                            version = $idx;
+                            db.set_migration_version(version)?;
+                        },
                         Err(err) => {
                             eprintln!("Failed to apply migration {} :: {}", $idx, stringify!($struct));
                             return Err(err);
@@ -39,13 +42,9 @@ macro_rules! migrations {
 
 migrations!(
     1 => migration00::Initial,
+    2 => migration01::ResolvedAt,
 );
 
-fn apply_migration(
-    db: &mut MlapiDb,
-    idx: u32,
-    migration: impl FnOnce(&mut MlapiDb) -> rusqlite::Result<()>,
-) -> rusqlite::Result<()> {
-    migration(db)?;
-    db.set_migration_version(idx)
+trait Migration {
+    fn apply(&self, db: &mut MlapiDb) -> rusqlite::Result<()>;
 }

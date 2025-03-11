@@ -49,6 +49,12 @@ impl PartialEq<String> for LowercaseString {
     }
 }
 
+impl PartialEq<str> for LowercaseString {
+    fn eq(&self, other: &str) -> bool {
+        self.0.eq_ignore_ascii_case(other)
+    }
+}
+
 impl<'a> Into<String> for &'a LowercaseString {
     fn into(self) -> String {
         self.0.clone()

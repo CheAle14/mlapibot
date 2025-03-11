@@ -1,9 +1,11 @@
 use crate::MlapiDb;
 
+use super::Migration;
+
 pub struct Initial;
 
-impl Initial {
-    pub fn up(db: &mut MlapiDb) -> rusqlite::Result<()> {
+impl Migration for Initial {
+    fn apply(&self, db: &mut MlapiDb) -> rusqlite::Result<()> {
         db.conn.execute_batch(
             "
             BEGIN;

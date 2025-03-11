@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use roux::api::ThingFullname;
 use serde::Deserialize;
 
 use mlapibot_common::LowercaseString;
@@ -51,6 +52,23 @@ pub struct SubredditModerateConfig {
 pub struct SubredditStatusConfig {
     pub min_impact: statuspage::incident::IncidentImpact,
     pub flair_id: Option<String>,
+    pub sticky: Option<StatusStickyConfig>,
+}
+
+fn default_delay() -> u32 {
+    180
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StatusStickyConfig {
+    /// A different sticky post that we replace with the status sticky.
+    pub replace_sticky: Option<ThingFullname>,
+    /// How long to wait after the incident resolves to unsticky (and restore the above)
+    #[serde(default = "default_delay")]
+    pub delay_mins: u32,
+    /// If present, only sticky posts which affect the specified components
+    #[serde(default)]
+    pub only_for: Vec<String>,
 }
 
 #[derive(Clone, Deserialize)]

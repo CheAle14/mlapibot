@@ -1,16 +1,25 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::Context;
-use mlapibot_datastore::{MlapiDb, incident_posts::IncidentPostLite};
+use chrono::{DateTime, Utc};
+use mlapibot_datastore::{
+    MlapiDb,
+    incident_posts::{IncidentPostLite, ResolvedIncidentPost, StickyState},
+};
 use roux::{
     api::{ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
+    client::RedditClient,
+    models::SubmissionStickySlot,
     util::{FeedOption, RouxError},
 };
 use statuspage::{StatusClient, incident::Incident};
 
 use mlapibot_common::{Cached, LowercaseString};
 
-use crate::{cached_submission::CachedSubmission, config::SubredditStatusConfig};
+use crate::{
+    cached_submission::CachedSubmission,
+    config::{StatusStickyConfig, SubredditStatusConfig},
+};
 
 use super::{RouxClient, Submission, status_tracker::CachedIncidentSubmissions};
 
@@ -19,7 +28,7 @@ pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
 type SubCached<T> = Cached<T, RouxSubreddit, RouxError>;
 
 pub struct Subreddit {
-    data: RouxSubreddit,
+    pub data: RouxSubreddit,
     lower: LowercaseString,
     moderators: SubCached<Vec<ModeratorData>>,
     removal_reasons: SubCached<HashMap<String, RemovalReason>>,
@@ -82,10 +91,11 @@ impl Subreddit {
     fn send_incident_post(
         &mut self,
         db: &MlapiDb,
-        incident_id: &str,
+        incident: &Incident,
         reddit: &RouxClient,
         flair_id: Option<&str>,
         cached: &CachedSubmission,
+        sticky: Option<&StatusStickyConfig>,
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", self.lower);
 
@@ -99,10 +109,31 @@ impl Subreddit {
 
         db.add_incident(
             self.lower.as_str(),
-            incident_id,
+            &incident.id,
             submission.name().full(),
             cached.get_hash(),
         )?;
+
+        if let Some(sticky) = sticky {
+            if sticky.only_for.len() > 0 {
+                let has_components = (&incident.components)
+                    .iter()
+                    .any(|c| sticky.only_for.contains(&c.id) || sticky.only_for.contains(&c.name));
+
+                if !has_components {
+                    println!("Incident does not affect components required to sticky");
+                    return Ok(());
+                }
+            }
+
+            if let Some(replace) = sticky.replace_sticky.as_ref() {
+                self.data
+                    .client
+                    .sticky(replace, false, SubmissionStickySlot::Top)?;
+            }
+
+            submission.sticky(true, SubmissionStickySlot::Bottom)?;
+        }
 
         Ok(())
     }
@@ -125,6 +156,112 @@ impl Subreddit {
         Ok(())
     }
 
+    pub fn check_incident_sticky(
+        &mut self,
+        db: &MlapiDb,
+        post: ResolvedIncidentPost,
+        config: &SubredditStatusConfig,
+    ) -> anyhow::Result<()> {
+        if post.sticky_state == StickyState::NeverStickied {
+            println!("Never stickied!");
+            return Ok(());
+        }
+
+        let Some(sticky) = config.sticky.as_ref() else {
+            println!("No sticky config");
+            return Ok(());
+        };
+
+        if (Utc::now() - post.resolved_at).num_minutes() < sticky.delay_mins as i64 {
+            println!("Not reached delay mins");
+            return Ok(());
+        }
+
+        let Ok(thing) = ThingFullname::try_from(post.post_fullname) else {
+            println!("Not a valid fullname");
+            return Ok(());
+        };
+
+        let submission = self
+            .data
+            .client
+            .get_submissions(&[&thing])?
+            .into_iter()
+            .next()
+            .unwrap();
+
+        if !submission.stickied() {
+            // assume that a human mod has unstickied it manually.
+            println!("Already unstickied");
+            db.set_incident_post_unstickied(thing.full())?;
+            return Ok(());
+        }
+
+        if let Some(replace) = &sticky.replace_sticky {
+            let bot_slot = self.data.sticky(SubmissionStickySlot::Bottom)?;
+
+            submission.unsticky()?;
+
+            let put_back = self
+                .data
+                .client
+                .get_submissions(&[replace])?
+                .into_iter()
+                .next()
+                .unwrap();
+
+            println!("wanting to put back {}", put_back.title());
+
+            match bot_slot {
+                None => {
+                    println!("bottom slot was empty");
+                    // there was only one sticky, which was our post.
+                    // so we can just sticky this back
+                    put_back.sticky(true, roux::models::SubmissionStickySlot::Top)?;
+                }
+                Some(slot) => {
+                    println!("bottom slot was {}", slot.title());
+                    // there *were* two stickies.
+                    let not_our_post = if slot.name() == submission.name() {
+                        // the bottom slot was our post, so the other one is in the top slot.
+                        // unfortunately, that means we'll have to fetch it
+                        self.data
+                            .sticky(SubmissionStickySlot::Top)?
+                            .expect("has other top sticky")
+                    } else {
+                        // the top slot was our post, so this bottom one is the other one
+                        slot
+                    };
+
+                    println!("top slot was {}", not_our_post.title());
+
+                    // Sticky this back onto the top.
+                    put_back.sticky(true, roux::models::SubmissionStickySlot::Top)?;
+                    // That will have unstickied the other post, so re-sticky that to the bottom
+                    not_our_post.sticky(true, SubmissionStickySlot::Bottom)?;
+                }
+            }
+        } else {
+            submission.unsticky()?;
+        }
+
+        db.set_incident_post_unstickied(thing.full())?;
+
+        Ok(())
+    }
+
+    fn check_posts_for_unsticky(
+        &mut self,
+        db: &MlapiDb,
+        config: &SubredditStatusConfig,
+    ) -> anyhow::Result<()> {
+        for post in db.get_incident_posts_waiting_unsticky()? {
+            self.check_incident_sticky(db, post, config)?;
+        }
+
+        Ok(())
+    }
+
     pub fn update_status(
         &mut self,
         db: &MlapiDb,
@@ -134,6 +271,7 @@ impl Subreddit {
         is_summary: bool,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
+        self.check_posts_for_unsticky(db, config)?;
         let mut unseen = db.get_unresolved_incident_posts(self.lower.as_str())?;
 
         for incident in &cached.incidents {
@@ -155,10 +293,11 @@ impl Subreddit {
 
                 self.send_incident_post(
                     db,
-                    incident.id.as_str(),
+                    &incident,
                     reddit,
                     config.flair_id.as_ref().map(|s| s.as_str()),
                     cached,
+                    config.sticky.as_ref(),
                 )?;
             }
         }
@@ -179,7 +318,15 @@ impl Subreddit {
             };
 
             self.update_incident_post(db, &post, cached, reddit)?;
-            db.resolve_incident_post(&post.post_fullname)?;
+
+            let resolved_at = match incident.resolved_at {
+                Some(dt) => dt.to_utc(),
+                None => Utc::now(),
+            };
+
+            db.resolve_incident_post(&post.post_fullname, resolved_at)?;
+
+            self.check_incident_sticky(db, post.resolve(resolved_at), config)?;
         }
 
         Ok(())

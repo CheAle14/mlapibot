@@ -1,8 +1,12 @@
 use std::collections::HashSet;
 
+use chrono::{DateTime, Utc};
 use rusqlite::OptionalExtension;
 
-use crate::{MlapiDb, incident_posts::IncidentPostLite};
+use crate::{
+    MlapiDb,
+    incident_posts::{IncidentPostLite, ResolvedIncidentPost},
+};
 
 impl MlapiDb {
     pub fn add_incident(
@@ -23,7 +27,7 @@ impl MlapiDb {
         incident_id: &str,
     ) -> rusqlite::Result<Option<IncidentPostLite>> {
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, BodyHash, UpdatedAt FROM IncidentPosts WHERE Subreddit=?1 AND IncidentId=?2",
+            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState FROM IncidentPosts WHERE Subreddit=?1 AND IncidentId=?2",
         )?;
 
         stmt.query_row((subreddit, incident_id), IncidentPostLite::from_row)
@@ -48,7 +52,7 @@ impl MlapiDb {
         subreddit: &str,
     ) -> rusqlite::Result<HashSet<String>> {
         let mut stmt = self.conn.prepare(
-            "SELECT IncidentId FROM IncidentPosts WHERE Subreddit=?1 AND IsResolved=FALSE",
+            "SELECT IncidentId FROM IncidentPosts WHERE Subreddit=?1 AND ResolvedAt IS NULL",
         )?;
 
         let mut ids = HashSet::new();
@@ -59,9 +63,38 @@ impl MlapiDb {
         Ok(ids)
     }
 
-    pub fn resolve_incident_post(&self, post_fullname: &str) -> rusqlite::Result<()> {
+    pub fn resolve_incident_post(
+        &self,
+        post_fullname: &str,
+        resolved_at: DateTime<Utc>,
+    ) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE IncidentPosts SET IsResolved=TRUE WHERE PostFullname=?1",
+            "UPDATE IncidentPosts SET ResolvedAt=?1 WHERE PostFullname=?2",
+            (resolved_at, post_fullname),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn get_incident_posts_waiting_unsticky(
+        &self,
+    ) -> rusqlite::Result<Vec<ResolvedIncidentPost>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, ResolvedAt FROM IncidentPosts WHERE ResolvedAt IS NOT NULL AND StickyState==1",
+        )?;
+
+        let mut v = Vec::new();
+
+        for value in stmt.query_map((), ResolvedIncidentPost::from_row)? {
+            v.push(value?)
+        }
+
+        Ok(v)
+    }
+
+    pub fn set_incident_post_unstickied(&self, post_fullname: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE IncidentPosts SET StickyState=2 WHERE PostFullname=?1",
             (post_fullname,),
         )?;
 
