@@ -88,17 +88,19 @@ impl RedditArgs {
         match result {
             Ok(Ok(())) => Ok(()),
             Ok(Err(error)) => {
-                if let Some(webhook) = panic_webhook {
-                    let mut client = WebhookClient::new(webhook)?;
+                if release {
+                    if let Some(webhook) = panic_webhook {
+                        let mut client = WebhookClient::new(webhook)?;
 
-                    let message =
-                        create_generic_error_message("Fatal error occured", format!("{error}"));
-                    client.send(&message)?;
+                        let message =
+                            create_generic_error_message("Fatal error occured", format!("{error}"));
+                        client.send(&message)?;
+                    }
                 }
 
                 Err(error)
             }
-            Err(panic) => {
+            Err(panic) if release => {
                 if let Some(webhook) = panic_webhook {
                     let mut client = WebhookClient::new(webhook)?;
 
@@ -113,6 +115,7 @@ impl RedditArgs {
 
                 std::panic::resume_unwind(panic)
             }
+            Err(panic) => std::panic::resume_unwind(panic),
         }
     }
 }
