@@ -7,6 +7,8 @@ pub struct Ratelimiter {
     last_subreddits: Instant,
     last_status: Instant,
     last_downvotes: Instant,
+
+    inbox_failures: u8,
 }
 
 pub enum Rate {
@@ -37,7 +39,18 @@ impl Ratelimiter {
             last_downvotes: now
                 .checked_sub(Duration::from_secs(Self::REDDIT_SECONDS * 2))
                 .unwrap(),
+
+            inbox_failures: 0,
         }
+    }
+
+    fn inbox_delay(&self, now: Instant) -> u64 {
+        let inbox = now
+            .checked_duration_since(self.last_inbox)
+            .unwrap_or(Duration::from_secs(0))
+            .as_secs();
+
+        inbox + (self.inbox_failures as u64)
     }
 
     pub fn get(&self) -> Rate {
@@ -46,10 +59,7 @@ impl Ratelimiter {
             .checked_duration_since(self.last_subreddits)
             .unwrap_or(Duration::from_secs(0))
             .as_secs();
-        let inbox = now
-            .checked_duration_since(self.last_inbox)
-            .unwrap_or(Duration::from_secs(0))
-            .as_secs();
+        let inbox = self.inbox_delay(now);
         let status = now
             .checked_duration_since(self.last_status)
             .unwrap_or(Duration::from_secs(0))
@@ -110,5 +120,13 @@ impl Ratelimiter {
 
     pub fn set_downvotes(&mut self) {
         self.last_downvotes = Instant::now();
+    }
+
+    pub fn mark_inbox_failure(&mut self) {
+        self.inbox_failures = self.inbox_failures.saturating_add(1)
+    }
+
+    pub fn mark_inbox_success(&mut self) {
+        self.inbox_failures = self.inbox_failures.saturating_sub(1);
     }
 }

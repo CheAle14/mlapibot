@@ -697,32 +697,20 @@ impl<'a> RedditClient<'a> {
     }
 
     fn check_own_comments(&mut self) -> anyhow::Result<()> {
-        use std::io::Write;
-
         let comments = match self.client.comments(None) {
             Ok(t) => t,
             Err(e) => match e.kind {
                 roux::util::error::RouxErrorKind::FullNetwork(response, error) => {
-                    let file = std::fs::File::create("comments-error.txt").unwrap();
-                    let mut writer = BufWriter::new(file);
-                    for (name, value) in response.headers() {
-                        writeln!(
-                            writer,
-                            "{}: {}",
-                            name.as_str(),
-                            value.to_str().unwrap_or("<not utf8>")
-                        )?;
+                    if response.status().as_u16() == 404 {
+                        self.ratelimit.mark_inbox_failure();
+                        return Ok(());
                     }
-                    writeln!(writer, "\n\n")?;
-                    let bytes = response.bytes()?;
-                    let mut slice: &[u8] = &bytes;
-                    std::io::copy(&mut slice, &mut writer)?;
-                    writer.flush()?;
                     return Err(error.into());
                 }
                 _ => return Err(e.into()),
             },
         };
+        self.ratelimit.mark_inbox_success();
 
         for comment in comments {
             if !comment.score_hidden() && comment.score() < 0 {
