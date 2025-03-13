@@ -133,6 +133,8 @@ impl Subreddit {
             }
 
             submission.sticky(true, SubmissionStickySlot::Bottom)?;
+
+            db.sticky_incident_post(submission.name().full())?;
         }
 
         Ok(())
