@@ -172,8 +172,11 @@ impl Subreddit {
             return Ok(());
         };
 
-        if (Utc::now() - post.resolved_at).num_minutes() < sticky.delay_mins as i64 {
-            println!("Not reached delay mins");
+        let current_time = (Utc::now() - post.resolved_at).num_minutes();
+
+        if current_time < sticky.delay_minor_mins as i64 {
+            // definitely not ready yet, even if comments are under threshold.
+            println!("Not reached the minor delay threshold mins");
             return Ok(());
         }
 
@@ -194,6 +197,21 @@ impl Subreddit {
             // assume that a human mod has unstickied it manually.
             println!("Already unstickied");
             db.set_incident_post_unstickied(thing.full())?;
+            return Ok(());
+        }
+
+        let delay = if submission.num_comments() < sticky.comment_threshold {
+            sticky.delay_minor_mins
+        } else {
+            sticky.delay_major_mins
+        };
+
+        if current_time < delay as i64 {
+            println!(
+                "Not yet reached delay of {delay} ({} comments / {})",
+                submission.num_comments(),
+                sticky.comment_threshold
+            );
             return Ok(());
         }
 

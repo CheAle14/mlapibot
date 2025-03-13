@@ -55,7 +55,15 @@ pub struct SubredditStatusConfig {
     pub sticky: Option<StatusStickyConfig>,
 }
 
-fn default_delay() -> u32 {
+fn default_comment_threshold() -> u64 {
+    10
+}
+
+fn default_minor_delay() -> u32 {
+    15
+}
+
+fn default_major_delay() -> u32 {
     180
 }
 
@@ -63,9 +71,16 @@ fn default_delay() -> u32 {
 pub struct StatusStickyConfig {
     /// A different sticky post that we replace with the status sticky.
     pub replace_sticky: Option<ThingFullname>,
+    #[serde(default = "default_comment_threshold")]
+    pub comment_threshold: u64,
     /// How long to wait after the incident resolves to unsticky (and restore the above)
-    #[serde(default = "default_delay")]
-    pub delay_mins: u32,
+    /// For posts with < `minor_comment_threshold` comments
+    #[serde(default = "default_minor_delay")]
+    pub delay_minor_mins: u32,
+    /// How long to wait after the incident resolves to unsticky (and restore the above)
+    /// For posts with >= `minor_comment_threshold` comments
+    #[serde(default = "default_major_delay")]
+    pub delay_major_mins: u32,
     /// If present, only sticky posts which affect the specified components
     #[serde(default)]
     pub only_for: Vec<String>,
