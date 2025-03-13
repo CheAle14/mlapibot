@@ -57,14 +57,16 @@ impl ResolvedIncidentPost {
         let body_hash = row.get(1)?;
         let updated_at: NaiveDateTime = row.get(2)?;
         let sticky_state: StickyState = row.get(3)?;
-        let resolved_at: NaiveDateTime = row.get(4)?;
+        // since we set it as a DateTime<Utc>, sqlite seems to give it us back
+        // in this same format.
+        let resolved_at: DateTime<Utc> = row.get(4)?;
 
         Ok(Self {
             post_fullname,
             body_hash,
             updated_at: updated_at.and_utc(),
             sticky_state,
-            resolved_at: resolved_at.and_utc(),
+            resolved_at: resolved_at,
         })
     }
 }
