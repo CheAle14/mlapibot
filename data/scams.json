@@ -1003,6 +1003,14 @@
             ],
             "report": true,
             "template": "emailNewLoginLocation"
+        },
+        {
+            "name": "possible account support",
+            "ocr": [
+                "you broke the rules for"
+            ],
+            "report": true,
+            "template": null
         }
     ]
 }

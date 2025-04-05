@@ -515,8 +515,12 @@ impl<'a> RedditClient<'a> {
                 }
             };
 
-            let imgur_link = match (ctx.images.len() > 0, imgur.as_mut()) {
-                (true, Some(imgur)) => {
+            let imgur_link = match (
+                detected.template.name().is_some(), // no point uploading images if we aren't replying
+                ctx.images.len() > 0,
+                imgur.as_mut(),
+            ) {
+                (true, true, Some(imgur)) => {
                     match mlapibot_imgur::upload_images(imgur, ctx.images.iter(), |idx| {
                         detection
                             .images
@@ -540,7 +544,7 @@ impl<'a> RedditClient<'a> {
                         }
                     }
                 }
-                (_, _) => None,
+                (_, _, _) => None,
             };
 
             let (reply, removed, reported) = if !dry_run {
