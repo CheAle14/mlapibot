@@ -67,6 +67,10 @@ pub struct Analyzer {
 
 impl Analyzer {
     pub fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
+        if self.disabled {
+            return Ok(None);
+        }
+
         let result = self.kind.analyze(context)?;
         if let Some(result) = result {
             if let Some(blacklist) = &self.blacklist {
