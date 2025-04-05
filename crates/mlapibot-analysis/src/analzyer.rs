@@ -51,6 +51,8 @@ impl TemplateName {
 pub struct Analyzer {
     pub name: String,
     #[serde(default)]
+    pub disabled: bool,
+    #[serde(default)]
     pub report: bool,
     #[serde(default)]
     pub remove: bool,

@@ -717,6 +717,7 @@
         },
         {
             "name": "GameTestersMalware",
+            "disabled": true,
             "ocr": [
                 "you've been invited to test discord’s game testers",
                 "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"

@@ -63,6 +63,9 @@ impl SingleArgs {
                 }
                 None => {
                     println!("{name} detected nothing");
+                    if analyzer.disabled {
+                        println!("because it was disabled!");
+                    }
                 }
             }
         } else {
