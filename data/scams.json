@@ -132,6 +132,16 @@
                         "nitro"
                     ],
                     "type": "ordered"
+                },
+                {
+                    "children": [
+                        "you've",
+                        "been",
+                        "gifted",
+                        "roblox",
+                        "giftcard"
+                    ],
+                    "type": "ordered"
                 }
             ],
             "remove": true
