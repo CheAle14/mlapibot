@@ -94,7 +94,8 @@ pub struct ContextWarning(Url, AnalysisError);
 
 impl std::fmt::Display for ContextWarning {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "unable to process {}: {}", self.0, self.1)
+        write!(f, "unable to process {}: ", self.0)?;
+        mlapibot_common::write_error_chain(f, &self.1)
     }
 }
 

@@ -15,5 +15,6 @@ moduse!(
     words,
     needle_finder,
     lowercase,
-    cached
+    cached,
+    errors
 );

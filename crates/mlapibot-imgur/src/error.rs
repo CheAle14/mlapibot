@@ -3,34 +3,34 @@ use std::path::PathBuf;
 #[derive(Debug, thiserror::Error)]
 pub enum ImgurError {
     #[error("failed to initialize reqwest client")]
-    Init(reqwest::Error),
+    Init(#[source] reqwest::Error),
 
     #[error("invalid header value")]
-    InvalidHeaderValue(reqwest::header::InvalidHeaderValue),
+    InvalidHeaderValue(#[source] reqwest::header::InvalidHeaderValue),
 
     #[error("failed to read image to upload")]
-    UploadReadImage(std::io::Error),
+    UploadReadImage(#[source] std::io::Error),
 
     #[error("failed to send request")]
-    SendRequest(reqwest::Error),
+    SendRequest(#[source] reqwest::Error),
 
     #[error("got an error as a response")]
-    BadResponse(reqwest::Error),
+    BadResponse(#[source] reqwest::Error),
 
     #[error("failed to decode body as json")]
-    ResponseJson(reqwest::Error),
+    ResponseJson(#[source] reqwest::Error),
 
     #[error("failed to decode body as UTF-8 text")]
-    ResponseText(reqwest::Error),
+    ResponseText(#[source] reqwest::Error),
 
     #[error("failed to decode something as json")]
-    DecodeJson(serde_json::Error),
+    DecodeJson(#[source] serde_json::Error),
 
     #[error("failed to write image {0} to path {1:?}")]
-    WritingImage(usize, PathBuf, image::ImageError),
+    WritingImage(usize, PathBuf, #[source] image::ImageError),
 
     #[error("failed to create tempfile")]
-    Tempfile(std::io::Error),
+    Tempfile(#[source] std::io::Error),
 }
 
 pub type Result<T, E = ImgurError> = std::result::Result<T, E>;

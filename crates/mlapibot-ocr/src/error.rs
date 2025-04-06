@@ -1,16 +1,16 @@
 #[derive(Debug, thiserror::Error)]
 pub enum OcrError {
     #[error("failed to initialize ocr engine")]
-    Init(leptess::tesseract::TessInitError),
+    Init(#[source] leptess::tesseract::TessInitError),
     #[error("failed to open image for decoding")]
-    OpenImage(std::io::Error),
+    OpenImage(#[source] std::io::Error),
     #[error("failed to decode image")]
-    DecodeImage(image::ImageError),
+    DecodeImage(#[source] image::ImageError),
     #[error("failed to set image for OCR use")]
-    SetImage(leptess::leptonica::PixError),
+    SetImage(#[source] leptess::leptonica::PixError),
 
     #[error("failed to get image text as UTF-8")]
-    NotUtf8(std::str::Utf8Error),
+    NotUtf8(#[source] std::str::Utf8Error),
 
     #[error("did not see any words in the image")]
     NoWords,
