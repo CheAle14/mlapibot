@@ -1017,7 +1017,9 @@
         {
             "name": "possible account support",
             "ocr": [
-                "you broke the rules for"
+                "you broke the rules for",
+                "you have limited access to",
+                "this violation affects your account status"
             ],
             "report": true,
             "template": null
