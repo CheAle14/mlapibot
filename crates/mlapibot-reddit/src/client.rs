@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     io::BufWriter,
     path::PathBuf,
     sync::mpsc::{self, RecvTimeoutError},
@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{Context, bail};
 use chrono::{DateTime, FixedOffset, Utc};
-use mlapibot_common::LowercaseString;
+use mlapibot_common::{Cached, LowercaseString};
 use mlapibot_datastore::{
     MlapiDb,
     incident_posts::{IncidentPostLite, StickyState},
@@ -18,7 +18,7 @@ use roux::{
     client::{OAuthClient, RedditClient as RouxRedditClient},
     models::Distinguish,
 };
-use statuspage::{StatusClient, status::StatusIndicator};
+use statuspage::{StatusClient, component::Component, status::StatusIndicator};
 use tera::Tera;
 
 use mlapibot_analysis::{ContextWarning, analzyer::Analyzer};
@@ -61,8 +61,12 @@ pub struct RedditClient<'a> {
     #[allow(unused)]
     admin: Option<String>,
     flair_cache: PostFlairCache,
+    cached_status_components: StatusComponentCache,
     debug: bool,
 }
+
+pub type StatusComponentCache =
+    Cached<HashMap<String, Component>, StatusClient, statuspage::error::Error>;
 
 impl<'a> RedditClient<'a> {
     const USER_AGENT: &'static str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
@@ -129,6 +133,17 @@ impl<'a> RedditClient<'a> {
 
         let subreddits = subreddits?;
 
+        let cached_status_components = Cached::new(Duration::from_secs(600), &status, |client| {
+            let mut map = HashMap::new();
+            let vec = client.get_components()?;
+
+            for item in vec {
+                map.insert(item.id.clone(), item);
+            }
+
+            Ok(map)
+        })?;
+
         println!(
             "Logged in as /u/{}; monitoring {} with {} total known subreddits in {}",
             credentials.username,
@@ -159,6 +174,7 @@ impl<'a> RedditClient<'a> {
             admin: admin,
             flair_cache: PostFlairCache::default(),
             last_status: StatusIndicator::None,
+            cached_status_components,
             debug,
         })
     }
@@ -676,6 +692,7 @@ impl<'a> RedditClient<'a> {
                         &self.client,
                         &self.status,
                         &mut cached,
+                        &mut self.cached_status_components,
                         is_summary,
                         config,
                     )

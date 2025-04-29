@@ -18,6 +18,7 @@ use mlapibot_common::{Cached, LowercaseString};
 
 use crate::{
     cached_submission::CachedSubmission,
+    client::StatusComponentCache,
     config::{StatusStickyConfig, SubredditStatusConfig},
 };
 
@@ -288,6 +289,7 @@ impl Subreddit {
         reddit: &RouxClient,
         status: &StatusClient,
         cached: &mut CachedIncidentSubmissions,
+        all_components: &mut StatusComponentCache,
         is_summary: bool,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
@@ -300,16 +302,25 @@ impl Subreddit {
             {
                 unseen.remove(&incident.id);
                 if needs_update(incident, &tracked) {
-                    let cached =
-                        CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
+                    let components = all_components.data(status)?;
+
+                    let cached = CachedIncidentSubmissions::get_submission(
+                        &mut cached.cache,
+                        incident,
+                        components,
+                    )?;
 
                     self.update_incident_post(db, &tracked, cached, reddit)?;
                 }
             } else if incident.impact >= config.min_impact {
+                let components = all_components.data(status)?;
                 unseen.remove(&incident.id);
 
-                let cached =
-                    CachedIncidentSubmissions::get_submission(&mut cached.cache, incident)?;
+                let cached = CachedIncidentSubmissions::get_submission(
+                    &mut cached.cache,
+                    incident,
+                    components,
+                )?;
 
                 self.send_incident_post(
                     db,
@@ -330,8 +341,14 @@ impl Subreddit {
         for unseen in unseen {
             let incident = status.get_incident(&unseen)?;
 
-            CachedIncidentSubmissions::add(&mut cached.cache, &incident)?;
-            let cached = CachedIncidentSubmissions::get_submission(&mut cached.cache, &incident)?;
+            let components = all_components.data(status)?;
+
+            CachedIncidentSubmissions::add(&mut cached.cache, &incident, components)?;
+            let cached = CachedIncidentSubmissions::get_submission(
+                &mut cached.cache,
+                &incident,
+                components,
+            )?;
 
             let Some(post) = db.get_incident_post(self.lower.as_str(), &incident.id)? else {
                 continue;

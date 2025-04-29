@@ -1,6 +1,9 @@
 use std::{collections::HashMap, sync::mpsc::Sender};
 
-use statuspage::incident::{Incident, IncidentStatus};
+use statuspage::{
+    component::Component,
+    incident::{Incident, IncidentStatus},
+};
 
 use crate::utils::clamp;
 
@@ -14,7 +17,10 @@ pub fn get_title(incident: &Incident) -> anyhow::Result<String> {
     ))
 }
 
-pub fn get_markdown(incident: &Incident) -> anyhow::Result<String> {
+pub fn get_markdown(
+    incident: &Incident,
+    all_components: &HashMap<String, Component>,
+) -> anyhow::Result<String> {
     use std::fmt::Write;
 
     let mut text = String::new();
@@ -58,9 +64,48 @@ pub fn get_markdown(incident: &Incident) -> anyhow::Result<String> {
 
     if incident.components.len() > 0 {
         writeln!(text, "This issue affects:  \r\n")?;
+
+        let mut grouped: HashMap<&String, Vec<&Component>> = HashMap::new();
+
         for component in &incident.components {
-            write!(text, "- **{}**", component.name)?;
-            if let Some(desc) = &component.description {
+            if let Some(id) = &component.group_id {
+                match grouped.get_mut(id) {
+                    Some(vec) => vec.push(component),
+                    None => {
+                        grouped.insert(id, vec![component]);
+                    }
+                }
+            } else {
+                write!(text, "- **{}**", component.name)?;
+                if let Some(desc) = &component.description {
+                    writeln!(text, ": {desc}")?;
+                } else {
+                    writeln!(text, "  ")?;
+                }
+            }
+        }
+
+        for (group_id, components) in grouped {
+            let (name, description) = match all_components.get(group_id) {
+                Some(group) => (
+                    group.name.as_str(),
+                    group.description.as_ref().map(|s| s.as_str()),
+                ),
+                None => (group_id.as_str(), Some("(unknown group ID)")),
+            };
+
+            write!(text, "- **{name}** (")?;
+            let mut first = true;
+            for component in components {
+                if !first {
+                    write!(text, ", ")?;
+                }
+                first = false;
+                write!(text, "{}", component.name)?;
+            }
+            write!(text, ")")?;
+
+            if let Some(desc) = description {
                 writeln!(text, ": {desc}")?;
             } else {
                 writeln!(text, "  ")?;
@@ -86,9 +131,10 @@ impl CachedIncidentSubmissions {
     pub fn add(
         this: &mut HashMap<String, CachedSubmission>,
         incident: &Incident,
+        all_components: &HashMap<String, Component>,
     ) -> anyhow::Result<()> {
         let title = get_title(incident)?;
-        let body = get_markdown(incident)?;
+        let body = get_markdown(incident, all_components)?;
         this.insert(incident.id.clone(), CachedSubmission::new(title, body));
         Ok(())
     }
@@ -96,9 +142,10 @@ impl CachedIncidentSubmissions {
     pub fn get_submission<'a>(
         this: &'a mut HashMap<String, CachedSubmission>,
         incident: &Incident,
+        all_components: &HashMap<String, Component>,
     ) -> anyhow::Result<&'a CachedSubmission> {
         if !this.contains_key(&incident.id) {
-            Self::add(this, incident)?;
+            Self::add(this, incident, all_components)?;
         }
         Ok(this.get(&incident.id).unwrap())
     }

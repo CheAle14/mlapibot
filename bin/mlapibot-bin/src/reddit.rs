@@ -109,7 +109,7 @@ impl RedditArgs {
                         None => "Unable to retrieve panic message",
                     };
 
-                    let message = create_generic_error_message("Fatal error occured", msg);
+                    let message = create_generic_error_message("Fatal panic occured", msg);
                     client.send(&message)?;
                 }
 
