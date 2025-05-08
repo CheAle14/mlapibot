@@ -7,7 +7,7 @@ These scams use very similar wording when targeting both Discord and Steam accou
 
 ## Reported your Discord account
 
-Discord will always contact you through email or a [designated SYSTEM direct message channel](https://support.discord.com/hc/articles/360036118732-Discord-System-Messages) (which you cannot reply to). They will not ask you to contact a user to handle official support appeals or reports.
+Discord will always contact you through email or a [designated OFFICIAL direct message channel](https://support.discord.com/hc/articles/360036118732-Discord-Official-Messages) (which you cannot reply to). They will not ask you to contact a user to handle official support appeals or reports.
 
 If you have already fallen for the scam, you can contact Discord's actual support for assistance through their website: [dis.gd/hackedaccount](https://dis.gd/hackedaccount)
 

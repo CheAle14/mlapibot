@@ -302,6 +302,14 @@
                 },
                 {
                     "children": [
+                        "purchased",
+                        "validation",
+                        "report"
+                    ],
+                    "type": "ordered"
+                },
+                {
+                    "children": [
                         "account",
                         "suspended",
                         "no",
