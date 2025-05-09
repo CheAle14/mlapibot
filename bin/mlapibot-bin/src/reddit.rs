@@ -1,4 +1,4 @@
-use std::{any::Any, path::PathBuf};
+use std::{any::Any, fmt::Write, path::PathBuf};
 
 use anyhow::Context;
 use mlapibot_common::LowercaseString;
@@ -92,8 +92,21 @@ impl RedditArgs {
                     if let Some(webhook) = panic_webhook {
                         let mut client = WebhookClient::new(webhook)?;
 
-                        let message =
-                            create_generic_error_message("Fatal error occured", format!("{error}"));
+                        let mut s = String::with_capacity(512);
+
+                        let _ = writeln!(s, "Error: {error}");
+
+                        if let Some(source) = error.source() {
+                            let _ = writeln!(s, "\nCaused by:");
+
+                            for (idx, next) in
+                                std::iter::successors(Some(source), |err| err.source()).enumerate()
+                            {
+                                let _ = writeln!(s, "  {idx}: {next}");
+                            }
+                        }
+
+                        let message = create_generic_error_message("Fatal error occured", s);
                         client.send(&message)?;
                     }
                 }
