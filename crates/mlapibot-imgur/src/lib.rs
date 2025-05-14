@@ -53,6 +53,7 @@ impl ImgurClient {
     }
 
     #[inline(always)]
+    #[allow(dead_code)]
     fn get(&self, endpoint: &str) -> RequestBuilder {
         self.request(Method::GET, endpoint)
     }

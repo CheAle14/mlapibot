@@ -26,11 +26,11 @@ pub enum ImageSource {
 impl ImageSource {
     pub fn read_image(&self) -> crate::error::Result<DynamicImage> {
         match &self {
-            Self::KeepFile(path) => image::io::Reader::open(path)
+            Self::KeepFile(path) => image::ImageReader::open(path)
                 .map_err(OcrError::OpenImage)?
                 .decode()
                 .map_err(OcrError::DecodeImage),
-            Self::DeleteOnDropFile(guard) => image::io::Reader::open(guard)
+            Self::DeleteOnDropFile(guard) => image::ImageReader::open(guard)
                 .map_err(OcrError::OpenImage)?
                 .decode()
                 .map_err(OcrError::DecodeImage),
@@ -39,6 +39,7 @@ impl ImageSource {
 }
 
 pub struct OcrImage {
+    #[allow(unused)]
     source: ImageSource,
     cached_image: DynamicImage,
     ocr_words: Vec<String>,

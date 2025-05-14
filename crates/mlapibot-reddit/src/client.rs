@@ -1,18 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
-    io::BufWriter,
     path::PathBuf,
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
 };
 
 use anyhow::{Context, bail};
-use chrono::{DateTime, FixedOffset, Utc};
 use mlapibot_common::{Cached, LowercaseString};
-use mlapibot_datastore::{
-    MlapiDb,
-    incident_posts::{IncidentPostLite, StickyState},
-};
+use mlapibot_datastore::MlapiDb;
 use roux::{
     api::{Distinguished, ThingFullname, subreddit::ModActionType},
     client::{OAuthClient, RedditClient as RouxRedditClient},

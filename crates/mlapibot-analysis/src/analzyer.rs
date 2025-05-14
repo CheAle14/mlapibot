@@ -86,19 +86,15 @@ impl Analyzer {
     }
 }
 
-mod function;
 mod pattern;
 mod string;
 
-pub use function::*;
 pub use pattern::*;
 pub use string::*;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum AnalyzerKind {
-    #[serde(rename = "function")]
-    Function(function::FuncAnalyzer),
     #[serde(rename = "img")]
     Pattern(pattern::PatternAnalyzer),
     #[serde(untagged)]
@@ -109,7 +105,6 @@ impl AnalyzerKind {
     fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
         match self {
             AnalyzerKind::Text(v) => v.analyze(context),
-            AnalyzerKind::Function(v) => v.analyze(context),
             AnalyzerKind::Pattern(v) => v.analyze(context),
         }
     }

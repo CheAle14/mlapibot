@@ -1,7 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::Context;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use mlapibot_datastore::{
     MlapiDb,
     incident_posts::{IncidentPostLite, ResolvedIncidentPost, StickyState},
@@ -19,7 +19,7 @@ use mlapibot_common::{Cached, LowercaseString};
 use crate::{
     cached_submission::CachedSubmission,
     client::StatusComponentCache,
-    config::{StatusStickyConfig, SubredditStatusConfig},
+    config::SubredditStatusConfig,
 };
 
 use super::{RouxClient, Submission, status_tracker::CachedIncidentSubmissions};
