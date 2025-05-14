@@ -4,6 +4,7 @@ use roux::api::ThingFullname;
 use serde::Deserialize;
 
 use mlapibot_common::LowercaseString;
+use statuspage::incident::IncidentImpact;
 
 use super::flairs::SubredditFlairConfig;
 
@@ -81,6 +82,10 @@ pub struct StatusStickyConfig {
     /// For posts with >= `minor_comment_threshold` comments
     #[serde(default = "default_major_delay")]
     pub delay_major_mins: u32,
+    /// If set, the minimum impact needed to sticky the post.  
+    /// If absent, any post sent to the subreddit is stickied.
+    #[serde(default)]
+    pub min_impact: Option<IncidentImpact>,
     /// If present, only sticky posts which affect the specified components
     #[serde(default)]
     pub only_for: Vec<String>,

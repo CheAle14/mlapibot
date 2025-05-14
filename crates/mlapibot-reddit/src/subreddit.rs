@@ -127,6 +127,13 @@ impl Subreddit {
                 }
             }
 
+            if let Some(min_impact) = sticky.min_impact {
+                if incident.impact < min_impact {
+                    println!("Incident does not meet minimum {min_impact:?} to sticky");
+                    return Ok(());
+                }
+            }
+
             if let Some(replace) = sticky.replace_sticky.as_ref() {
                 self.data
                     .client
