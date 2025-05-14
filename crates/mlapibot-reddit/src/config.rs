@@ -54,6 +54,9 @@ pub struct SubredditStatusConfig {
     pub min_impact: statuspage::incident::IncidentImpact,
     pub flair_id: Option<String>,
     pub sticky: Option<StatusStickyConfig>,
+    /// Whether it should distinguish the posts it makes.
+    #[serde(default)]
+    pub distinguish: bool,
 }
 
 fn default_comment_threshold() -> u64 {

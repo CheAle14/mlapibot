@@ -94,13 +94,12 @@ impl Subreddit {
         db: &MlapiDb,
         incident: &Incident,
         reddit: &RouxClient,
-        flair_id: Option<&str>,
         cached: &CachedSubmission,
-        sticky: Option<&StatusStickyConfig>,
+        config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", self.lower);
 
-        let submission = match flair_id {
+        let submission = match &config.flair_id {
             Some(flair_id) => cached.to_builder().with_flair_id(flair_id),
             None => cached.to_builder(),
         };
@@ -115,7 +114,11 @@ impl Subreddit {
             cached.get_hash(),
         )?;
 
-        if let Some(sticky) = sticky {
+        if config.distinguish {
+            submission.distinguish(roux::models::Distinguish::Moderator)?;
+        }
+
+        if let Some(sticky) = &config.sticky {
             if sticky.only_for.len() > 0 {
                 let has_components = (&incident.components)
                     .iter()
@@ -333,14 +336,7 @@ impl Subreddit {
                     components,
                 )?;
 
-                self.send_incident_post(
-                    db,
-                    &incident,
-                    reddit,
-                    config.flair_id.as_ref().map(|s| s.as_str()),
-                    cached,
-                    config.sticky.as_ref(),
-                )?;
+                self.send_incident_post(db, &incident, reddit, cached, &config)?;
             }
         }
 
