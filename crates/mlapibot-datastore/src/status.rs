@@ -65,7 +65,7 @@ impl MlapiDb {
 
     pub fn sticky_incident_post(&self, post_fullname: &str) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE IncidentPosts SET StickyState=1 WHERE PostFullname=?2",
+            "UPDATE IncidentPosts SET StickyState=1 WHERE PostFullname=?1",
             (post_fullname,),
         )?;
 

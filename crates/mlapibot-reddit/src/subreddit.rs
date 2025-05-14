@@ -293,8 +293,11 @@ impl Subreddit {
         is_summary: bool,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
-        self.check_posts_for_unsticky(db, config)?;
-        let mut unseen = db.get_unresolved_incident_posts(self.lower.as_str())?;
+        self.check_posts_for_unsticky(db, config)
+            .context("check unsticky")?;
+        let mut unseen = db
+            .get_unresolved_incident_posts(self.lower.as_str())
+            .context("get unresolved")?;
 
         for incident in &cached.incidents {
             if let Some(tracked) =
@@ -310,7 +313,8 @@ impl Subreddit {
                         components,
                     )?;
 
-                    self.update_incident_post(db, &tracked, cached, reddit)?;
+                    self.update_incident_post(db, &tracked, cached, reddit)
+                        .context("update post")?;
                 }
             } else if incident.impact >= config.min_impact {
                 let components = all_components.data(status)?;
