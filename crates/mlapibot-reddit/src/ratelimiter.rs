@@ -1,10 +1,6 @@
-use std::{
-    collections::BinaryHeap,
-    time::{Duration, Instant},
-};
+use std::{collections::BinaryHeap, time::Instant};
 
 use job::RateJob;
-use ord_many::{max_many, min_many};
 use task::RateTask;
 
 mod job;
