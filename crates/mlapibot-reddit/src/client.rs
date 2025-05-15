@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
     sync::mpsc::{self, RecvTimeoutError},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context, bail};
@@ -28,6 +28,7 @@ use crate::{
     config::{RedditCredentials, SubredditModerateConfig, SubredditsConfig},
     exts::{DetectionExt, SubmissionExt},
     flairs::{PostFlairCache, SubredditFlairConfig},
+    ratelimiter::Ratelimiter,
     status_tracker::{CachedIncidentSubmissions, WebhookEvent},
     subreddit::Subreddit,
     webhook::{
@@ -44,7 +45,6 @@ pub struct RedditClient<'a> {
     own_name: String,
     client: RouxClient,
     subreddits: Vec<Subreddit>,
-    ratelimit: crate::ratelimiter::Ratelimiter,
     templates: Tera,
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
@@ -157,7 +157,6 @@ impl<'a> RedditClient<'a> {
             client,
             subreddits,
             analzyers,
-            ratelimit: crate::ratelimiter::Ratelimiter::new(),
             // data_dir: scratch_dir,
             templates,
             webhook,
@@ -381,7 +380,7 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn check_inbox(&mut self) -> anyhow::Result<()> {
+    fn check_inbox(&mut self) -> anyhow::Result<Duration> {
         let inbox = self.client.unread()?;
         for item in inbox {
             let subject = if let Some(stripped) = item.subject().strip_prefix("[dev-only]") {
@@ -437,7 +436,7 @@ impl<'a> RedditClient<'a> {
             }
         }
 
-        Ok(())
+        Ok(Duration::from_secs(15))
     }
 
     fn check_post(
@@ -616,7 +615,7 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn check_subreddits(&mut self) -> anyhow::Result<()> {
+    fn check_subreddits(&mut self) -> anyhow::Result<Duration> {
         for subreddit in self.subreddits.iter_mut() {
             if subreddit.status_only {
                 continue;
@@ -671,7 +670,7 @@ impl<'a> RedditClient<'a> {
                 )?;
             }
         }
-        Ok(())
+        Ok(Duration::from_secs(15))
     }
 
     fn update_status_with(
@@ -698,7 +697,7 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn check_status(&mut self) -> anyhow::Result<()> {
+    fn check_status(&mut self) -> anyhow::Result<Duration> {
         let summary = self.status.get_summary()?;
         self.last_status = summary.status.indicator;
         println!(
@@ -709,24 +708,13 @@ impl<'a> RedditClient<'a> {
 
         let summary = CachedIncidentSubmissions::new(summary.incidents);
 
-        self.update_status_with(summary, true)
+        self.update_status_with(summary, true)?;
+
+        Ok(Duration::from_secs(5 * 60))
     }
 
-    fn check_own_comments(&mut self) -> anyhow::Result<()> {
-        let comments = match self.client.comments(None) {
-            Ok(t) => t,
-            Err(e) => match e.kind {
-                roux::util::error::RouxErrorKind::FullNetwork(response, error) => {
-                    if response.status().as_u16() == 404 {
-                        self.ratelimit.mark_inbox_failure();
-                        return Ok(());
-                    }
-                    return Err(error.into());
-                }
-                _ => return Err(e.into()),
-            },
-        };
-        self.ratelimit.mark_inbox_success();
+    fn check_own_comments(&mut self) -> anyhow::Result<Duration> {
+        let comments = self.client.comments(None)?;
 
         for comment in comments {
             if !comment.score_hidden() && comment.score() < 0 {
@@ -758,10 +746,14 @@ impl<'a> RedditClient<'a> {
             }
         }
 
-        Ok(())
+        Ok(Duration::from_secs(15))
     }
 
-    fn handle_webhook_event(&mut self, event: WebhookEvent) -> anyhow::Result<()> {
+    fn handle_webhook_event(
+        &mut self,
+        event: WebhookEvent,
+        ratelimiter: &mut Ratelimiter<Self>,
+    ) -> anyhow::Result<()> {
         match event {
             crate::status_tracker::WebhookEvent::IncidentUpdate(incident) => {
                 println!("[status-recv] got incident webhook");
@@ -770,17 +762,14 @@ impl<'a> RedditClient<'a> {
                 self.update_status_with(cache, false)?;
             }
             _ => {
-                println!("[status-recv] got unknown webhook, checking status");
-                self.check_status()?;
-                self.ratelimit.set_status();
+                println!("[status-recv] got unknown webhook, scheduling status check to run");
+                ratelimiter.run_immediately("check_status");
             }
         };
         Ok(())
     }
 
     pub fn run(&mut self) -> anyhow::Result<()> {
-        use crate::ratelimiter::Rate;
-
         let (tx, rx) = mpsc::channel();
 
         if let Some(addr) = &self.status_webhook {
@@ -788,44 +777,24 @@ impl<'a> RedditClient<'a> {
             crate::status_tracker::start_webhook_listener_thread(tx, &addr);
         }
 
+        let mut ratelimiter = Ratelimiter::new();
+        ratelimiter.push("check_inbox", Self::check_inbox);
+        ratelimiter.push("check_subreddits", Self::check_subreddits);
+        ratelimiter.push("check_status", Self::check_status);
+        ratelimiter.push("check_own_comments", Self::check_own_comments);
+
         loop {
             while let Ok(event) = rx.try_recv() {
-                self.handle_webhook_event(event)?;
+                self.handle_webhook_event(event, &mut ratelimiter)?;
             }
 
-            match self.ratelimit.get() {
-                Rate::NoneReadyFor(dur) => {
-                    // We have nothing to do for that duration,
-                    // so we may as well block the thread nicely
-                    // by waiting for a webhook
-                    match rx.recv_timeout(dur) {
-                        Ok(event) => {
-                            self.handle_webhook_event(event)?;
-                        }
-                        Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
-                        Err(RecvTimeoutError::Timeout) => continue,
-                    }
-                }
-                Rate::InboxReady => {
-                    println!("Checking inbox");
-                    self.check_inbox().context("check inbox")?;
-                    self.ratelimit.set_inbox();
-                }
-                Rate::SubredditsReady => {
-                    println!("Checking subreddits");
-                    self.check_subreddits().context("check subreddits")?;
-                    self.ratelimit.set_subreddits();
-                }
-                Rate::StatusReady => {
-                    println!("Checking status");
-                    self.check_status().context("check status")?;
-                    self.ratelimit.set_status();
-                }
-                Rate::DownvotesReady => {
-                    println!("Checking for downvoted comments");
-                    self.check_own_comments().context("check own comments")?;
-                    self.ratelimit.set_downvotes();
-                }
+            let now = Instant::now();
+            let next = ratelimiter.run(self, now);
+
+            match rx.recv_timeout(next - now) {
+                Ok(event) => self.handle_webhook_event(event, &mut ratelimiter)?,
+                Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
+                Err(RecvTimeoutError::Timeout) => continue,
             }
         }
     }
