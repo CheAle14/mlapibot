@@ -384,15 +384,15 @@ impl<'a> RedditClient<'a> {
         use std::fmt::Write;
 
         let subreddit = message.body().trim().trim_start_matches("/r/");
-        let mut sending = format!("Removal reasons for /r/{subreddit}:\n");
+        let mut sending = format!("Removal reasons for /r/{subreddit}:  \n\n");
         let subreddit = self.client.subreddit(subreddit);
 
         let reasons = subreddit.list_removal_reasons()?;
 
         for id in reasons.order {
             let _ = match reasons.data.get(&id) {
-                Some(reason) => write!(sending, "- {}: {}", reason.id, reason.message),
-                None => write!(sending, "- {id}: <not found>"),
+                Some(reason) => writeln!(sending, "- {}: {}  ", reason.id, reason.title),
+                None => writeln!(sending, "- {id}: <not found>  "),
             };
         }
 
