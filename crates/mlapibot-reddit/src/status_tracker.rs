@@ -10,11 +10,15 @@ use crate::utils::clamp;
 use super::cached_submission::CachedSubmission;
 
 pub fn get_title(incident: &Incident) -> anyhow::Result<String> {
-    Ok(format!(
-        "{:?} status issue: {}",
-        incident.impact,
-        clamp(&incident.name, 256)
-    ))
+    let prefix = match incident.impact {
+        statuspage::incident::IncidentImpact::None => "Status issue",
+        statuspage::incident::IncidentImpact::Maintenance => "Maintenance",
+        statuspage::incident::IncidentImpact::Minor => "Minor status issue",
+        statuspage::incident::IncidentImpact::Major => "Major status issue",
+        statuspage::incident::IncidentImpact::Critical => "Critical status issue",
+    };
+
+    Ok(format!("{prefix}: {}", clamp(&incident.name, 256)))
 }
 
 pub fn get_markdown(
