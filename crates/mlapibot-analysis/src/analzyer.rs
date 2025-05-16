@@ -87,14 +87,18 @@ impl Analyzer {
 }
 
 mod pattern;
+mod solid_colour;
 mod string;
 
 pub use pattern::*;
+pub use solid_colour::*;
 pub use string::*;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum AnalyzerKind {
+    #[serde(rename = "colour")]
+    SolidColour(solid_colour::SolidColourAnalyzer),
     #[serde(rename = "img")]
     Pattern(pattern::PatternAnalyzer),
     #[serde(untagged)]
@@ -104,6 +108,7 @@ pub enum AnalyzerKind {
 impl AnalyzerKind {
     fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
         match self {
+            AnalyzerKind::SolidColour(v) => v.analyze(context),
             AnalyzerKind::Text(v) => v.analyze(context),
             AnalyzerKind::Pattern(v) => v.analyze(context),
         }

@@ -13,5 +13,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { workspace = true }
 ord-many = { workspace = true }
+image = { workspace = true }
 
 strsim = "0.11.1"
+hex_color = { version = "3.0.0", features = ["serde"] }

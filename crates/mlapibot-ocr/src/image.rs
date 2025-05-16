@@ -115,6 +115,10 @@ impl OcrImage {
         })
     }
 
+    pub fn image(&self) -> &DynamicImage {
+        &self.cached_image
+    }
+
     pub fn full_text(&self) -> String {
         self.ocr_words.join(" ")
     }
@@ -175,7 +179,11 @@ impl OcrImage {
     }
 
     /// Returns an image with the words that were part of the trigger surrounded in a box
-    pub fn get_trigger_words_image(&self, detected: &DetectedItem) -> DynamicImage {
+    pub fn get_trigger_words_image(&self, detected: &DetectedItem) -> Option<DynamicImage> {
+        if detected.words.len() == 0 {
+            return None;
+        }
+
         const PADDING: i32 = 2;
 
         let mut img = self.cached_image.clone();
@@ -196,6 +204,6 @@ impl OcrImage {
             draw_hollow_rect_mut(&mut img, padded_rect, Rgba([255, 0, 0, 255]));
         }
 
-        img
+        Some(img)
     }
 }

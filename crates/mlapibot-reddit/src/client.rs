@@ -536,6 +536,7 @@ impl<'a> RedditClient<'a> {
                             .images
                             .get(&idx)
                             .map(|d| ctx.images[idx].get_trigger_words_image(d))
+                            .flatten()
                     }) {
                         Ok(album) => {
                             let url = format!("https://imgur.com/a/{}", album.id);

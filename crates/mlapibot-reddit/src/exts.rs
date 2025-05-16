@@ -99,8 +99,10 @@ impl DetectionExt for Detection {
         let mut v = Vec::new();
         for (index, detected) in &self.images {
             let image = &ctx.images[*index];
-            let image = image.get_trigger_words_image(detected);
-            v.push(image);
+
+            if let Some(image) = image.get_trigger_words_image(detected) {
+                v.push(image);
+            }
         }
 
         Ok(v)
