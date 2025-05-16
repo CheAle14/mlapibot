@@ -67,6 +67,13 @@ impl SolidColourAnalyzer {
 
             let perc = matching_pixels as f32 / total_pixels as f32;
 
+            if context.debug {
+                println!(
+                    "{idx}: {matching_pixels} / {total_pixels} => {:0.}%",
+                    perc * 100.0
+                );
+            }
+
             if perc >= self.threshold {
                 detected_on.push((idx, DetectedItem::new(perc)));
             }
