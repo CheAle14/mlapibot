@@ -380,6 +380,27 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn send_removal_reasons(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
+        use std::fmt::Write;
+
+        let subreddit = message.body().trim().trim_start_matches("/r/");
+        let mut sending = format!("Removal reasons for /r/{subreddit}:\n");
+        let subreddit = self.client.subreddit(subreddit);
+
+        let reasons = subreddit.list_removal_reasons()?;
+
+        for id in reasons.order {
+            let _ = match reasons.data.get(&id) {
+                Some(reason) => write!(sending, "- {}: {}", reason.id, reason.message),
+                None => write!(sending, "- {id}: <not found>"),
+            };
+        }
+
+        message.reply(&sending)?;
+
+        Ok(())
+    }
+
     fn check_inbox(&mut self) -> anyhow::Result<Duration> {
         let inbox = self.client.unread()?;
         for item in inbox {
@@ -426,6 +447,8 @@ impl<'a> RedditClient<'a> {
                 self.try_redo_from_message(author, &item)?;
             } else if subject == "media" {
                 self.try_run_media_count(author, &item)?;
+            } else if subject == "removal_reasons" {
+                self.send_removal_reasons(&item)?;
             } else if author == "" {
                 if let Some(subreddit) = subject.strip_prefix("invitation to moderate /r/") {
                     let sub = self.client.subreddit(subreddit);
