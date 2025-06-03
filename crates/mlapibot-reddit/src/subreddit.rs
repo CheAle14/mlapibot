@@ -7,7 +7,7 @@ use mlapibot_datastore::{
     incident_posts::{IncidentPostLite, ResolvedIncidentPost, StickyState},
 };
 use roux::{
-    api::{ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
+    api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
     client::RedditClient,
     models::SubmissionStickySlot,
     util::{FeedOption, RouxError},
@@ -17,8 +17,7 @@ use statuspage::{StatusClient, incident::Incident};
 use mlapibot_common::{Cached, LowercaseString};
 
 use crate::{
-    cached_submission::CachedSubmission,
-    client::StatusComponentCache,
+    cached_submission::CachedSubmission, client::StatusComponentCache,
     config::SubredditStatusConfig,
 };
 
@@ -137,18 +136,70 @@ impl Subreddit {
                 }
             }
 
-            if let Some(replace) = sticky.replace_sticky.as_ref() {
-                self.data
-                    .client
-                    .sticky(replace, false, SubmissionStickySlot::Top)?;
-            }
+            let prior_id = if let Some(replace) = sticky.replace_sticky.as_ref() {
+                let replacing = Self::get_sticky_to_replace(&mut self.data, replace)?;
+
+                if let Some(replacing) = replacing.as_ref() {
+                    println!("replacing {:?}", replacing.name());
+                    // slot does not matter here.
+                    replacing.sticky(false, SubmissionStickySlot::Top)?;
+                } else {
+                    println!("replacing nothing??");
+                };
+
+                replacing
+            } else {
+                None
+            };
 
             submission.sticky(true, SubmissionStickySlot::Bottom)?;
 
-            db.sticky_incident_post(submission.name().full())?;
+            let prior_id = prior_id.as_ref().map(|f| f.name().full());
+            println!("Stickying with prior unsticky: {:?}", prior_id);
+
+            db.sticky_incident_post(submission.name().full(), prior_id)?;
         }
 
         Ok(())
+    }
+
+    fn get_sticky_to_replace(
+        subreddit: &mut RouxSubreddit,
+        replace: &FlairId,
+    ) -> anyhow::Result<Option<Submission>> {
+        println!("Looking for {replace:?}");
+        let Some(top) = subreddit.sticky(SubmissionStickySlot::Top)? else {
+            println!("No top sticky post");
+            return Ok(None);
+        };
+
+        if let Some(id) = top.link_flair_template_id() {
+            if id == replace {
+                return Ok(Some(top));
+            }
+        }
+        println!(
+            "Top template no match, was: {:?}",
+            top.link_flair_template_id()
+        );
+
+        let Some(bottom) = subreddit.sticky(SubmissionStickySlot::Bottom)? else {
+            println!("No bottom sticky post");
+            return Ok(None);
+        };
+
+        if let Some(id) = bottom.link_flair_template_id() {
+            if id == replace {
+                return Ok(Some(bottom));
+            }
+        }
+
+        println!(
+            "Bottom template no match, was: {:?}",
+            bottom.link_flair_template_id()
+        );
+
+        Ok(None)
     }
 
     fn update_incident_post(
@@ -228,52 +279,57 @@ impl Subreddit {
             return Ok(());
         }
 
-        if let Some(replace) = &sticky.replace_sticky {
-            let bot_slot = self.data.sticky(SubmissionStickySlot::Bottom)?;
+        match post.sticky_state {
+            StickyState::Stickied {
+                removed: Some(put_back),
+            } => {
+                let bot_slot = self.data.sticky(SubmissionStickySlot::Bottom)?;
 
-            submission.unsticky()?;
+                submission.unsticky()?;
 
-            let put_back = self
-                .data
-                .client
-                .get_submissions(&[replace])?
-                .into_iter()
-                .next()
-                .unwrap();
+                let put_back = self
+                    .data
+                    .client
+                    .get_submissions(&[&ThingFullname::try_from(put_back).expect("was fullname")])?
+                    .into_iter()
+                    .next()
+                    .unwrap();
 
-            println!("wanting to put back {}", put_back.title());
+                println!("wanting to put back {}", put_back.title());
 
-            match bot_slot {
-                None => {
-                    println!("bottom slot was empty");
-                    // there was only one sticky, which was our post.
-                    // so we can just sticky this back
-                    put_back.sticky(true, roux::models::SubmissionStickySlot::Top)?;
-                }
-                Some(slot) => {
-                    println!("bottom slot was {}", slot.title());
-                    // there *were* two stickies.
-                    let not_our_post = if slot.name() == submission.name() {
-                        // the bottom slot was our post, so the other one is in the top slot.
-                        // unfortunately, that means we'll have to fetch it
-                        self.data
-                            .sticky(SubmissionStickySlot::Top)?
-                            .expect("has other top sticky")
-                    } else {
-                        // the top slot was our post, so this bottom one is the other one
-                        slot
-                    };
+                match bot_slot {
+                    None => {
+                        println!("bottom slot was empty");
+                        // there was only one sticky, which was our post.
+                        // so we can just sticky this back
+                        put_back.sticky(true, roux::models::SubmissionStickySlot::Top)?;
+                    }
+                    Some(slot) => {
+                        println!("bottom slot was {}", slot.title());
+                        // there *were* two stickies.
+                        let not_our_post = if slot.name() == submission.name() {
+                            // the bottom slot was our post, so the other one is in the top slot.
+                            // unfortunately, that means we'll have to fetch it
+                            self.data
+                                .sticky(SubmissionStickySlot::Top)?
+                                .expect("has other top sticky")
+                        } else {
+                            // the top slot was our post, so this bottom one is the other one
+                            slot
+                        };
 
-                    println!("top slot was {}", not_our_post.title());
+                        println!("top slot was {}", not_our_post.title());
 
-                    // Sticky this back onto the top.
-                    put_back.sticky(true, roux::models::SubmissionStickySlot::Top)?;
-                    // That will have unstickied the other post, so re-sticky that to the bottom
-                    not_our_post.sticky(true, SubmissionStickySlot::Bottom)?;
+                        // Sticky this back onto the top.
+                        put_back.sticky(true, roux::models::SubmissionStickySlot::Top)?;
+                        // That will have unstickied the other post, so re-sticky that to the bottom
+                        not_our_post.sticky(true, SubmissionStickySlot::Bottom)?;
+                    }
                 }
             }
-        } else {
-            submission.unsticky()?;
+            other => {
+                eprintln!("unexpected sticky state: {other:?}");
+            }
         }
 
         db.set_incident_post_unstickied(thing.full())?;

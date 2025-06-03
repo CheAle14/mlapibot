@@ -95,7 +95,7 @@ impl RedditClient<'_> {
                 if flair
                     .permitted_user_flairs
                     .iter()
-                    .any(|f| f == author_flair)
+                    .any(|f| f == author_flair.as_str())
                 {
                     continue;
                 }

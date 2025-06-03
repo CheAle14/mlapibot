@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use roux::api::ThingFullname;
+use roux::api::FlairId;
 use serde::Deserialize;
 
 use mlapibot_common::LowercaseString;
@@ -74,7 +74,8 @@ fn default_major_delay() -> u32 {
 #[derive(Debug, Deserialize)]
 pub struct StatusStickyConfig {
     /// A different sticky post that we replace with the status sticky.
-    pub replace_sticky: Option<ThingFullname>,
+    /// New: now identitied by a flair ID, not post fullname.
+    pub replace_sticky: Option<FlairId>,
     #[serde(default = "default_comment_threshold")]
     pub comment_threshold: u64,
     /// How long to wait after the incident resolves to unsticky (and restore the above)

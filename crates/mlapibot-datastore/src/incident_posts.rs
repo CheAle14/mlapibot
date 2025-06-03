@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use rusqlite::{ToSql, types::FromSql};
+use rusqlite::{RowIndex, ToSql, types::FromSql};
 
 #[derive(Debug)]
 pub struct IncidentPostLite {
@@ -14,7 +14,7 @@ impl IncidentPostLite {
         let post_fullname = row.get(0)?;
         let body_hash = row.get(1)?;
         let updated_at: NaiveDateTime = row.get(2)?;
-        let sticky_state: StickyState = row.get(3)?;
+        let sticky_state = StickyState::from_row(row, 3, 4)?;
 
         Ok(Self {
             post_fullname,
@@ -56,7 +56,9 @@ impl ResolvedIncidentPost {
         let post_fullname = row.get(0)?;
         let body_hash = row.get(1)?;
         let updated_at: NaiveDateTime = row.get(2)?;
-        let sticky_state: StickyState = row.get(3)?;
+
+        let sticky_state = StickyState::from_row(row, 3, 5)?;
+
         // since we set it as a DateTime<Utc>, sqlite seems to give it us back
         // in this same format.
         let resolved_at: DateTime<Utc> = row.get(4)?;
@@ -80,18 +82,29 @@ pub enum StickyState {
     /// Incident post was not stickied, per config.
     NeverStickied,
     /// Incident post is believed to still be sticked
-    Stickied,
+    Stickied {
+        // The fullname of the post which was un-stickied to make way for this one.
+        removed: Option<String>,
+    },
     /// Incident post has been unsticked, after delay from resolution.
     Unstickied,
 }
 
-impl FromSql for StickyState {
-    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        match value.as_i64()? {
-            NEVER_STICKIED => Ok(Self::NeverStickied),
-            STICKIED => Ok(Self::Stickied),
-            UNSTICKIED => Ok(Self::Unstickied),
-            v => Err(rusqlite::types::FromSqlError::OutOfRange(v)),
+impl StickyState {
+    fn from_row(
+        row: &rusqlite::Row,
+        self_idx: usize,
+        removed_idx: usize,
+    ) -> rusqlite::Result<Self> {
+        match row.get::<_, i64>(self_idx)? {
+            NEVER_STICKIED => Ok(StickyState::NeverStickied),
+            STICKIED => {
+                let removed = row.get(removed_idx)?;
+
+                Ok(StickyState::Stickied { removed: removed })
+            }
+            UNSTICKIED => Ok(StickyState::Unstickied),
+            v => Err(rusqlite::Error::IntegralValueOutOfRange(self_idx, v)),
         }
     }
 }
@@ -100,7 +113,7 @@ impl ToSql for StickyState {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         let v: i64 = match self {
             StickyState::NeverStickied => NEVER_STICKIED,
-            StickyState::Stickied => STICKIED,
+            StickyState::Stickied { .. } => STICKIED,
             StickyState::Unstickied => UNSTICKIED,
         };
 

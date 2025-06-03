@@ -27,7 +27,7 @@ impl MlapiDb {
         incident_id: &str,
     ) -> rusqlite::Result<Option<IncidentPostLite>> {
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState FROM IncidentPosts WHERE Subreddit=?1 AND IncidentId=?2",
+            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, PriorStickyFullname FROM IncidentPosts WHERE Subreddit=?1 AND IncidentId=?2",
         )?;
 
         stmt.query_row((subreddit, incident_id), IncidentPostLite::from_row)
@@ -63,10 +63,14 @@ impl MlapiDb {
         Ok(ids)
     }
 
-    pub fn sticky_incident_post(&self, post_fullname: &str) -> rusqlite::Result<()> {
+    pub fn sticky_incident_post(
+        &self,
+        post_fullname: &str,
+        prior_sticky: Option<&str>,
+    ) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE IncidentPosts SET StickyState=1 WHERE PostFullname=?1",
-            (post_fullname,),
+            "UPDATE IncidentPosts SET StickyState=1, PriorStickyFullname=?2 WHERE PostFullname=?1",
+            (post_fullname, prior_sticky),
         )?;
 
         Ok(())
@@ -89,7 +93,7 @@ impl MlapiDb {
         &self,
     ) -> rusqlite::Result<Vec<ResolvedIncidentPost>> {
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, ResolvedAt FROM IncidentPosts WHERE ResolvedAt IS NOT NULL AND StickyState==1",
+            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, ResolvedAt, PriorStickyFullname FROM IncidentPosts WHERE ResolvedAt IS NOT NULL AND StickyState==1",
         )?;
 
         let mut v = Vec::new();
@@ -103,7 +107,7 @@ impl MlapiDb {
 
     pub fn set_incident_post_unstickied(&self, post_fullname: &str) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE IncidentPosts SET StickyState=2 WHERE PostFullname=?1",
+            "UPDATE IncidentPosts SET StickyState=2, PriorStickyFullname=NULL WHERE PostFullname=?1",
             (post_fullname,),
         )?;
 

@@ -43,6 +43,7 @@ macro_rules! migrations {
 migrations!(
     1 => migration00::Initial,
     2 => migration01::ResolvedAt,
+    3 => migration02::StickyStoreId,
 );
 
 trait Migration {
