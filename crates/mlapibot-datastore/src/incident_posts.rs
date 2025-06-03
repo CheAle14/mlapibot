@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use rusqlite::{RowIndex, ToSql, types::FromSql};
+use rusqlite::ToSql;
 
 #[derive(Debug)]
 pub struct IncidentPostLite {

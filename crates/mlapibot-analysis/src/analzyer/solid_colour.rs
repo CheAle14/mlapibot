@@ -1,5 +1,5 @@
 use hex_color::HexColor;
-use image::{GenericImage, GenericImageView};
+use image::GenericImageView;
 use mlapibot_common::{DetectedItem, Detection};
 
 fn default_tolerance() -> u8 {
@@ -32,8 +32,8 @@ impl SolidColourAnalyzer {
             .colours
             .iter()
             .map(|colour| {
-                let min_hex = saturating_add(colour, -1);
-                let max_hex = saturating_add(colour, 1);
+                let min_hex = saturating_add(colour, -(self.tolerance as i8));
+                let max_hex = saturating_add(colour, self.tolerance as i8);
 
                 (min_hex, max_hex)
             })
