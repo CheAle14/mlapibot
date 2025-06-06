@@ -33,8 +33,14 @@ impl SubredditsConfig {
     }
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SubredditConfig {
+    #[serde(default = "default_true")]
+    pub scams: bool,
     pub status: Option<SubredditStatusConfig>,
     pub moderate: Option<SubredditModerateConfig>,
     #[serde(default)]
