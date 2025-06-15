@@ -1,0 +1,1 @@
+{{ removal_reason }} {% if imgur_url %} ^[[OCR]]({{ imgur_url }}) {% endif %}
