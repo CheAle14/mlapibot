@@ -995,6 +995,14 @@
                         "event"
                     ],
                     "type": "ordered"
+                },
+                {
+                    "children": [
+                        "cyber",
+                        "attack",
+                        "tomorrow"
+                    ],
+                    "type": "ordered"
                 }
             ],
             "name": "CyberAttack",
