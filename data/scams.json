@@ -299,6 +299,7 @@
                 "use the password that i asked you to copy",
                 "contact the reported user",
                 "you may appeal by contacting the designated discord support staff",
+                "official discord support",
                 {
                     "children": [
                         "illegal",
