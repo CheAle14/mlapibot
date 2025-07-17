@@ -69,9 +69,6 @@ pub fn extract_code_fences(text: &str) -> Vec<CodeFence> {
                 let before = &text[..index];
                 let rest = &text[index..];
 
-                dbg!(before, before.len());
-                dbg!(rest, rest.len());
-
                 let preceeding_spaces = before.len() - before.trim_end_matches(' ').len();
 
                 let mut chars = rest.chars();

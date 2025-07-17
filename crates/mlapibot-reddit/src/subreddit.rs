@@ -14,7 +14,7 @@ use roux::{
 };
 use statuspage::{StatusClient, incident::Incident};
 
-use mlapibot_common::{Cached, LowercaseString};
+use mlapibot_common::{Cached, LazyCached, LowercaseString};
 
 use crate::{
     cached_submission::CachedSubmission, client::StatusComponentCache,
@@ -25,15 +25,13 @@ use super::{RouxClient, Submission, status_tracker::CachedIncidentSubmissions};
 
 pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
 
-type SubCached<T> = Cached<T, RouxSubreddit, RouxError>;
+type SubCached<T> = LazyCached<T, RouxSubreddit, RouxError>;
 
 pub struct Subreddit {
     pub data: RouxSubreddit,
     lower: LowercaseString,
     moderators: SubCached<Vec<ModeratorData>>,
     removal_reasons: SubCached<HashMap<String, RemovalReason>>,
-    // whether we are only using this subreddit to send status info
-    pub status_only: bool,
 }
 
 fn minimal_urldecode(text: &mut String) {
@@ -55,18 +53,12 @@ fn fetch_removal_reasons(ctx: &RouxSubreddit) -> Result<HashMap<String, RemovalR
 }
 
 impl Subreddit {
-    pub fn new(
-        data: RouxSubreddit,
-        name: LowercaseString,
-    ) -> anyhow::Result<Self> {
-        let removal_reasons =
-            Cached::new(Duration::from_secs(60 * 60), &data, fetch_removal_reasons)
-                .context("init cache removal reasons")?;
+    pub fn new(data: RouxSubreddit, name: LowercaseString) -> anyhow::Result<Self> {
+        let removal_reasons = SubCached::new(Duration::from_secs(60 * 60), fetch_removal_reasons);
 
-        let moderators = Cached::new(Duration::from_secs(15 * 60), &data, |ctx| {
+        let moderators = SubCached::new(Duration::from_secs(15 * 60), |ctx| {
             ctx.moderators().map(|d| d.data.children)
-        })
-        .context("init moderators")?;
+        });
 
         Ok(Self {
             data,

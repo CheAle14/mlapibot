@@ -1,6 +1,6 @@
 use roux::{builders::submission::SubmissionSubmitBuilder, client::RedditClient};
 
-use crate::client::module::{Module, SubMask};
+use crate::client::module::{Module, SplitSubMask, SubMask};
 
 pub struct CommentCode;
 
@@ -24,15 +24,15 @@ impl Module for CommentCode {
         &self,
         config: &crate::config::SubredditsConfig,
         subreddits: &[crate::subreddit::Subreddit],
-    ) -> SubMask {
-        let mut sum = SubMask::new();
+    ) -> SplitSubMask {
+        let mut sum = SplitSubMask::new();
         for (idx, sub) in subreddits.iter().enumerate() {
             if config
                 .get(sub.name())
                 .map(|c| c.comments_code)
                 .unwrap_or_default()
             {
-                sum.set(idx);
+                sum.comments.set(idx);
             }
         }
 

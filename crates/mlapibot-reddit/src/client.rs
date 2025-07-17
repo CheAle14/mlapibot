@@ -25,7 +25,9 @@ use mlapibot_webhook::{
 use super::{RedditMessage, RouxClient, Submission};
 
 use crate::{
-    client::module::{InboxAction, Module, ModuleWants, SubMask, post_flairs::PostFlairCache},
+    client::module::{
+        InboxAction, Module, ModuleWants, SplitSubMask, SubMask, post_flairs::PostFlairCache,
+    },
     config::{RedditCredentials, SubredditConfig, SubredditsConfig},
     exts::{DetectionExt, SubmissionExt},
     ratelimiter::Ratelimiter,
@@ -60,8 +62,9 @@ pub struct RedditClient<'a> {
     cached_status_components: StatusComponentCache,
     debug: bool,
 
-    modules: Vec<(SubMask, Box<dyn module::Module>)>,
-    subreddits_mask: SubMask,
+    modules: Vec<(SplitSubMask, Box<dyn module::Module>)>,
+    // the subreddit posts/comments wanted by *any* module.
+    subreddits_mask: SplitSubMask,
 }
 
 pub type StatusComponentCache =
@@ -142,11 +145,7 @@ impl<'a> RedditClient<'a> {
 
         let subreddits: Result<Vec<Subreddit>, _> = subreddit_names
             .into_iter()
-            .map(|name| {
-                let status_only = subreddits.iter().find(|&s| s == &name).is_none();
-
-                Subreddit::new(status_only, client.subreddit(name.as_str()), name)
-            })
+            .map(|name| Subreddit::new(client.subreddit(name.as_str()), name))
             .collect();
 
         let subreddits = subreddits?;
@@ -204,10 +203,10 @@ impl<'a> RedditClient<'a> {
     fn build_modules(
         config: &SubredditsConfig,
         subreddits: &[Subreddit],
-    ) -> (SubMask, Vec<(SubMask, Box<dyn module::Module>)>) {
+    ) -> (SplitSubMask, Vec<(SplitSubMask, Box<dyn module::Module>)>) {
         macro_rules! modules {
             ($($name:ident),* $(,)?) => {{
-                let mut sub_mask = SubMask::new();
+                let mut sub_mask = SplitSubMask::new();
                 let mut modules = Vec::new();
 
                 $(
@@ -334,16 +333,7 @@ impl<'a> RedditClient<'a> {
 
     fn check_subreddits(&mut self) -> anyhow::Result<Duration> {
         for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
-            if subreddit.status_only {
-                continue;
-            }
-
-            if !self.subreddits_mask.is_set(idx) {
-                println!(
-                    "posts not wanted: {:?} vs {idx} for {}",
-                    self.subreddits_mask,
-                    subreddit.name()
-                );
+            if !self.subreddits_mask.posts.is_set(idx) {
                 // no modules want this subreddit's posts.
                 continue;
             }
@@ -387,12 +377,7 @@ impl<'a> RedditClient<'a> {
 
     fn check_sub_comments(&mut self) -> anyhow::Result<Duration> {
         for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
-            if subreddit.status_only {
-                continue;
-            }
-
-            if !self.subreddits_mask.is_set(idx) {
-                println!("comments not wanted: {:?} vs {idx}", self.subreddits_mask);
+            if !self.subreddits_mask.comments.is_set(idx) {
                 continue;
             }
 
@@ -409,7 +394,7 @@ impl<'a> RedditClient<'a> {
                     .set_seen(subreddit.name().as_str(), comment.name().full())?;
 
                 for (modmask, module) in &mut self.modules {
-                    if module.wants().comments() && modmask.is_set(idx) {
+                    if module.wants().comments() && modmask.comments.is_set(idx) {
                         let name = module.name();
                         module.run_comment(&mut view, &comment).with_context(|| {
                             format!("{name}.run_comment({})", comment.name().full())
@@ -608,7 +593,7 @@ impl<'client> ModuleRedditClient<'client> {
 
     fn run_post(
         &mut self,
-        modules: &mut [(SubMask, Box<dyn Module>)],
+        modules: &mut [(SplitSubMask, Box<dyn Module>)],
         subreddit: &mut Subreddit,
         idx: usize,
         post: Submission,
@@ -617,7 +602,7 @@ impl<'client> ModuleRedditClient<'client> {
         let config = self.subreddits_config.get(subreddit.name());
 
         for (submask, module) in modules {
-            if module.wants().posts() && submask.is_set(idx) {
+            if module.wants().posts() && submask.posts.is_set(idx) {
                 let name = module.name();
 
                 module

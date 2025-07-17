@@ -4,7 +4,9 @@ use chrono::{DateTime, Utc};
 use roux::api::ThingFullname;
 use serde::Deserialize;
 
-use crate::{client::module::SubMask, utils::into_timestamp, webhook::create_change_flair_message};
+use crate::{
+    client::module::SplitSubMask, utils::into_timestamp, webhook::create_change_flair_message,
+};
 
 use mlapibot_common::LowercaseString;
 
@@ -70,11 +72,15 @@ impl super::Module for PostFlairs {
         &self,
         config: &crate::config::SubredditsConfig,
         subreddits: &[crate::subreddit::Subreddit],
-    ) -> SubMask {
-        let mut sum = SubMask::new();
+    ) -> SplitSubMask {
+        let mut sum = SplitSubMask::new();
         for (idx, sub) in subreddits.iter().enumerate() {
-            if config.get(sub.name()).map(|c| &c.flairs).is_some() {
-                sum.set(idx);
+            if config
+                .get(sub.name())
+                .map(|c| c.flairs.len() > 0)
+                .unwrap_or_default()
+            {
+                sum.posts.set(idx);
             }
         }
         sum
@@ -157,5 +163,24 @@ impl super::Module for PostFlairs {
         }
 
         Ok(())
+    }
+
+    fn run_comment<'client>(
+        &mut self,
+        client: &mut crate::client::ModuleRedditClient<'client>,
+        comment: &roux::models::LatestComment<roux::client::AuthedClient>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn run_inbox<'client>(
+        &mut self,
+        client: &mut crate::client::ModuleRedditClient<'client>,
+        subreddits: &mut [crate::subreddit::Subreddit],
+        inbox: &crate::RedditMessage,
+        author: &str,
+        subject: &str,
+    ) -> anyhow::Result<Option<super::InboxAction>> {
+        Ok(None)
     }
 }

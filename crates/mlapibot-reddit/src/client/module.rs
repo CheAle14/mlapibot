@@ -25,8 +25,8 @@ pub trait Module {
     fn name(&self) -> &'static str;
     fn wants(&self) -> ModuleWants;
 
-    fn mask_subreddits(&self, config: &SubredditsConfig, subreddits: &[Subreddit]) -> SubMask {
-        SubMask::all(subreddits.len())
+    fn mask_subreddits(&self, config: &SubredditsConfig, subreddits: &[Subreddit]) -> SplitSubMask {
+        SplitSubMask::new()
     }
 
     fn run_post<'client>(
@@ -125,6 +125,35 @@ impl SubMask {
 impl std::ops::BitOrAssign for SubMask {
     fn bitor_assign(&mut self, rhs: Self) {
         self.0 |= rhs.0;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SplitSubMask {
+    pub posts: SubMask,
+    pub comments: SubMask,
+}
+
+impl SplitSubMask {
+    fn all(len: usize) -> Self {
+        Self {
+            posts: SubMask::all(len),
+            comments: SubMask::all(len),
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            posts: SubMask::new(),
+            comments: SubMask::new(),
+        }
+    }
+}
+
+impl std::ops::BitOrAssign for SplitSubMask {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.posts |= rhs.posts;
+        self.comments |= rhs.comments;
     }
 }
 

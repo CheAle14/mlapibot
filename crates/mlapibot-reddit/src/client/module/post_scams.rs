@@ -4,7 +4,7 @@ use roux::models::Distinguish;
 
 use crate::{
     RedditClient,
-    client::module::SubMask,
+    client::module::{SplitSubMask, SubMask},
     exts::SubmissionExt,
     webhook::{create_detection_message, create_error_processing_post},
 };
@@ -31,8 +31,8 @@ impl super::Module for PostScams {
         &self,
         config: &crate::config::SubredditsConfig,
         subreddits: &[crate::subreddit::Subreddit],
-    ) -> SubMask {
-        let mut mask = SubMask::new();
+    ) -> SplitSubMask {
+        let mut mask = SplitSubMask::new();
 
         for (idx, subreddit) in subreddits.iter().enumerate() {
             if config
@@ -40,8 +40,7 @@ impl super::Module for PostScams {
                 .map(|c| c.scams)
                 .unwrap_or(true)
             {
-                mask.set(idx);
-            } else {
+                mask.posts.set(idx);
             }
         }
 
@@ -218,5 +217,24 @@ impl super::Module for PostScams {
         }
 
         Ok(())
+    }
+
+    fn run_comment<'client>(
+        &mut self,
+        client: &mut crate::client::ModuleRedditClient<'client>,
+        comment: &roux::models::LatestComment<roux::client::AuthedClient>,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn run_inbox<'client>(
+        &mut self,
+        client: &mut crate::client::ModuleRedditClient<'client>,
+        subreddits: &mut [crate::subreddit::Subreddit],
+        inbox: &crate::RedditMessage,
+        author: &str,
+        subject: &str,
+    ) -> anyhow::Result<Option<super::InboxAction>> {
+        Ok(None)
     }
 }
