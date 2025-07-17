@@ -16,9 +16,6 @@ pub struct RedditArgs {
     /// A read/write storage directory
     #[arg(long, short('d'))]
     scratch_dir: PathBuf,
-    /// The subreddits whose posts are monitored
-    #[arg(short, long)]
-    subreddits: Vec<LowercaseString>,
     #[arg(long, default_value = "false")]
     dry_run: bool,
     /// Whether we are running in production or not
@@ -57,7 +54,6 @@ impl RedditArgs {
         let Self {
             data_dir,
             scratch_dir,
-            subreddits,
             dry_run,
             status_webhook,
             admin,
@@ -73,7 +69,6 @@ impl RedditArgs {
                 &analyzers,
                 data_dir,
                 scratch_dir.join("database.db"),
-                subreddits,
                 dry_run,
                 status_webhook,
                 admin,

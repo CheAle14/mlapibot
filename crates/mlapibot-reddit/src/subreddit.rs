@@ -56,7 +56,6 @@ fn fetch_removal_reasons(ctx: &RouxSubreddit) -> Result<HashMap<String, RemovalR
 
 impl Subreddit {
     pub fn new(
-        status_only: bool,
         data: RouxSubreddit,
         name: LowercaseString,
     ) -> anyhow::Result<Self> {
@@ -72,7 +71,6 @@ impl Subreddit {
         Ok(Self {
             data,
             lower: name,
-            status_only,
             removal_reasons,
             moderators: moderators,
         })

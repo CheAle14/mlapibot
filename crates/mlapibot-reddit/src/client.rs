@@ -97,7 +97,6 @@ impl<'a> RedditClient<'a> {
         analzyers: &'a [Analyzer],
         data_dir: PathBuf,
         database_path: PathBuf,
-        subreddits: Vec<LowercaseString>,
         dry_run: bool,
         status_webhook: Option<String>,
         admin: Option<String>,
@@ -137,9 +136,6 @@ impl<'a> RedditClient<'a> {
         let status = StatusClient::new("https://discordstatus.com")?;
 
         let mut subreddit_names = HashSet::new();
-        for sub in &subreddits {
-            subreddit_names.insert(sub.clone());
-        }
         for key in subreddits_config.keys() {
             subreddit_names.insert(key.clone());
         }
