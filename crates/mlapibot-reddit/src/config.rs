@@ -6,7 +6,7 @@ use serde::Deserialize;
 use mlapibot_common::LowercaseString;
 use statuspage::incident::IncidentImpact;
 
-use super::flairs::SubredditFlairConfig;
+use crate::client::module::post_flairs::SubredditFlairConfig;
 
 #[derive(Debug, Deserialize)]
 pub struct SubredditsConfig(HashMap<LowercaseString, SubredditConfig>);
@@ -45,6 +45,9 @@ pub struct SubredditConfig {
     pub moderate: Option<SubredditModerateConfig>,
     #[serde(default)]
     pub flairs: SubredditFlairConfig,
+
+    #[serde(default)]
+    pub comments_code: bool,
 }
 
 #[derive(Debug, Deserialize)]

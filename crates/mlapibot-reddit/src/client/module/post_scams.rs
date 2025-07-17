@@ -1,38 +1,88 @@
-use anyhow::Context as AnyhowContext;
-use mlapibot_datastore::MlapiDb;
+use anyhow::Context;
+use mlapibot_webhook::create_generic_error_message;
 use roux::models::Distinguish;
-use tera::Tera;
-
-use mlapibot_analysis::{Context, analzyer::Analyzer};
-use mlapibot_imgur::ImgurClient;
-use mlapibot_webhook::{WebhookClient, create_generic_error_message};
-
-use super::Submission;
 
 use crate::{
-    config::SubredditModerateConfig,
-    subreddit::Subreddit,
+    RedditClient,
+    client::module::SubMask,
+    exts::SubmissionExt,
     webhook::{create_detection_message, create_error_processing_post},
 };
 
-impl<'a> super::RedditClient<'a> {
-    pub(super) fn run_post_scam_checks(
-        db: &MlapiDb,
-        webhook: &mut Option<WebhookClient>,
-        analzyers: &[Analyzer],
-        imgur: &mut Option<ImgurClient>,
-        modconf: Option<&SubredditModerateConfig>,
-        templates: &Tera,
-        dry_run: bool,
-        subreddit: &mut Subreddit,
-        post: &Submission,
-        ctx: &Context,
+pub struct PostScams;
+
+impl super::Module for PostScams {
+    fn new() -> Self
+    where
+        Self: Sized,
+    {
+        Self
+    }
+
+    fn name(&self) -> &'static str {
+        "post_scams"
+    }
+
+    fn wants(&self) -> super::ModuleWants {
+        super::ModuleWants::POSTS
+    }
+
+    fn mask_subreddits(
+        &self,
+        config: &crate::config::SubredditsConfig,
+        subreddits: &[crate::subreddit::Subreddit],
+    ) -> SubMask {
+        let mut mask = SubMask::new();
+
+        for (idx, subreddit) in subreddits.iter().enumerate() {
+            if config
+                .get(subreddit.name())
+                .map(|c| c.scams)
+                .unwrap_or(true)
+            {
+                mask.set(idx);
+            } else {
+            }
+        }
+
+        mask
+    }
+
+    fn run_post<'client>(
+        &mut self,
+        client: &mut crate::client::ModuleRedditClient<'client>,
+        subreddit: &mut crate::client::Subreddit,
+        config: Option<&crate::config::SubredditConfig>,
+        post: &crate::Submission,
+        has_seen: bool,
     ) -> anyhow::Result<()> {
-        let result = match mlapibot_analysis::get_best_analysis(&ctx, analzyers) {
+        if has_seen {
+            return Ok(());
+        }
+
+        let modconf = config.map(|c| c.moderate.as_ref()).flatten();
+
+        let mut warnings = Vec::new();
+        let ctx = mlapibot_analysis::Context::new_submission(
+            post.get_misc_links().into_iter(),
+            post.title(),
+            post.selftext(),
+            &mut warnings,
+        )?;
+
+        if warnings.len() > 0 {
+            RedditClient::_send_warnings(
+                client.webhook.as_mut(),
+                warnings,
+                format!("Warnings with post {:?}, {:?}", post.id(), post.permalink()),
+            )?;
+        }
+
+        let result = match mlapibot_analysis::get_best_analysis(&ctx, client.analzyers) {
             Ok(result) => result,
             Err(err) => {
                 eprintln!("Error whilst analyising {}: {err:?}", post.id());
-                if let Some(webhook) = webhook {
+                if let Some(webhook) = client.webhook {
                     let msg = create_error_processing_post(&post);
                     webhook.send(&msg)?;
                 }
@@ -79,7 +129,7 @@ impl<'a> super::RedditClient<'a> {
             let imgur_link = match (
                 detected.template.name().is_some(), // no point uploading images if we aren't replying
                 ctx.images.len() > 0,
-                imgur.as_mut(),
+                client.imgur.as_mut(),
             ) {
                 (true, true, Some(imgur)) => {
                     match mlapibot_imgur::upload_images(imgur, ctx.images.iter(), |idx| {
@@ -99,7 +149,7 @@ impl<'a> super::RedditClient<'a> {
                                 "Uploading to imgur",
                                 format!("{e:?}"),
                             );
-                            if let Some(webhook) = webhook {
+                            if let Some(webhook) = client.webhook {
                                 let _ = webhook.send(&msg);
                             }
                             None
@@ -109,11 +159,13 @@ impl<'a> super::RedditClient<'a> {
                 (_, _, _) => None,
             };
 
-            let (reply, removed, reported) = if !dry_run {
+            let (reply, removed, reported) = if !client.dry_run {
                 let own_comment = match detected.template.name() {
                     Some(text) => {
-                        let template =
-                            templates.render(text, &template_context).with_context(|| {
+                        let template = client
+                            .templates
+                            .render(text, &template_context)
+                            .with_context(|| {
                                 format!("rendering to template {:?}", detected.template)
                             })?;
 
@@ -140,7 +192,7 @@ impl<'a> super::RedditClient<'a> {
                     .with_context(|| format!("report {:?}", post.name()))?;
                 }
 
-                if let Some(webhook) = webhook {
+                if let Some(webhook) = &mut client.webhook {
                     let msg = create_detection_message(&post, &detection, detected, imgur_link);
                     webhook.send(&msg).context("send detection webhook")?;
                 }
@@ -154,7 +206,7 @@ impl<'a> super::RedditClient<'a> {
                 (None, false, false)
             };
 
-            db.set_analyzed(
+            client.db.set_analyzed(
                 post.name().full(),
                 &detected.name,
                 reply.as_ref().map(|s| s.as_str()),
@@ -162,7 +214,7 @@ impl<'a> super::RedditClient<'a> {
                 removed,
             )?;
         } else {
-            db.set_ignored(post.name().full())?;
+            client.db.set_ignored(post.name().full())?;
         }
 
         Ok(())

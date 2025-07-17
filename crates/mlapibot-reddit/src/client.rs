@@ -25,20 +25,19 @@ use mlapibot_webhook::{
 use super::{RedditMessage, RouxClient, Submission};
 
 use crate::{
-    config::{RedditCredentials, SubredditConfig, SubredditModerateConfig, SubredditsConfig},
+    client::module::{InboxAction, Module, ModuleWants, SubMask, post_flairs::PostFlairCache},
+    config::{RedditCredentials, SubredditConfig, SubredditsConfig},
     exts::{DetectionExt, SubmissionExt},
-    flairs::{PostFlairCache, SubredditFlairConfig},
     ratelimiter::Ratelimiter,
     status_tracker::{CachedIncidentSubmissions, WebhookEvent},
     subreddit::Subreddit,
     webhook::{
-        create_deleted_downvoted_comment, create_detection_message,
-        create_error_processing_message, create_error_processing_post, create_inbox_message,
+        create_deleted_downvoted_comment, create_error_processing_message, create_inbox_message,
         create_moderator_downvoted_comment,
     },
 };
 
-mod post_scams;
+pub mod module;
 
 pub struct RedditClient<'a> {
     // data_dir: PathBuf,
@@ -60,10 +59,36 @@ pub struct RedditClient<'a> {
     flair_cache: PostFlairCache,
     cached_status_components: StatusComponentCache,
     debug: bool,
+
+    modules: Vec<(SubMask, Box<dyn module::Module>)>,
+    subreddits_mask: SubMask,
 }
 
 pub type StatusComponentCache =
     Cached<HashMap<String, Component>, StatusClient, statuspage::error::Error>;
+
+macro_rules! make_view {
+    ($self:ident) => {
+        ModuleRedditClient {
+            db: &$self.db,
+            analzyers: &$self.analzyers,
+            own_name: &$self.own_name,
+            client: &$self.client,
+            templates: &$self.templates,
+            webhook: &mut $self.webhook,
+            imgur: &mut $self.imgur,
+            status: &$self.status,
+            last_status: &$self.last_status,
+            subreddits_config: &$self.subreddits_config,
+            dry_run: $self.dry_run,
+            status_webhook: &$self.status_webhook,
+            admin: &$self.admin,
+            flair_cache: &mut $self.flair_cache,
+            cached_status_components: &$self.cached_status_components,
+            debug: $self.debug,
+        }
+    };
+}
 
 impl<'a> RedditClient<'a> {
     const USER_AGENT: &'static str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
@@ -153,6 +178,8 @@ impl<'a> RedditClient<'a> {
             println!("Running in dry-run mode.");
         }
 
+        let (subreddits_mask, modules) = Self::build_modules(&subreddits_config, &subreddits);
+
         Ok(Self {
             db,
             own_name: credentials.username,
@@ -172,11 +199,39 @@ impl<'a> RedditClient<'a> {
             last_status: StatusIndicator::None,
             cached_status_components,
             debug,
+
+            modules,
+            subreddits_mask,
         })
     }
 
+    fn build_modules(
+        config: &SubredditsConfig,
+        subreddits: &[Subreddit],
+    ) -> (SubMask, Vec<(SubMask, Box<dyn module::Module>)>) {
+        macro_rules! modules {
+            ($($name:ident),* $(,)?) => {{
+                let mut sub_mask = SubMask::new();
+                let mut modules = Vec::new();
+
+                $(
+                    let mdl = <module::$name as module::Module>::new();
+                    let mask = module::Module::mask_subreddits(&mdl, config, subreddits);
+
+                    sub_mask |= mask;
+
+                    modules.push((mask, Box::new(mdl) as Box<dyn module::Module>));
+                )*
+
+                (sub_mask, modules)
+            }};
+        }
+
+        modules!(PostScams, PostFlairs, CommentCode, InboxCommands)
+    }
+
     fn _send_warnings(
-        webhook: &mut Option<WebhookClient>,
+        webhook: Option<&mut WebhookClient>,
         warnings: Vec<ContextWarning>,
         context: impl Into<String>,
     ) -> anyhow::Result<()> {
@@ -195,209 +250,7 @@ impl<'a> RedditClient<'a> {
         warnings: Vec<ContextWarning>,
         context: impl Into<String>,
     ) -> anyhow::Result<()> {
-        Self::_send_warnings(&mut self.webhook, warnings, context)
-    }
-
-    fn run_inbox_test(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
-        let mut warnings = Vec::new();
-        let ctx = mlapibot_analysis::Context::new_body(message.body(), &mut warnings)?;
-
-        self.send_warnings(warnings, "Warnings in inbox test")?;
-
-        match mlapibot_analysis::get_best_analysis(&ctx, &self.analzyers) {
-            Ok(Some((detection, detected))) => {
-                let text = detection.get_markdown(&ctx)?;
-                let text = text.join("\n\n\n> ");
-                let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
-                message.reply(&s)?;
-            }
-            Ok(None) => {
-                let mut text = String::from("No scams were detected, text was:\r\n\r\n");
-                for img in &ctx.images {
-                    text.push_str("> ");
-                    text.push_str(&img.full_text());
-                    text.push_str("\n\n\n");
-                }
-                message.reply(&text)?;
-            }
-            Err(err) => {
-                eprintln!(
-                    "Error whilst analyising message {:?}: {err:?}",
-                    message.subject()
-                );
-                if let Some(webhook) = &mut self.webhook {
-                    let msg = create_error_processing_message(&message);
-                    webhook.send(&msg)?;
-                }
-                message.reply(
-                    "An internal error occured whilst attempting to process your request. Sorry!",
-                )?;
-            }
-        };
-        Ok(())
-    }
-
-    fn try_run_media_count(&mut self, author: &str, message: &RedditMessage) -> anyhow::Result<()> {
-        use std::fmt::Write;
-
-        let sub = self.client.subreddit(message.body());
-
-        let our_sub = self.subreddits.iter_mut().find(|s| s.name() == &sub.name);
-        match our_sub {
-            Some(sub) => {
-                if !sub.is_moderator(author)? {
-                    message.reply("You are not a moderator of that subreddit!")?;
-                    return Ok(());
-                }
-            }
-            None => {
-                message.reply("I am not monitoring that subreddit!")?;
-                return Ok(());
-            }
-        }
-
-        let mut removed_ids: HashSet<ThingFullname> = HashSet::new();
-        let mut approved_ids: HashSet<ThingFullname> = HashSet::new();
-
-        let mut removed_media = 0;
-        let mut approved_media = 0;
-        let mut unknown_media = 0;
-
-        let utc_end = 1740096000.0;
-        let mut after = None;
-
-        let mut output = String::with_capacity(128);
-
-        'outer: loop {
-            let page = sub.list_mod_log(after.clone(), Some(500), None, None)?;
-
-            for (idx, action) in page.into_iter().enumerate() {
-                let Some(fullname) = action.target_fullname else {
-                    continue;
-                };
-
-                if action.moderator != "AutoModerator" {
-                    match action.action {
-                        ModActionType::RemoveComment => {
-                            removed_ids.insert(fullname);
-                        }
-                        ModActionType::ApproveComment => {
-                            approved_ids.insert(fullname);
-                        }
-                        _ => (),
-                    };
-                } else if action.details == "Media in comments" {
-                    if removed_ids.contains(&fullname) {
-                        removed_media += 1;
-                    } else if approved_ids.contains(&fullname) {
-                        approved_media += 1;
-                    } else {
-                        unknown_media += 1;
-                        let _ = writeln!(output, "unknown: {:?}  ", action.target_permalink);
-                    }
-                }
-
-                if idx == 499 {
-                    after = Some(action.id);
-                }
-
-                if action.created_utc < utc_end {
-                    break 'outer;
-                }
-            }
-        }
-
-        let total = removed_media + approved_media + unknown_media;
-        let _ = writeln!(
-            output,
-            "\nFound {total} media in comments.\nRemoved: {removed_media}\nApproved: {approved_media}\nUnknown: {unknown_media}"
-        );
-
-        message.reply(&output)?;
-
-        Ok(())
-    }
-
-    fn try_redo_from_message(
-        &mut self,
-        author: &str,
-        message: &RedditMessage,
-    ) -> anyhow::Result<()> {
-        let submission = match self.client.get_submission_by_link(message.body()) {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!(
-                    "Failed to parse or fetch post to redo: {:?} {e:?}",
-                    message.body()
-                );
-                message.reply("Failed to parse or fetch which submission you meant.")?;
-                return Ok(());
-            }
-        };
-
-        let mut is_mod = false;
-        let mods = self
-            .client
-            .subreddit(submission.subreddit().as_str())
-            .moderators()?;
-        for moderator in mods.data.children {
-            if author == moderator.name {
-                is_mod = true;
-                break;
-            }
-        }
-
-        if !is_mod {
-            eprintln!(
-                "  {author} attempted unauthorized redo of {}",
-                submission.permalink()
-            );
-            return Ok(());
-        }
-
-        let name = LowercaseString::new(submission.subreddit());
-        let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.name() == &name) else {
-            message.reply("That subreddit is not monitored")?;
-            return Ok(());
-        };
-
-        let config = self.subreddits_config.get(&name);
-
-        Self::check_post(
-            &self.db,
-            &mut self.webhook,
-            &self.analzyers,
-            &mut self.imgur,
-            config,
-            &mut self.flair_cache,
-            &self.templates,
-            false,
-            self.dry_run,
-            subreddit,
-            submission,
-        )?;
-        Ok(())
-    }
-
-    fn send_removal_reasons(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
-        use std::fmt::Write;
-
-        let subreddit = message.body().trim().trim_start_matches("/r/");
-        let mut sending = format!("Removal reasons for /r/{subreddit}:  \n\n");
-        let subreddit = self.client.subreddit(subreddit);
-
-        let reasons = subreddit.list_removal_reasons()?;
-
-        for id in reasons.order {
-            let _ = match reasons.data.get(&id) {
-                Some(reason) => writeln!(sending, "- {}: {}  ", reason.id, reason.title),
-                None => writeln!(sending, "- {id}: <not found>  "),
-            };
-        }
-
-        message.reply(&sending)?;
-
-        Ok(())
+        Self::_send_warnings(self.webhook.as_mut(), warnings, context)
     }
 
     fn check_inbox(&mut self) -> anyhow::Result<Duration> {
@@ -440,19 +293,41 @@ impl<'a> RedditClient<'a> {
                 }
             }
 
-            if subject == "test" {
-                self.run_inbox_test(&item)?;
-            } else if subject == "redo" {
-                self.try_redo_from_message(author, &item)?;
-            } else if subject == "media" {
-                self.try_run_media_count(author, &item)?;
-            } else if subject == "removal_reasons" {
-                self.send_removal_reasons(&item)?;
-            } else if author == "" {
-                if let Some(subreddit) = subject.strip_prefix("invitation to moderate /r/") {
-                    let sub = self.client.subreddit(subreddit);
-                    if let Err(e) = sub.accept_moderator_invite() {
-                        println!("Unable to accept mod: {e:?}");
+            let mut view = make_view!(self);
+
+            let mut actions = Vec::new();
+
+            for (_submask, module) in &mut self.modules {
+                if !module.wants().inbox() {
+                    continue;
+                }
+
+                let name = module.name();
+
+                let action = module
+                    .run_inbox(&mut view, &mut self.subreddits, &item, author, subject)
+                    .with_context(|| format!("{name}.run_inbox"))?;
+
+                match action {
+                    Some(action) => actions.push(action),
+                    _ => (),
+                }
+            }
+
+            for action in actions {
+                match action {
+                    InboxAction::Redo(post) => {
+                        let Some(idx) = self
+                            .subreddits
+                            .iter_mut()
+                            .position(|s| s.name() == post.subreddit())
+                        else {
+                            continue;
+                        };
+
+                        let subreddit = &mut self.subreddits[idx];
+
+                        view.run_post(&mut self.modules, subreddit, idx, post, false)?;
                     }
                 }
             }
@@ -461,66 +336,22 @@ impl<'a> RedditClient<'a> {
         Ok(Duration::from_secs(15))
     }
 
-    fn check_post(
-        db: &MlapiDb,
-        webhook: &mut Option<WebhookClient>,
-        analzyers: &[Analyzer],
-        imgur: &mut Option<ImgurClient>,
-        config: Option<&SubredditConfig>,
-        flair_cache: &mut PostFlairCache,
-        templates: &Tera,
-        has_seen: bool,
-        dry_run: bool,
-        subreddit: &mut Subreddit,
-        post: Submission,
-    ) -> anyhow::Result<()> {
-        if let Some(flairs) = config.map(|c| &c.flairs) {
-            Self::check_post_flairs(dry_run, subreddit, &post, webhook, flairs, flair_cache)?;
-        }
-
-        if has_seen {
-            return Ok(());
-        }
-
-        let mut warnings = Vec::new();
-        let ctx = mlapibot_analysis::Context::new_submission(
-            post.get_misc_links().into_iter(),
-            post.title(),
-            post.selftext(),
-            &mut warnings,
-        )?;
-
-        if warnings.len() > 0 {
-            Self::_send_warnings(
-                webhook,
-                warnings,
-                format!("Warnings with post {:?}, {:?}", post.id(), post.permalink()),
-            )?;
-        }
-
-        if config.map(|c| c.scams).unwrap_or(true) {
-            Self::run_post_scam_checks(
-                db,
-                webhook,
-                analzyers,
-                imgur,
-                config.map(|c| c.moderate.as_ref()).flatten(),
-                templates,
-                dry_run,
-                subreddit,
-                &post,
-                &ctx,
-            )?;
-        }
-
-        Ok(())
-    }
-
     fn check_subreddits(&mut self) -> anyhow::Result<Duration> {
-        for subreddit in self.subreddits.iter_mut() {
+        for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
             if subreddit.status_only {
                 continue;
             }
+
+            if !self.subreddits_mask.is_set(idx) {
+                println!(
+                    "posts not wanted: {:?} vs {idx} for {}",
+                    self.subreddits_mask,
+                    subreddit.name()
+                );
+                // no modules want this subreddit's posts.
+                continue;
+            }
+
             for post in subreddit.newest_unseen().context("get newest unseen")? {
                 if post.author() == &self.own_name {
                     continue;
@@ -551,23 +382,47 @@ impl<'a> RedditClient<'a> {
                     );
                 }
 
-                let config = self.subreddits_config.get(subreddit.name());
-
-                Self::check_post(
-                    &self.db,
-                    &mut self.webhook,
-                    &self.analzyers,
-                    &mut self.imgur,
-                    config,
-                    &mut self.flair_cache,
-                    &self.templates,
-                    has_seen,
-                    self.dry_run,
-                    subreddit,
-                    post,
-                )?;
+                let mut view = make_view!(self);
+                view.run_post(&mut self.modules, subreddit, idx, post, has_seen)?;
             }
         }
+        Ok(Duration::from_secs(15))
+    }
+
+    fn check_sub_comments(&mut self) -> anyhow::Result<Duration> {
+        for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
+            if subreddit.status_only {
+                continue;
+            }
+
+            if !self.subreddits_mask.is_set(idx) {
+                println!("comments not wanted: {:?} vs {idx}", self.subreddits_mask);
+                continue;
+            }
+
+            let comments = subreddit.data.latest_comments(None, None)?;
+
+            let mut view = make_view!(self);
+
+            for comment in comments {
+                if self.db.has_seen(comment.name().full())? {
+                    continue;
+                }
+
+                self.db
+                    .set_seen(subreddit.name().as_str(), comment.name().full())?;
+
+                for (modmask, module) in &mut self.modules {
+                    if module.wants().comments() && modmask.is_set(idx) {
+                        let name = module.name();
+                        module.run_comment(&mut view, &comment).with_context(|| {
+                            format!("{name}.run_comment({})", comment.name().full())
+                        })?;
+                    }
+                }
+            }
+        }
+
         Ok(Duration::from_secs(15))
     }
 
@@ -675,11 +530,32 @@ impl<'a> RedditClient<'a> {
             crate::status_tracker::start_webhook_listener_thread(tx, &addr);
         }
 
+        let wants = self
+            .modules
+            .iter()
+            .map(|(_mask, m)| m.wants())
+            .reduce(|acc, e| acc | e)
+            .unwrap_or_default();
+
         let mut ratelimiter = Ratelimiter::new();
-        ratelimiter.push("check_inbox", Self::check_inbox);
-        ratelimiter.push("check_subreddits", Self::check_subreddits);
-        ratelimiter.push("check_status", Self::check_status);
+
+        if wants.inbox() {
+            println!("enabling inbox.");
+            ratelimiter.push("check_inbox", Self::check_inbox);
+        }
+
+        if wants.posts() {
+            println!("enabling subreddits.");
+            ratelimiter.push("check_subreddits", Self::check_subreddits);
+        }
+
+        if wants.comments() {
+            println!("enabling comments.");
+            ratelimiter.push("check_sub_comments", Self::check_sub_comments);
+        }
+
         ratelimiter.push("check_own_comments", Self::check_own_comments);
+        ratelimiter.push("check_status", Self::check_status);
 
         loop {
             while let Ok(event) = rx.try_recv() {
@@ -701,6 +577,59 @@ impl<'a> RedditClient<'a> {
         if let Some(webhook) = &mut self.webhook {
             webhook.send(message)?;
         }
+        Ok(())
+    }
+}
+
+pub struct ModuleRedditClient<'client> {
+    db: &'client MlapiDb,
+    analzyers: &'client [Analyzer],
+    own_name: &'client String,
+    client: &'client RouxClient,
+    templates: &'client Tera,
+    webhook: &'client mut Option<WebhookClient>,
+    imgur: &'client mut Option<ImgurClient>,
+    status: &'client StatusClient,
+    last_status: &'client StatusIndicator,
+    subreddits_config: &'client SubredditsConfig,
+    dry_run: bool,
+    status_webhook: &'client Option<String>,
+    #[allow(unused)]
+    admin: &'client Option<String>,
+    flair_cache: &'client mut PostFlairCache,
+    cached_status_components: &'client StatusComponentCache,
+    debug: bool,
+}
+
+impl<'client> ModuleRedditClient<'client> {
+    pub fn send_warnings(
+        &mut self,
+        warnings: Vec<ContextWarning>,
+        context: impl Into<String>,
+    ) -> anyhow::Result<()> {
+        RedditClient::_send_warnings(self.webhook.as_mut(), warnings, context)
+    }
+
+    fn run_post(
+        &mut self,
+        modules: &mut [(SubMask, Box<dyn Module>)],
+        subreddit: &mut Subreddit,
+        idx: usize,
+        post: Submission,
+        has_seen: bool,
+    ) -> anyhow::Result<()> {
+        let config = self.subreddits_config.get(subreddit.name());
+
+        for (submask, module) in modules {
+            if module.wants().posts() && submask.is_set(idx) {
+                let name = module.name();
+
+                module
+                    .run_post(self, subreddit, config, &post, has_seen)
+                    .with_context(|| format!("{name}.run_post({})", post.name().full()))?;
+            }
+        }
+
         Ok(())
     }
 }
