@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 #[derive(Debug, PartialEq)]
 struct WordDef {
     pub start: u32,
@@ -74,6 +76,53 @@ impl Words {
     pub fn as_words(&self) -> Vec<&str> {
         self.iter_words().collect()
     }
+
+    pub fn as_hash_set(&self) -> HashSet<&str> {
+        self.iter_words().collect()
+    }
+
+    pub fn remove_stop_words(&mut self) {
+        self.retain(|word| !STOP_WORDS.contains(&word));
+    }
+
+    pub fn retain<F>(&mut self, mut func: F)
+    where
+        F: FnMut(&str) -> bool,
+    {
+        let mut offset = 0;
+        self.words.retain_mut(|w| {
+            w.start = w.start.saturating_sub(offset);
+
+            let s = w.start as usize;
+            let l = w.len as usize;
+
+            let word = &self.phrase[s..s + l];
+
+            let retn = func(word);
+
+            if retn {
+                true
+            } else {
+                let rem_left = s > 0;
+                let rem_right = !rem_left && (s + l + 1) < self.phrase.len();
+
+                let range = if rem_left {
+                    offset += 1;
+                    (s - 1)..(s + l)
+                } else if rem_right {
+                    offset += 1;
+                    s..(s + l + 1)
+                } else {
+                    s..l
+                };
+
+                offset += word.len() as u32;
+                self.phrase.replace_range(range, "");
+
+                false
+            }
+        });
+    }
 }
 
 fn allowed_char(c: char) -> bool {
@@ -84,6 +133,137 @@ fn allowed_char(c: char) -> bool {
         _ => false,
     }
 }
+
+static STOP_WORDS: &[&str] = &[
+    "i",
+    "im",
+    "me",
+    "my",
+    "myself",
+    "we",
+    "our",
+    "ours",
+    "ourselves",
+    "you",
+    "your",
+    "yours",
+    "yourself",
+    "yourselves",
+    "he",
+    "him",
+    "his",
+    "himself",
+    "she",
+    "her",
+    "hers",
+    "herself",
+    "it",
+    "its",
+    "itself",
+    "they",
+    "them",
+    "their",
+    "theirs",
+    "themselves",
+    "what",
+    "which",
+    "who",
+    "whom",
+    "this",
+    "that",
+    "these",
+    "those",
+    "am",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "have",
+    "has",
+    "had",
+    "having",
+    "do",
+    "does",
+    "did",
+    "doing",
+    "a",
+    "an",
+    "the",
+    "and",
+    "but",
+    "if",
+    "or",
+    "because",
+    "as",
+    "until",
+    "while",
+    "of",
+    "at",
+    "by",
+    "for",
+    "with",
+    "about",
+    "against",
+    "between",
+    "into",
+    "through",
+    "during",
+    "before",
+    "after",
+    "above",
+    "below",
+    "to",
+    "from",
+    "up",
+    "down",
+    "in",
+    "out",
+    "on",
+    "off",
+    "over",
+    "under",
+    "again",
+    "further",
+    "then",
+    "once",
+    "here",
+    "there",
+    "when",
+    "where",
+    "why",
+    "how",
+    "all",
+    "any",
+    "both",
+    "each",
+    "few",
+    "more",
+    "most",
+    "other",
+    "some",
+    "such",
+    "no",
+    "nor",
+    "not",
+    "only",
+    "own",
+    "same",
+    "so",
+    "than",
+    "too",
+    "very",
+    "s",
+    "t",
+    "can",
+    "will",
+    "just",
+    "don",
+    "should",
+    "now",
+];
 
 #[cfg(test)]
 mod tests {
@@ -104,5 +284,58 @@ mod tests {
             matcher.as_words(),
             vec!["some", "10mb", "goes", "10", "mb", "here"]
         );
+    }
+
+    #[test]
+    pub fn test_words_replace() {
+        static WORDS: [&str; 9] = [
+            "the", "quick", "brown", "fox", "jumps", "over", "the", "lazy", "dog",
+        ];
+
+        let joined = WORDS.join(" ");
+
+        let mut words = Words::new(&joined);
+
+        let mut idx = 0;
+        words.retain(|word| {
+            assert_eq!(WORDS[idx], word, "{idx}");
+            idx += 1;
+
+            true
+        });
+
+        assert_eq!(joined, words.full_text());
+
+        let mut idx = 0;
+        words.retain(|word| {
+            assert_eq!(WORDS[idx], word, "{idx}");
+            idx += 1;
+
+            false
+        });
+
+        assert_eq!("", words.full_text());
+
+        let mut words = Words::new(&joined);
+
+        let mut idx = 0;
+        words.retain(|word| {
+            assert_eq!(WORDS[idx], word, "{idx}");
+            idx += 1;
+
+            word != "the"
+        });
+
+        assert_eq!("quick brown fox jumps over lazy dog", words.full_text());
+
+        let mut word_iter = words.iter_words();
+        assert_eq!(word_iter.next(), Some("quick"));
+        assert_eq!(word_iter.next(), Some("brown"));
+        assert_eq!(word_iter.next(), Some("fox"));
+        assert_eq!(word_iter.next(), Some("jumps"));
+        assert_eq!(word_iter.next(), Some("over"));
+        assert_eq!(word_iter.next(), Some("lazy"));
+        assert_eq!(word_iter.next(), Some("dog"));
+        assert_eq!(word_iter.next(), None);
     }
 }

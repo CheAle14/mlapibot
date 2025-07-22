@@ -27,25 +27,7 @@ impl super::Module for PostScams {
         super::ModuleWants::POSTS
     }
 
-    fn mask_subreddits(
-        &self,
-        config: &crate::config::SubredditsConfig,
-        subreddits: &[crate::subreddit::Subreddit],
-    ) -> SplitSubMask {
-        let mut mask = SplitSubMask::new();
-
-        for (idx, subreddit) in subreddits.iter().enumerate() {
-            if config
-                .get(subreddit.name())
-                .map(|c| c.scams)
-                .unwrap_or(true)
-            {
-                mask.posts.set(idx);
-            }
-        }
-
-        mask
-    }
+    super::impl_mask_subreddits!(scams => posts);
 
     fn run_post<'client>(
         &mut self,

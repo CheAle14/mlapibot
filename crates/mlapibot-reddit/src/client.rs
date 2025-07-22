@@ -222,7 +222,13 @@ impl<'a> RedditClient<'a> {
             }};
         }
 
-        modules!(PostScams, PostFlairs, CommentCode, InboxCommands)
+        modules!(
+            PostScams,
+            PostFlairs,
+            CommentCode,
+            InboxCommands,
+            PostRelatedTitle
+        )
     }
 
     fn _send_warnings(

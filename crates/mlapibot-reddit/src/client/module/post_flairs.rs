@@ -68,23 +68,7 @@ impl super::Module for PostFlairs {
         super::ModuleWants::POSTS
     }
 
-    fn mask_subreddits(
-        &self,
-        config: &crate::config::SubredditsConfig,
-        subreddits: &[crate::subreddit::Subreddit],
-    ) -> SplitSubMask {
-        let mut sum = SplitSubMask::new();
-        for (idx, sub) in subreddits.iter().enumerate() {
-            if config
-                .get(sub.name())
-                .map(|c| c.flairs.len() > 0)
-                .unwrap_or_default()
-            {
-                sum.posts.set(idx);
-            }
-        }
-        sum
-    }
+    super::impl_mask_subreddits!(flairs => posts);
 
     fn run_post<'client>(
         &mut self,

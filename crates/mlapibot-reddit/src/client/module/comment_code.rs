@@ -20,24 +20,7 @@ impl Module for CommentCode {
         super::ModuleWants::COMMENTS
     }
 
-    fn mask_subreddits(
-        &self,
-        config: &crate::config::SubredditsConfig,
-        subreddits: &[crate::subreddit::Subreddit],
-    ) -> SplitSubMask {
-        let mut sum = SplitSubMask::new();
-        for (idx, sub) in subreddits.iter().enumerate() {
-            if config
-                .get(sub.name())
-                .map(|c| c.comments_code)
-                .unwrap_or_default()
-            {
-                sum.comments.set(idx);
-            }
-        }
-
-        sum
-    }
+    super::impl_mask_subreddits!(comments_code => comments);
 
     fn run_comment<'client>(
         &mut self,

@@ -10,11 +10,13 @@ use crate::{
 pub mod comment_code;
 pub mod inbox_commands;
 pub mod post_flairs;
+pub mod post_related_title;
 pub mod post_scams;
 
 pub use comment_code::CommentCode;
 pub use inbox_commands::InboxCommands;
 pub use post_flairs::PostFlairs;
+pub use post_related_title::PostRelatedTitle;
 pub use post_scams::PostScams;
 
 pub trait Module {
@@ -159,4 +161,53 @@ impl std::ops::BitOrAssign for SplitSubMask {
 
 pub enum InboxAction {
     Redo(Submission),
+}
+
+macro_rules! impl_mask_subreddits {
+    (
+        $flag:ident => $wants:ident
+    ) => {
+        fn mask_subreddits(
+            &self,
+            config: &crate::config::SubredditsConfig,
+            subreddits: &[crate::subreddit::Subreddit],
+        ) -> super::SplitSubMask {
+            let mut sum = super::SplitSubMask::new();
+            for (idx, sub) in subreddits.iter().enumerate() {
+                if config
+                    .get(sub.name())
+                    .map(|c| super::AsBool::as_bool(&c.$flag))
+                    .unwrap_or_default()
+                {
+                    sum.$wants.set(idx);
+                }
+            }
+
+            sum
+        }
+    };
+}
+
+pub(self) use impl_mask_subreddits;
+
+trait AsBool {
+    fn as_bool(&self) -> bool;
+}
+
+impl AsBool for bool {
+    fn as_bool(&self) -> bool {
+        *self
+    }
+}
+
+impl<T> AsBool for Option<T> {
+    fn as_bool(&self) -> bool {
+        self.is_some()
+    }
+}
+
+impl<T> AsBool for Vec<T> {
+    fn as_bool(&self) -> bool {
+        self.len() > 0
+    }
 }

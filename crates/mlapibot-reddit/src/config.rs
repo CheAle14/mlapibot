@@ -48,6 +48,9 @@ pub struct SubredditConfig {
 
     #[serde(default)]
     pub comments_code: bool,
+
+    #[serde(default)]
+    pub related_titles: bool,
 }
 
 #[derive(Debug, Deserialize)]
