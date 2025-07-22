@@ -28,6 +28,10 @@ impl super::Module for PostRelatedTitle {
         post: &crate::Submission,
         has_seen: bool,
     ) -> anyhow::Result<()> {
+        if has_seen {
+            return Ok(());
+        }
+
         if !post.is_self() || post.selftext().trim().len() == 0 {
             return Ok(());
         }
