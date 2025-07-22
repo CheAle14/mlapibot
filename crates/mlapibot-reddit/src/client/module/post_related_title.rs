@@ -49,7 +49,7 @@ impl super::Module for PostRelatedTitle {
         let both = title_words.intersection(&body_words).count();
 
         if both == 0 {
-            post.report("possible vague title (no words in title appear in body)")?;
+            post.report("possible vague title (no keywords in title appear in body)")?;
         }
 
         Ok(())
