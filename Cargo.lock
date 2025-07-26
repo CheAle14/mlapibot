@@ -2043,8 +2043,8 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.37"
-source = "git+https://github.com/CheAle14/roux.git#83e64b7a35bc73421085136c7739c28781bf8393"
+version = "2.3.38"
+source = "git+https://github.com/CheAle14/roux.git#9d535198e0768661e3f703d3e2aac7b853d95f6b"
 dependencies = [
  "html-escape",
  "maybe-async",
