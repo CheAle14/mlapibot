@@ -1028,6 +1028,7 @@
                     "type": "ordered"
                 }
             ],
+            "remove": true,
             "template": "chainspam"
         },
         {
