@@ -31,7 +31,22 @@ impl Module for CommentCode {
 
         let fences = mlapibot_markdown::extract_code_fences(comment.body().as_str());
 
-        if fences.len() == 0 {
+        let all_small = fences.iter().all(|fence| {
+            let mut lines = 0;
+            let mut any_long = false;
+
+            for line in fence.code.lines() {
+                lines += 1;
+                if line.len() > 16 {
+                    any_long = true;
+                }
+            }
+
+            // Vertically and horizontally small.
+            lines <= 3 && !any_long
+        });
+
+        if fences.len() == 0 || all_small {
             return Ok(());
         }
 

@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 ord-many = { workspace = true }
 serde = { workspace = true }
+
+rust-stemmers = "1.2.0"

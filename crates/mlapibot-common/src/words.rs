@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{borrow::Cow, collections::HashSet};
 
 #[derive(Debug, PartialEq)]
 struct WordDef {
@@ -79,6 +79,11 @@ impl Words {
 
     pub fn as_hash_set(&self) -> HashSet<&str> {
         self.iter_words().collect()
+    }
+
+    pub fn iter_stemmed_words(&self) -> impl Iterator<Item = Cow<'_, str>> {
+        let stemmer = rust_stemmers::Stemmer::create(rust_stemmers::Algorithm::English);
+        self.iter_words().map(move |word| stemmer.stem(word))
     }
 
     pub fn remove_stop_words(&mut self) {
