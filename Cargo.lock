@@ -1427,6 +1427,7 @@ dependencies = [
  "mlapibot-ocr",
  "mlapibot-webhook",
  "ord-many",
+ "reqwest",
  "rouille",
  "roux",
  "serde",
@@ -1434,6 +1435,7 @@ dependencies = [
  "sha2",
  "statuspage",
  "strsim",
+ "tempfile",
  "tera",
 ]
 
@@ -2043,8 +2045,8 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.38"
-source = "git+https://github.com/CheAle14/roux.git#9d535198e0768661e3f703d3e2aac7b853d95f6b"
+version = "2.3.39"
+source = "git+https://github.com/CheAle14/roux.git#1b12e52b0df0b2fd0950c6a7c7c73434be25bda3"
 dependencies = [
  "html-escape",
  "maybe-async",

@@ -64,7 +64,7 @@ impl<Ctx> RateJob<Ctx> {
             Err(err) => {
                 self.mark_failed();
                 eprintln!(
-                    "[ratelimit] {} failed (#{}): {err}",
+                    "[ratelimit] {} failed (#{}): {err:?}",
                     self.name, self.failures
                 );
 

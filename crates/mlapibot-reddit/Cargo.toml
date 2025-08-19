@@ -12,13 +12,16 @@ mlapibot-ocr = { path = "../mlapibot-ocr" }
 mlapibot-webhook = { path = "../mlapibot-webhook" }
 mlapibot-markdown = { path = "../mlapibot-markdown" }
 
+anyhow = { workspace = true }
+chrono = { workspace = true }
+image = { workspace = true }
+ord-many = { workspace = true }
+reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-ord-many = { workspace = true }
-image = { workspace = true }
-anyhow = { workspace = true }
+tempfile = { workspace = true }
 tera = { workspace = true }
-chrono = { workspace = true }
+
 
 base64ct = { version = "1.6.0", features = ["alloc"] }
 roux = { git = "https://github.com/CheAle14/roux.git", features = [

@@ -7,12 +7,14 @@ use crate::{
     subreddit::Subreddit,
 };
 
+pub mod comment_cdn_links;
 pub mod comment_code;
 pub mod inbox_commands;
 pub mod post_flairs;
 pub mod post_related_title;
 pub mod post_scams;
 
+pub use comment_cdn_links::CdnLinks;
 pub use comment_code::CommentCode;
 pub use inbox_commands::InboxCommands;
 pub use post_flairs::PostFlairs;

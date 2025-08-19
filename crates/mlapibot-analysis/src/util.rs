@@ -11,10 +11,10 @@ pub fn parse_url(text: impl AsRef<str>) -> Option<Url> {
     }
 }
 
-pub fn extract_all_links(text: &str) -> Vec<Url> {
+pub fn extract_all_links(text: &str, starts_with: Option<&'static str>) -> Vec<Url> {
     let mut urls = Vec::new();
 
-    let mut searcher = NeedleFinder::new("http", text);
+    let mut searcher = NeedleFinder::new(starts_with.unwrap_or("http"), text);
 
     while let Some(start) = searcher.next() {
         let rest = &text[start..];
@@ -76,7 +76,7 @@ pub fn allowed_url(url: &Url) -> bool {
 }
 
 pub fn extract_image_links(text: &str) -> Vec<Url> {
-    let mut all = extract_all_links(text);
+    let mut all = extract_all_links(text, None);
 
     all.retain(allowed_url);
 
