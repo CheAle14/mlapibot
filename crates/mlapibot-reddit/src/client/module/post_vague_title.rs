@@ -3,9 +3,9 @@ use std::collections::HashSet;
 use mlapibot_common::Words;
 use roux::{builders::submission::SubmissionSubmitBuilder, client::RedditClient};
 
-pub struct PostRelatedTitle;
+pub struct PostVagueTitle;
 
-impl super::Module for PostRelatedTitle {
+impl super::Module for PostVagueTitle {
     fn new() -> Self
     where
         Self: Sized,
@@ -47,15 +47,9 @@ impl super::Module for PostRelatedTitle {
         let mut title_words = Words::new(post.title());
         title_words.remove_stop_words();
 
-        let mut body_words = Words::new(post.selftext());
-        body_words.remove_stop_words();
-
         let title_words = title_words.iter_stemmed_words().collect::<HashSet<_>>();
-        let body_words = body_words.iter_stemmed_words().collect::<HashSet<_>>();
 
-        let both = title_words.intersection(&body_words).count();
-
-        if both == 0 {
+        if title_words.len() == 0 {
             client
                 .client
                 .subreddit("mlapi")

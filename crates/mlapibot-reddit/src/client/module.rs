@@ -11,15 +11,15 @@ pub mod comment_cdn_links;
 pub mod comment_code;
 pub mod inbox_commands;
 pub mod post_flairs;
-pub mod post_related_title;
 pub mod post_scams;
+pub mod post_vague_title;
 
 pub use comment_cdn_links::CdnLinks;
 pub use comment_code::CommentCode;
 pub use inbox_commands::InboxCommands;
 pub use post_flairs::PostFlairs;
-pub use post_related_title::PostRelatedTitle;
 pub use post_scams::PostScams;
+pub use post_vague_title::PostVagueTitle;
 
 pub trait Module {
     fn new() -> Self
