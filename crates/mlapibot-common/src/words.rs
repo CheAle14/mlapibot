@@ -213,6 +213,7 @@ static STOP_WORDS: &[&str] = &[
     "its",
     "itself",
     "just",
+    "know",
     "me",
     "more",
     "most",
@@ -272,6 +273,7 @@ static STOP_WORDS: &[&str] = &[
     "under",
     "until",
     "up",
+    "urgent",
     "very",
     "was",
     "we",
@@ -351,7 +353,9 @@ mod tests {
             "i need help… probs an easy fix but",
             "does this exist or is this even possible",
             "is this feature working?",
-            "Error ?"
+            "Error ?",
+            "Does anyone know how to fix this??",
+            "I need urgent help"
         );
     }
 
