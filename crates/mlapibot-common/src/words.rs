@@ -151,6 +151,7 @@ static STOP_WORDS: &[&str] = &[
     "an",
     "and",
     "any",
+    "anyone",
     "are",
     "as",
     "at",
@@ -175,6 +176,8 @@ static STOP_WORDS: &[&str] = &[
     "dumb",
     "during",
     "each",
+    "else",
+    "feature",
     "few",
     "for",
     "from",
@@ -200,6 +203,7 @@ static STOP_WORDS: &[&str] = &[
     "in",
     "into",
     "is",
+    "issue",
     "it",
     "its",
     "itself",
@@ -228,6 +232,7 @@ static STOP_WORDS: &[&str] = &[
     "out",
     "over",
     "own",
+    "problem",
     "question",
     "really",
     "s",
@@ -239,6 +244,7 @@ static STOP_WORDS: &[&str] = &[
     "struggle",
     "such",
     "t",
+    "technical",
     "than",
     "that",
     "the",
@@ -272,6 +278,8 @@ static STOP_WORDS: &[&str] = &[
     "why",
     "will",
     "with",
+    "work",
+    "working",
     "worried",
     "you",
     "your",
@@ -328,6 +336,14 @@ mod tests {
         assert_eq!(words.len(), 0, "{:?}", words.full_text());
 
         let mut words = Words::new("What can I do");
+        words.remove_stop_words();
+        assert_eq!(words.len(), 0, "{:?}", words.full_text());
+
+        let mut words = Words::new("Has anyone had this issue?");
+        words.remove_stop_words();
+        assert_eq!(words.len(), 0, "{:?}", words.full_text());
+
+        let mut words = Words::new("discord is not working at all");
         words.remove_stop_words();
         assert_eq!(words.len(), 0, "{:?}", words.full_text());
     }
