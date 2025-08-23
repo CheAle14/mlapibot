@@ -176,9 +176,14 @@ static STOP_WORDS: &[&str] = &[
     "dumb",
     "during",
     "each",
+    "easy",
     "else",
+    "error",
+    "even",
+    "exist",
     "feature",
     "few",
+    "fix",
     "for",
     "from",
     "further",
@@ -232,7 +237,10 @@ static STOP_WORDS: &[&str] = &[
     "out",
     "over",
     "own",
+    "possible",
+    "probably",
     "problem",
+    "probs",
     "question",
     "really",
     "s",
@@ -323,29 +331,28 @@ mod tests {
 
     #[test]
     pub fn test_remove_stop_words() {
-        let mut words = Words::new("i need help");
-        words.remove_stop_words();
-        assert_eq!(words.len(), 0, "{:?}", words.full_text());
+        macro_rules! assert_all_removed {
+            ($($words:literal),* $(,)?) => {
+                $(
+                    let mut words = Words::new($words);
+                    words.remove_stop_words();
+                    assert_eq!(words.len(), 0, "{:?}", words.full_text());
+                )*
+            };
+        }
 
-        let mut words = Words::new("help me");
-        words.remove_stop_words();
-        assert_eq!(words.len(), 0, "{:?}", words.full_text());
-
-        let mut words = Words::new("I need help with this, I’m very worried");
-        words.remove_stop_words();
-        assert_eq!(words.len(), 0, "{:?}", words.full_text());
-
-        let mut words = Words::new("What can I do");
-        words.remove_stop_words();
-        assert_eq!(words.len(), 0, "{:?}", words.full_text());
-
-        let mut words = Words::new("Has anyone had this issue?");
-        words.remove_stop_words();
-        assert_eq!(words.len(), 0, "{:?}", words.full_text());
-
-        let mut words = Words::new("discord is not working at all");
-        words.remove_stop_words();
-        assert_eq!(words.len(), 0, "{:?}", words.full_text());
+        assert_all_removed!(
+            "i need help",
+            "help me",
+            "I need help with this, I’m very worried",
+            "What can I do",
+            "Has anyone had this issue?",
+            "discord is not working at all",
+            "i need help… probs an easy fix but",
+            "does this exist or is this even possible",
+            "is this feature working?",
+            "Error ?"
+        );
     }
 
     #[test]
