@@ -163,6 +163,8 @@ static STOP_WORDS: &[&str] = &[
     "below",
     "between",
     "both",
+    "bro",
+    "brother",
     "but",
     "by",
     "can",
@@ -355,7 +357,8 @@ mod tests {
             "is this feature working?",
             "Error ?",
             "Does anyone know how to fix this??",
-            "I need urgent help"
+            "I need urgent help",
+            "Bro what is this.."
         );
     }
 
