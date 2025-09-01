@@ -168,6 +168,7 @@ static STOP_WORDS: &[&str] = &[
     "but",
     "by",
     "can",
+    "confused",
     "did",
     "discord",
     "do",
@@ -240,6 +241,7 @@ static STOP_WORDS: &[&str] = &[
     "out",
     "over",
     "own",
+    "please",
     "possible",
     "probably",
     "problem",
@@ -358,7 +360,8 @@ mod tests {
             "Error ?",
             "Does anyone know how to fix this??",
             "I need urgent help",
-            "Bro what is this.."
+            "Bro what is this..",
+            "I’m confused please help if possible"
         );
     }
 
