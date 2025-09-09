@@ -74,15 +74,11 @@ pub fn create_error_processing_post(post: &Submission) -> Message {
             .reddit_link(post.permalink()),
     )
 }
-pub fn create_error_processing_message(message: &RedditMessage) -> Message {
+pub fn create_error_processing_message(author: &str, subject: &str) -> Message {
     Message::builder().embed(
         MessageEmbed::builder()
             .title("Error occured processing message")
-            .description(format!(
-                "From /u/{} subject:\r\n> {}",
-                message.author().clone().unwrap_or_default(),
-                message.subject(),
-            )),
+            .description(format!("From /u/{author} subject:\r\n>>> {subject}",)),
     )
 }
 pub fn create_deleted_downvoted_comment(comment: &CreatedCommentWithLinkInfo) -> Message {

@@ -43,6 +43,8 @@ impl Module for InboxCommands {
         author: &str,
         subject: &str,
     ) -> anyhow::Result<Option<super::InboxAction>> {
+        let item = InboxMsg::new(item, author, subject);
+
         if subject == "test" {
             client.run_inbox_test(&item)?;
         } else if subject == "redo" {
@@ -64,10 +66,44 @@ impl Module for InboxCommands {
     }
 }
 
+struct InboxMsg<'a> {
+    inner: &'a RedditMessage,
+    subject: &'a str,
+    author: &'a str,
+    body: &'a str,
+}
+
+impl<'a> InboxMsg<'a> {
+    fn new(inner: &'a RedditMessage, author: &'a str, subject: &'a str) -> Self {
+        let (subject, body) = if subject == "[direct chat room]" {
+            match inner.body().split_once('\n') {
+                Some(pair) => pair,
+                None => (subject, inner.body().as_str()),
+            }
+        } else {
+            (subject, inner.body().as_str())
+        };
+
+        Self {
+            inner,
+            author,
+            subject,
+            body,
+        }
+    }
+
+    fn reply(
+        &self,
+        content: &str,
+    ) -> Result<roux::models::Message<roux::client::AuthedClient>, roux::util::RouxError> {
+        self.inner.reply(content)
+    }
+}
+
 impl<'client> ModuleRedditClient<'client> {
-    fn run_inbox_test(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
+    fn run_inbox_test(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
         let mut warnings = Vec::new();
-        let ctx = mlapibot_analysis::Context::new_body(message.body(), &mut warnings)?;
+        let ctx = mlapibot_analysis::Context::new_body(message.body, &mut warnings)?;
 
         self.send_warnings(warnings, "Warnings in inbox test")?;
 
@@ -90,10 +126,10 @@ impl<'client> ModuleRedditClient<'client> {
             Err(err) => {
                 eprintln!(
                     "Error whilst analyising message {:?}: {err:?}",
-                    message.subject()
+                    message.subject
                 );
                 if let Some(webhook) = &mut self.webhook {
-                    let msg = create_error_processing_message(&message);
+                    let msg = create_error_processing_message(message.author, message.subject);
                     webhook.send(&msg)?;
                 }
                 message.reply(
@@ -108,11 +144,11 @@ impl<'client> ModuleRedditClient<'client> {
         &mut self,
         subreddits: &mut [Subreddit],
         author: &str,
-        message: &RedditMessage,
+        message: &InboxMsg<'_>,
     ) -> anyhow::Result<()> {
         use std::fmt::Write;
 
-        let sub = self.client.subreddit(message.body());
+        let sub = self.client.subreddit(message.body);
 
         let our_sub = subreddits.iter_mut().find(|s| s.name() == &sub.name);
         match our_sub {
@@ -194,14 +230,14 @@ impl<'client> ModuleRedditClient<'client> {
         &mut self,
         subreddits: &mut [Subreddit],
         author: &str,
-        message: &RedditMessage,
+        message: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
-        let submission = match self.client.get_submission_by_link(message.body()) {
+        let submission = match self.client.get_submission_by_link(message.body) {
             Ok(t) => t,
             Err(e) => {
                 eprintln!(
                     "Failed to parse or fetch post to redo: {:?} {e:?}",
-                    message.body()
+                    message.body
                 );
                 message.reply("Failed to parse or fetch which submission you meant.")?;
                 return Ok(None);
@@ -237,10 +273,10 @@ impl<'client> ModuleRedditClient<'client> {
         return Ok(Some(InboxAction::Redo(submission)));
     }
 
-    fn send_removal_reasons(&mut self, message: &RedditMessage) -> anyhow::Result<()> {
+    fn send_removal_reasons(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
         use std::fmt::Write;
 
-        let subreddit = message.body().trim().trim_start_matches("/r/");
+        let subreddit = message.body.trim().trim_start_matches("/r/");
         let mut sending = format!("Removal reasons for /r/{subreddit}:  \n\n");
         let subreddit = self.client.subreddit(subreddit);
 
