@@ -45,9 +45,9 @@ impl Module for InboxCommands {
         if item.subject == "test" {
             client.run_inbox_test(&item)?;
         } else if item.subject == "redo" {
-            return client.try_redo_from_message(subreddits, item.author, &item);
+            return client.try_redo_from_message(subreddits, &item);
         } else if item.subject == "media" {
-            client.try_run_media_count(subreddits, item.author, &item)?;
+            client.try_run_media_count(subreddits, &item)?;
         } else if item.subject == "removal_reasons" {
             client.send_removal_reasons(&item)?;
         } else if item.subject == "sticky" {
@@ -108,25 +108,20 @@ impl<'client> ModuleRedditClient<'client> {
     fn try_run_media_count(
         &mut self,
         subreddits: &mut [Subreddit],
-        author: &str,
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<()> {
         use std::fmt::Write;
 
         let sub = self.client.subreddit(message.body);
 
-        let our_sub = subreddits.iter_mut().find(|s| s.name() == &sub.name);
-        match our_sub {
-            Some(sub) => {
-                if !sub.is_moderator(author)? {
-                    message.reply("You are not a moderator of that subreddit!")?;
-                    return Ok(());
-                }
-            }
-            None => {
-                message.reply("I am not monitoring that subreddit!")?;
-                return Ok(());
-            }
+        let Some(our_sub) = subreddits.iter_mut().find(|s| s.name() == &sub.name) else {
+            message.reply("That subreddit is not managed by this bot.")?;
+            return Ok(());
+        };
+
+        if !our_sub.is_moderator(message.author)? {
+            message.reply("You are not a moderator of that subreddit!")?;
+            return Ok(());
         }
 
         let mut removed_ids: HashSet<ThingFullname> = HashSet::new();
@@ -194,7 +189,6 @@ impl<'client> ModuleRedditClient<'client> {
     fn try_redo_from_message(
         &mut self,
         subreddits: &mut [Subreddit],
-        author: &str,
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
         let submission = match self.client.get_submission_by_link(message.body) {
@@ -209,31 +203,18 @@ impl<'client> ModuleRedditClient<'client> {
             }
         };
 
-        let mut is_mod = false;
-        let mods = self
-            .client
-            .subreddit(submission.subreddit().as_str())
-            .moderators()?;
-        for moderator in mods.data.children {
-            if author == moderator.name {
-                is_mod = true;
-                break;
-            }
-        }
-
-        if !is_mod {
-            eprintln!(
-                "  {author} attempted unauthorized redo of {}",
-                submission.permalink()
-            );
-            return Ok(None);
-        }
-
-        let name = LowercaseString::new(submission.subreddit());
-        if !subreddits.iter().any(|s| s.name() == &name) {
-            message.reply("That subreddit is not monitored")?;
+        let Some(subreddit) = subreddits
+            .iter_mut()
+            .find(|s| s.name() == submission.subreddit())
+        else {
+            message.reply("That subreddit is not managed by this bot.")?;
             return Ok(None);
         };
+
+        if !subreddit.is_moderator(message.author)? {
+            message.reply("You are not a moderator of that subreddit!")?;
+            return Ok(None);
+        }
 
         return Ok(Some(InboxAction::Redo(submission)));
     }
@@ -267,6 +248,11 @@ impl<'client> ModuleRedditClient<'client> {
             message.reply("That subreddit is not managed by this bot.")?;
             return Ok(());
         };
+
+        if !subreddit.is_moderator(message.author)? {
+            message.reply("You are not a moderator of that subreddit!")?;
+            return Ok(());
+        }
 
         let Some(config) = self.subreddits_config.get_status(subreddit.name()) else {
             message.reply("That subreddit is not configured for automatic status posts.")?;
