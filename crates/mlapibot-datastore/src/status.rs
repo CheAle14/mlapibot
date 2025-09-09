@@ -34,6 +34,18 @@ impl MlapiDb {
             .optional()
     }
 
+    pub fn get_incident_from_post(
+        &self,
+        fullname: &str,
+    ) -> rusqlite::Result<Option<IncidentPostLite>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, PriorStickyFullname FROM IncidentPosts WHERE PostFullname=?1",
+        )?;
+
+        stmt.query_row((fullname,), IncidentPostLite::from_row)
+            .optional()
+    }
+
     pub fn update_incident_post(
         &self,
         post_fullname: &str,

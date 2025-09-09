@@ -148,23 +148,4 @@ impl super::Module for PostFlairs {
 
         Ok(())
     }
-
-    fn run_comment<'client>(
-        &mut self,
-        client: &mut crate::client::ModuleRedditClient<'client>,
-        comment: &roux::models::LatestComment<roux::client::AuthedClient>,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn run_inbox<'client>(
-        &mut self,
-        client: &mut crate::client::ModuleRedditClient<'client>,
-        subreddits: &mut [crate::subreddit::Subreddit],
-        inbox: &crate::RedditMessage,
-        author: &str,
-        subject: &str,
-    ) -> anyhow::Result<Option<super::InboxAction>> {
-        Ok(None)
-    }
 }

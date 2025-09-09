@@ -26,7 +26,8 @@ use super::{RedditMessage, RouxClient, Submission};
 
 use crate::{
     client::module::{
-        InboxAction, Module, ModuleWants, SplitSubMask, SubMask, post_flairs::PostFlairCache,
+        InboxAction, InboxMsg, Module, ModuleWants, SplitSubMask, SubMask,
+        post_flairs::PostFlairCache,
     },
     config::{RedditCredentials, SubredditConfig, SubredditsConfig},
     exts::{DetectionExt, SubmissionExt},
@@ -258,33 +259,17 @@ impl<'a> RedditClient<'a> {
     fn check_inbox(&mut self) -> anyhow::Result<Duration> {
         let inbox = self.client.unread()?;
         for item in inbox {
-            let subject = if let Some(stripped) = item.subject().strip_prefix("[dev-only]") {
-                if self.debug {
-                    stripped.trim_start()
-                } else {
-                    continue;
-                }
-            } else {
-                item.subject()
-            };
+            let (msg, dev_only) = InboxMsg::new(&item);
 
-            println!(
-                "Saw inbox {:?} from /u/{}",
-                subject,
-                item.author()
-                    .as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("no author")
-            );
+            if dev_only != self.debug {
+                continue;
+            }
+
+            println!("Saw inbox {:?} from /u/{}", msg.subject, msg.author,);
 
             item.mark_read()?;
 
-            let author = match item.author() {
-                Some(s) => s.as_str(),
-                None => "",
-            };
-
-            if author == "AutoModerator" {
+            if msg.author == "AutoModerator" {
                 continue;
             }
 
@@ -307,7 +292,7 @@ impl<'a> RedditClient<'a> {
                 let name = module.name();
 
                 let action = module
-                    .run_inbox(&mut view, &mut self.subreddits, &item, author, subject)
+                    .run_inbox(&mut view, &mut self.subreddits, &msg)
                     .with_context(|| format!("{name}.run_inbox"))?;
 
                 match action {

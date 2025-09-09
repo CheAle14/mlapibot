@@ -56,9 +56,7 @@ pub trait Module {
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddits: &mut [Subreddit],
-        inbox: &RedditMessage,
-        author: &str,
-        subject: &str,
+        msg: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
         Ok(None)
     }
@@ -211,5 +209,53 @@ impl<T> AsBool for Option<T> {
 impl<T> AsBool for Vec<T> {
     fn as_bool(&self) -> bool {
         self.len() > 0
+    }
+}
+
+pub struct InboxMsg<'a> {
+    inner: &'a RedditMessage,
+    pub subject: &'a str,
+    pub author: &'a str,
+    pub body: &'a str,
+}
+
+impl<'a> InboxMsg<'a> {
+    pub fn new(inner: &'a RedditMessage) -> (Self, bool) {
+        let subject = inner.subject().as_str();
+        let (subject, body) = if subject == "[direct chat room]" {
+            match inner.body().split_once('\n') {
+                Some(pair) => pair,
+                None => (subject, inner.body().as_str()),
+            }
+        } else {
+            (subject, inner.body().as_str())
+        };
+
+        let author = match inner.author() {
+            Some(s) => s.as_str(),
+            None => "",
+        };
+
+        let (subject, dev_only) = match subject.strip_prefix("[dev-only]") {
+            Some(rem) => (rem.trim_start(), true),
+            None => (subject, false),
+        };
+
+        (
+            Self {
+                inner,
+                author,
+                subject,
+                body,
+            },
+            dev_only,
+        )
+    }
+
+    fn reply(
+        &self,
+        content: &str,
+    ) -> Result<roux::models::Message<roux::client::AuthedClient>, roux::util::RouxError> {
+        self.inner.reply(content)
     }
 }

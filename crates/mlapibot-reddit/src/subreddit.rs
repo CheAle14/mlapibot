@@ -17,8 +17,9 @@ use statuspage::{StatusClient, incident::Incident};
 use mlapibot_common::{Cached, LazyCached, LowercaseString};
 
 use crate::{
-    cached_submission::CachedSubmission, client::StatusComponentCache,
-    config::SubredditStatusConfig,
+    cached_submission::CachedSubmission,
+    client::StatusComponentCache,
+    config::{StatusStickyConfig, SubredditStatusConfig},
 };
 
 use super::{RouxClient, Submission, status_tracker::CachedIncidentSubmissions};
@@ -78,6 +79,38 @@ impl Subreddit {
         &self.lower
     }
 
+    pub fn sticky_incident_post(
+        &mut self,
+        db: &MlapiDb,
+        sticky: &StatusStickyConfig,
+        submission: &Submission,
+    ) -> anyhow::Result<()> {
+        let prior_id = if let Some(replace) = sticky.replace_sticky.as_ref() {
+            let replacing = Self::get_sticky_to_replace(&mut self.data, replace)?;
+
+            if let Some(replacing) = replacing.as_ref() {
+                println!("replacing {:?}", replacing.name());
+                // slot does not matter here.
+                replacing.sticky(false, SubmissionStickySlot::Top)?;
+            } else {
+                println!("replacing nothing??");
+            };
+
+            replacing
+        } else {
+            None
+        };
+
+        submission.sticky(true, SubmissionStickySlot::Bottom)?;
+
+        let prior_id = prior_id.as_ref().map(|f| f.name().full());
+        println!("Stickying with prior unsticky: {:?}", prior_id);
+
+        db.sticky_incident_post(submission.name().full(), prior_id)?;
+
+        Ok(())
+    }
+
     fn send_incident_post(
         &mut self,
         db: &MlapiDb,
@@ -126,28 +159,7 @@ impl Subreddit {
                 }
             }
 
-            let prior_id = if let Some(replace) = sticky.replace_sticky.as_ref() {
-                let replacing = Self::get_sticky_to_replace(&mut self.data, replace)?;
-
-                if let Some(replacing) = replacing.as_ref() {
-                    println!("replacing {:?}", replacing.name());
-                    // slot does not matter here.
-                    replacing.sticky(false, SubmissionStickySlot::Top)?;
-                } else {
-                    println!("replacing nothing??");
-                };
-
-                replacing
-            } else {
-                None
-            };
-
-            submission.sticky(true, SubmissionStickySlot::Bottom)?;
-
-            let prior_id = prior_id.as_ref().map(|f| f.name().full());
-            println!("Stickying with prior unsticky: {:?}", prior_id);
-
-            db.sticky_incident_post(submission.name().full(), prior_id)?;
+            self.sticky_incident_post(db, sticky, &submission)?;
         }
 
         Ok(())

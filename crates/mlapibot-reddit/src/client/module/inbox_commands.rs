@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use mlapibot_common::LowercaseString;
+use mlapibot_datastore::incident_posts::StickyState;
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
     client::RedditClient,
@@ -10,7 +11,7 @@ use crate::{
     RedditMessage,
     client::{
         ModuleRedditClient,
-        module::{InboxAction, Module},
+        module::{InboxAction, InboxMsg, Module},
     },
     exts::DetectionExt,
     subreddit::Subreddit,
@@ -39,22 +40,20 @@ impl Module for InboxCommands {
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         subreddits: &mut [Subreddit],
-        item: &RedditMessage,
-        author: &str,
-        subject: &str,
+        item: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<super::InboxAction>> {
-        let item = InboxMsg::new(item, author, subject);
-
-        if subject == "test" {
+        if item.subject == "test" {
             client.run_inbox_test(&item)?;
-        } else if subject == "redo" {
-            return client.try_redo_from_message(subreddits, author, &item);
-        } else if subject == "media" {
-            client.try_run_media_count(subreddits, author, &item)?;
-        } else if subject == "removal_reasons" {
+        } else if item.subject == "redo" {
+            return client.try_redo_from_message(subreddits, item.author, &item);
+        } else if item.subject == "media" {
+            client.try_run_media_count(subreddits, item.author, &item)?;
+        } else if item.subject == "removal_reasons" {
             client.send_removal_reasons(&item)?;
-        } else if author == "" {
-            if let Some(subreddit) = subject.strip_prefix("invitation to moderate /r/") {
+        } else if item.subject == "sticky" {
+            client.try_sticky_status_post(subreddits, &item)?;
+        } else if item.author == "" {
+            if let Some(subreddit) = item.subject.strip_prefix("invitation to moderate /r/") {
                 let sub = client.client.subreddit(subreddit);
                 if let Err(e) = sub.accept_moderator_invite() {
                     println!("Unable to accept mod: {e:?}");
@@ -63,40 +62,6 @@ impl Module for InboxCommands {
         }
 
         Ok(None)
-    }
-}
-
-struct InboxMsg<'a> {
-    inner: &'a RedditMessage,
-    subject: &'a str,
-    author: &'a str,
-    body: &'a str,
-}
-
-impl<'a> InboxMsg<'a> {
-    fn new(inner: &'a RedditMessage, author: &'a str, subject: &'a str) -> Self {
-        let (subject, body) = if subject == "[direct chat room]" {
-            match inner.body().split_once('\n') {
-                Some(pair) => pair,
-                None => (subject, inner.body().as_str()),
-            }
-        } else {
-            (subject, inner.body().as_str())
-        };
-
-        Self {
-            inner,
-            author,
-            subject,
-            body,
-        }
-    }
-
-    fn reply(
-        &self,
-        content: &str,
-    ) -> Result<roux::models::Message<roux::client::AuthedClient>, roux::util::RouxError> {
-        self.inner.reply(content)
     }
 }
 
@@ -271,6 +236,58 @@ impl<'client> ModuleRedditClient<'client> {
         };
 
         return Ok(Some(InboxAction::Redo(submission)));
+    }
+
+    fn try_sticky_status_post(
+        &mut self,
+        subreddits: &mut [Subreddit],
+        message: &InboxMsg<'_>,
+    ) -> anyhow::Result<()> {
+        let submission = match self.client.get_submission_by_link(message.body) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!(
+                    "Failed to parse or fetch post to redo: {:?} {e:?}",
+                    message.body
+                );
+                message.reply("Failed to parse or fetch which submission you meant.")?;
+                return Ok(());
+            }
+        };
+
+        if submission.stickied() {
+            message.reply("Submission is already stickied. You can simply un-sticky it if you want to remove it.")?;
+            return Ok(());
+        }
+
+        let Some(subreddit) = subreddits
+            .iter_mut()
+            .find(|s| s.name() == submission.subreddit())
+        else {
+            message.reply("That subreddit is not managed by this bot.")?;
+            return Ok(());
+        };
+
+        let Some(config) = self.subreddits_config.get_status(subreddit.name()) else {
+            message.reply("That subreddit is not configured for automatic status posts.")?;
+            return Ok(());
+        };
+
+        let Some(sticky) = config.sticky.as_ref() else {
+            message.reply("That subreddit is not configured for stickying its status posts.")?;
+            return Ok(());
+        };
+
+        let Some(_exists) = self.db.get_incident_from_post(submission.name().full())? else {
+            message.reply("That submission was not submitted by this bot for status tracking.")?;
+            return Ok(());
+        };
+
+        subreddit.sticky_incident_post(self.db, sticky, &submission)?;
+
+        message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.");
+
+        Ok(())
     }
 
     fn send_removal_reasons(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
