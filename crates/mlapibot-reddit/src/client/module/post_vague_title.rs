@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use mlapibot_common::Words;
 use roux::{builders::submission::SubmissionSubmitBuilder, client::RedditClient};
 
+use crate::client::module::{ActionData, PostAction};
+
 pub struct PostVagueTitle;
 
 impl super::Module for PostVagueTitle {
@@ -30,18 +32,18 @@ impl super::Module for PostVagueTitle {
         config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
         has_seen: bool,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<PostAction> {
         if has_seen {
-            return Ok(());
+            return Ok(PostAction::Ignore);
         }
 
         if !post.is_self() || post.selftext().trim().len() == 0 {
-            return Ok(());
+            return Ok(PostAction::Ignore);
         }
 
         if post.selftext().contains("http") {
             // Image could contain more context.
-            return Ok(());
+            return Ok(PostAction::Ignore);
         }
 
         let mut title_words = Words::new(post.title());
@@ -49,37 +51,29 @@ impl super::Module for PostVagueTitle {
 
         let title_words = title_words.iter_stemmed_words().collect::<HashSet<_>>();
 
-        if title_words.len() == 0 {
-            client
-                .client
-                .subreddit("mlapi")
-                .submit(&SubmissionSubmitBuilder::link(
-                    "Vague title",
-                    format!("https://reddit.com{}", post.permalink()),
-                    false,
-                ))?;
-
-            let modconf = config.and_then(|c| c.moderate.as_ref());
-
-            if let Some(modconf) = modconf {
-                post.remove(false)?;
-
-                let reason_id = modconf
-                    .removal_reasons
-                    .get("vague-title")
-                    .map(String::as_str)
-                    .unwrap_or_else(|| &modconf.default_removal_reason);
-
-                let reason = subreddit
-                    .get_removal_reason(reason_id)?
-                    .map(|r| r.message.as_str())
-                    .unwrap_or("<error: removal reason not found>");
-
-                let comment = post.comment(reason)?;
-                comment.distinguish(roux::models::Distinguish::Moderator, true)?;
-            }
+        if title_words.len() > 0 {
+            return Ok(PostAction::Ignore);
         }
 
-        Ok(())
+        let modconf = config.and_then(|c| c.moderate.as_ref());
+
+        let Some(modconf) = modconf else {
+            return Ok(PostAction::Ignore);
+        };
+
+        let reason_id = modconf
+            .removal_reasons
+            .get("vague-title")
+            .map(String::as_str)
+            .unwrap_or_else(|| &modconf.default_removal_reason);
+
+        let reason = subreddit
+            .get_removal_reason(reason_id)?
+            .map(|r| r.message.as_str())
+            .unwrap_or("<error: removal reason not found>");
+
+        Ok(PostAction::Action(
+            ActionData::new().remove().reply(reason.to_string(), true),
+        ))
     }
 }

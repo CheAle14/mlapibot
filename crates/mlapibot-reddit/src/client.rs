@@ -26,7 +26,7 @@ use super::{RedditMessage, RouxClient, Submission};
 
 use crate::{
     client::module::{
-        InboxAction, InboxMsg, Module, ModuleWants, SplitSubMask, SubMask,
+        InboxAction, InboxMsg, Module, ModuleWants, PostAction, SplitSubMask, SubMask,
         post_flairs::PostFlairCache,
     },
     config::{RedditCredentials, SubredditConfig, SubredditsConfig},
@@ -593,13 +593,26 @@ impl<'client> ModuleRedditClient<'client> {
     ) -> anyhow::Result<()> {
         let config = self.subreddits_config.get(subreddit.name());
 
+        let mut action = PostAction::Ignore;
+
         for (submask, module) in modules {
             if module.wants().posts() && submask.posts.is_set(idx) {
                 let name = module.name();
 
-                module
+                let mod_act = module
                     .run_post(self, subreddit, config, &post, has_seen)
                     .with_context(|| format!("{name}.run_post({})", post.name().full()))?;
+
+                action = action.join(mod_act);
+            }
+        }
+
+        match action {
+            PostAction::Action(data) if !self.dry_run => {
+                data.execute(self.db, &post)?;
+            }
+            PostAction::Ignore | PostAction::Action(..) => {
+                self.db.set_ignored(post.name().full())?;
             }
         }
 

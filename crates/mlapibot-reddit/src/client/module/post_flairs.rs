@@ -5,7 +5,9 @@ use roux::api::ThingFullname;
 use serde::Deserialize;
 
 use crate::{
-    client::module::SplitSubMask, utils::into_timestamp, webhook::create_change_flair_message,
+    client::module::{PostAction, SplitSubMask},
+    utils::into_timestamp,
+    webhook::create_change_flair_message,
 };
 
 use mlapibot_common::LowercaseString;
@@ -77,9 +79,9 @@ impl super::Module for PostFlairs {
         config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
         has_seen: bool,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<PostAction> {
         if subreddit.is_moderator(post.author().as_str())? {
-            return Ok(());
+            return Ok(PostAction::Ignore);
         }
 
         let now = Utc::now();
@@ -88,22 +90,22 @@ impl super::Module for PostFlairs {
         let diff = now - utc;
         if diff.abs().num_seconds() < 30 {
             // delay to ignore any posts immediately removed by AutoMod.
-            return Ok(());
+            return Ok(PostAction::Ignore);
         }
 
         let Some(flairs) = config.map(|cfg| &cfg.flairs) else {
-            return Ok(());
+            return Ok(PostAction::Ignore);
         };
 
         if let Some(data) = client.flair_cache.inner.get(post.name()) {
             if data.delay_until > now {
-                return Ok(());
+                return Ok(PostAction::Ignore);
             }
         }
 
         let post_flair_id = match post.link_flair_template_id() {
             Some(id) => id.as_str(),
-            None => return Ok(()),
+            None => return Ok(PostAction::Ignore),
         };
 
         let title_lowercase = post.title().to_lowercase();
@@ -146,6 +148,6 @@ impl super::Module for PostFlairs {
             }
         }
 
-        Ok(())
+        Ok(PostAction::Ignore)
     }
 }

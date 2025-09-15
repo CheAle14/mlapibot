@@ -1,4 +1,8 @@
-use roux::{client::AuthedClient, models::LatestComment};
+use mlapibot_datastore::MlapiDb;
+use roux::{
+    client::AuthedClient,
+    models::{Distinguish, LatestComment},
+};
 
 use crate::{
     Comment, RedditMessage, Submission,
@@ -40,8 +44,8 @@ pub trait Module {
         config: Option<&SubredditConfig>,
         post: &Submission,
         has_seen: bool,
-    ) -> anyhow::Result<()> {
-        Ok(())
+    ) -> anyhow::Result<PostAction> {
+        Ok(PostAction::Ignore)
     }
 
     fn run_comment<'client>(
@@ -257,5 +261,275 @@ impl<'a> InboxMsg<'a> {
         content: &str,
     ) -> Result<roux::models::Message<roux::client::AuthedClient>, roux::util::RouxError> {
         self.inner.reply(content)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum PostAction {
+    #[default]
+    Ignore,
+    Action(ActionData),
+}
+
+impl PostAction {
+    pub fn join(self, other: PostAction) -> PostAction {
+        match (self, other) {
+            (PostAction::Ignore, other) => other,
+            (this, PostAction::Ignore) => this,
+
+            (PostAction::Action(this_data), PostAction::Action(other_data)) => {
+                let data = match (this_data.moderate, other_data.moderate) {
+                    (ModAct::None, ModAct::None)
+                    | (ModAct::Report, ModAct::Report)
+                    | (ModAct::Remove, ModAct::Remove) => Self::merge(this_data, other_data),
+
+                    (ModAct::None, ModAct::Report) => other_data,
+                    (ModAct::None, ModAct::Remove) => other_data,
+                    (ModAct::Report, ModAct::None) => this_data,
+                    (ModAct::Report, ModAct::Remove) => other_data,
+                    (ModAct::Remove, ModAct::None) => this_data,
+                    (ModAct::Remove, ModAct::Report) => this_data,
+                };
+
+                PostAction::Action(data)
+            }
+        }
+    }
+
+    fn merge(this: ActionData, other: ActionData) -> ActionData {
+        let analyser = match (this.analyser, other.analyser) {
+            (None, None) => None,
+            (None, Some(t)) | (Some(t), None) => Some(t),
+            (Some(mut l), Some(r)) => {
+                l.push(',');
+                l.push_str(&r);
+                Some(l)
+            }
+        };
+
+        let reply = match (this.reply, other.reply) {
+            (None, None) => None,
+            (None, Some(reply)) | (Some(reply), None) => Some(reply),
+            (Some(mut this), Some(other)) => {
+                this.text.push_str("\n------\n");
+                this.text.push_str(&other.text);
+
+                this.distinguish = match (this.distinguish, other.distinguish) {
+                    (Distinguish::Special, _) | (_, Distinguish::Special) => Distinguish::Special,
+                    (Distinguish::Admin, _) | (_, Distinguish::Admin) => Distinguish::Admin,
+                    (Distinguish::Moderator, _) | (_, Distinguish::Moderator) => {
+                        Distinguish::Moderator
+                    }
+                    _ => Distinguish::None,
+                };
+
+                Some(this)
+            }
+        };
+
+        ActionData {
+            analyser,
+            reply,
+            moderate: this.moderate,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActionData {
+    analyser: Option<String>,
+    reply: Option<PostReply>,
+    moderate: ModAct,
+}
+
+impl ActionData {
+    pub fn new() -> Self {
+        Self {
+            analyser: None,
+            reply: None,
+            moderate: ModAct::None,
+        }
+    }
+
+    pub fn execute(self, db: &MlapiDb, post: &Submission) -> anyhow::Result<()> {
+        let reply_fullname = if let Some(reply) = self.reply {
+            let comment = post.comment(&reply.text)?;
+            if reply.distinguish != Distinguish::None {
+                comment.distinguish(reply.distinguish, true)?;
+            }
+
+            Some(comment.name().full().to_string())
+        } else {
+            None
+        };
+
+        let (reported, removed) = match self.moderate {
+            ModAct::None => (false, false),
+            ModAct::Report => {
+                if let Some(name) = self.analyser.as_ref() {
+                    post.report(&format!("Appears to be a common repost ({name})"))
+                } else {
+                    post.report("Appears to be a common report")
+                }?;
+
+                (true, false)
+            }
+            ModAct::Remove => {
+                post.remove(false)?;
+                (false, true)
+            }
+        };
+
+        db.set_analyzed(
+            post.name().full(),
+            self.analyser
+                .as_ref()
+                .map(|c| c.as_str())
+                .unwrap_or_default(),
+            reply_fullname.as_ref().map(|c| c.as_str()),
+            reported,
+            removed,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn analyser(mut self, name: &str) -> Self {
+        self.analyser = Some(name.to_string());
+        self
+    }
+
+    pub fn reply(mut self, text: String, distinguish: bool) -> Self {
+        self.set_reply(text, distinguish);
+        self
+    }
+
+    pub fn set_reply(&mut self, text: String, distinguish: bool) -> &mut Self {
+        self.reply = Some(PostReply {
+            text,
+            distinguish: if distinguish {
+                Distinguish::Moderator
+            } else {
+                Distinguish::None
+            },
+        });
+        self
+    }
+
+    pub fn set_report(&mut self) -> &mut Self {
+        self.moderate = ModAct::Report;
+        self
+    }
+
+    pub fn report(mut self) -> Self {
+        self.set_report();
+        self
+    }
+
+    pub fn set_remove(&mut self) -> &mut Self {
+        self.moderate = ModAct::Remove;
+        self
+    }
+
+    pub fn remove(mut self) -> Self {
+        self.set_remove();
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PostReply {
+    text: String,
+    distinguish: Distinguish,
+}
+
+impl PostReply {
+    pub fn new(text: String) -> Self {
+        Self {
+            text,
+            distinguish: Distinguish::None,
+        }
+    }
+
+    pub fn moderator(mut self) -> Self {
+        self.distinguish = Distinguish::Moderator;
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum ModAct {
+    None,
+    Report,
+    Remove,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ActionData, PostAction};
+
+    #[test]
+    pub fn test_ignore_overriden() {
+        let first = PostAction::Ignore;
+        let second = PostAction::Action(ActionData::new());
+
+        let result = first.clone().join(second.clone());
+        assert_eq!(result, second);
+
+        let result = second.clone().join(first.clone());
+        assert_eq!(result, second);
+    }
+
+    #[test]
+    pub fn test_action_remove_takes_precedence() {
+        let first = PostAction::Action(ActionData::new().analyser("first").remove());
+        let second = PostAction::Action(
+            ActionData::new()
+                .analyser("second")
+                .reply("second text".into(), true),
+        );
+
+        let result = first.clone().join(second.clone());
+        assert_eq!(result, first);
+
+        let result = second.clone().join(first.clone());
+        assert_eq!(result, first);
+    }
+
+    #[test]
+    pub fn test_merges_equal() {
+        let first = PostAction::Action(
+            ActionData::new()
+                .analyser("first")
+                .remove()
+                .reply("first text".into(), false),
+        );
+
+        let second = PostAction::Action(
+            ActionData::new()
+                .analyser("second")
+                .remove()
+                .reply("second text".into(), true),
+        );
+
+        let expected = PostAction::Action(
+            ActionData::new()
+                .analyser("first,second")
+                .remove()
+                .reply("first text\n------\nsecond text".into(), true),
+        );
+
+        let result = first.clone().join(second.clone());
+        assert_eq!(result, expected);
+
+        let expected = PostAction::Action(
+            ActionData::new()
+                .analyser("second,first")
+                .remove()
+                .reply("second text\n------\nfirst text".into(), true),
+        );
+
+        let result = second.join(first);
+        assert_eq!(result, expected);
     }
 }

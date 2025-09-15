@@ -1,10 +1,9 @@
 use anyhow::Context;
 use mlapibot_webhook::create_generic_error_message;
-use roux::models::Distinguish;
 
 use crate::{
     RedditClient,
-    client::module::{SplitSubMask, SubMask},
+    client::module::{ActionData, PostAction},
     exts::SubmissionExt,
     webhook::{create_detection_message, create_error_processing_post},
 };
@@ -36,9 +35,9 @@ impl super::Module for PostScams {
         config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
         has_seen: bool,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<PostAction> {
         if has_seen {
-            return Ok(());
+            return Ok(PostAction::Ignore);
         }
 
         let modconf = config.map(|c| c.moderate.as_ref()).flatten();
@@ -67,7 +66,7 @@ impl super::Module for PostScams {
                     let msg = create_error_processing_post(&post);
                     webhook.send(&msg)?;
                 }
-                return Ok(());
+                return Ok(PostAction::Ignore);
             }
         };
 
@@ -107,6 +106,8 @@ impl super::Module for PostScams {
                 }
             };
 
+            let mut action = ActionData::new().analyser(&detected.name);
+
             let imgur_link = match (
                 detected.template.name().is_some(), // no point uploading images if we aren't replying
                 ctx.images.len() > 0,
@@ -140,64 +141,34 @@ impl super::Module for PostScams {
                 (_, _, _) => None,
             };
 
-            let (reply, removed, reported) = if !client.dry_run {
-                let own_comment = match detected.template.name() {
-                    Some(text) => {
-                        let template = client
-                            .templates
-                            .render(text, &template_context)
-                            .with_context(|| {
-                                format!("rendering to template {:?}", detected.template)
-                            })?;
+            match detected.template.name() {
+                Some(text) => {
+                    let template = client
+                        .templates
+                        .render(text, &template_context)
+                        .with_context(|| {
+                            format!("rendering to template {:?}", detected.template)
+                        })?;
 
-                        let comment = post
-                            .comment(&template)
-                            .with_context(|| format!("reply to {:?}", post.name()))?;
-
-                        Some(comment)
-                    }
-                    None => None,
-                };
-
-                if is_mod {
-                    post.remove(false)?;
-
-                    if let Some(own_comment) = &own_comment {
-                        own_comment.distinguish(Distinguish::Moderator, true)?;
-                    }
-                } else if detected.report {
-                    post.report(&format!(
-                        "Appears to be a common repost ({})",
-                        detected.name
-                    ))
-                    .with_context(|| format!("report {:?}", post.name()))?;
+                    action.set_reply(template, is_mod);
                 }
-
-                if let Some(webhook) = &mut client.webhook {
-                    let msg = create_detection_message(&post, &detection, detected, imgur_link);
-                    webhook.send(&msg).context("send detection webhook")?;
-                }
-
-                (
-                    own_comment.map(|c| c.name().full().to_string()),
-                    is_mod,
-                    !is_mod && detected.report,
-                )
-            } else {
-                (None, false, false)
+                None => (),
             };
 
-            client.db.set_analyzed(
-                post.name().full(),
-                &detected.name,
-                reply.as_ref().map(|s| s.as_str()),
-                reported,
-                removed,
-            )?;
-        } else {
-            client.db.set_ignored(post.name().full())?;
-        }
+            if is_mod {
+                action.set_remove();
+            } else if detected.report {
+                action.set_report();
+            }
 
-        Ok(())
+            if let Some(webhook) = &mut client.webhook {
+                let msg = create_detection_message(&post, &detection, detected, imgur_link);
+                webhook.send(&msg).context("send detection webhook")?;
+            }
+
+            Ok(PostAction::Action(action))
+        } else {
+            Ok(PostAction::Ignore)
+        }
     }
 }
