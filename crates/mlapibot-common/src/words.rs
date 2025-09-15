@@ -170,6 +170,7 @@ static STOP_WORDS: &[&str] = &[
     "can",
     "confused",
     "did",
+    "didnt",
     "discord",
     "do",
     "does",
@@ -184,6 +185,7 @@ static STOP_WORDS: &[&str] = &[
     "error",
     "even",
     "exist",
+    "expect",
     "feature",
     "few",
     "fix",
@@ -229,6 +231,8 @@ static STOP_WORDS: &[&str] = &[
     "now",
     "of",
     "off",
+    "ok",
+    "okay",
     "on",
     "once",
     "one",
@@ -269,8 +273,11 @@ static STOP_WORDS: &[&str] = &[
     "there",
     "these",
     "they",
+    "think",
     "this",
     "those",
+    "thought",
+    "thoughts",
     "through",
     "to",
     "too",
@@ -361,7 +368,10 @@ mod tests {
             "Does anyone know how to fix this??",
             "I need urgent help",
             "Bro what is this..",
-            "I’m confused please help if possible"
+            "I’m confused please help if possible",
+            "Okay please help",
+            "any thoughts",
+            "i didn't expect this"
         );
     }
 

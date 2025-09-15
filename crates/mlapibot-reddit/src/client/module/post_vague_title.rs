@@ -58,6 +58,26 @@ impl super::Module for PostVagueTitle {
                     format!("https://reddit.com{}", post.permalink()),
                     false,
                 ))?;
+
+            let modconf = config.and_then(|c| c.moderate.as_ref());
+
+            if let Some(modconf) = modconf {
+                post.remove(false)?;
+
+                let reason_id = modconf
+                    .removal_reasons
+                    .get("vague-title")
+                    .map(String::as_str)
+                    .unwrap_or_else(|| &modconf.default_removal_reason);
+
+                let reason = subreddit
+                    .get_removal_reason(reason_id)?
+                    .map(|r| r.message.as_str())
+                    .unwrap_or("<error: removal reason not found>");
+
+                let comment = post.comment(reason)?;
+                comment.distinguish(roux::models::Distinguish::Moderator, true)?;
+            }
         }
 
         Ok(())
