@@ -1,14 +1,11 @@
 use std::collections::HashSet;
 
-use mlapibot_common::LowercaseString;
-use mlapibot_datastore::incident_posts::StickyState;
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
     client::RedditClient,
 };
 
 use crate::{
-    RedditMessage,
     client::{
         ModuleRedditClient,
         module::{InboxAction, InboxMsg, Module},
@@ -271,7 +268,7 @@ impl<'client> ModuleRedditClient<'client> {
 
         subreddit.sticky_incident_post(self.db, sticky, &submission)?;
 
-        message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.");
+        message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.")?;
 
         Ok(())
     }

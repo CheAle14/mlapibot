@@ -1,6 +1,6 @@
 use anyhow::Context;
 use mlapibot_analysis::Url;
-use mlapibot_imgur::{album::AlbumBuilder, image::ImageBuilder};
+use mlapibot_imgur::image::ImageBuilder;
 
 pub struct CdnLinks;
 

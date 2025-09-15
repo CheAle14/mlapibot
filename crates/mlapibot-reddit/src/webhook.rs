@@ -6,20 +6,17 @@ use crate::{CreatedCommentWithLinkInfo, RedditMessage, Submission, utils::clamp}
 
 pub fn create_detection_message(
     submission: &Submission,
-    detection: &Detection,
-    analyzer: &Analyzer,
-    imgur_link: Option<String>,
+    module: &str,
+    analyser: Option<&str>,
 ) -> Message {
     let mut embed = MessageEmbed::builder();
     embed
         .with_title(submission.title())
         .with_description(format!(
-            "{}: {:.2}%{}",
-            analyzer.name,
-            detection.best_score() * 100.0,
-            imgur_link
-                .map(|s| format!("\r\n\r\n[OCR]({s})"))
-                .unwrap_or("".into())
+            "{module}: {}",
+            analyser
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| String::from("(no analyser)"))
         ))
         .with_reddit_link(submission.permalink())
         .with_author(MessageEmbedAuthor::new(submission.author()));

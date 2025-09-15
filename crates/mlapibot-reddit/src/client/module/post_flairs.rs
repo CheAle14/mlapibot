@@ -5,9 +5,7 @@ use roux::api::ThingFullname;
 use serde::Deserialize;
 
 use crate::{
-    client::module::{PostAction, SplitSubMask},
-    utils::into_timestamp,
-    webhook::create_change_flair_message,
+    client::module::PostAction, utils::into_timestamp, webhook::create_change_flair_message,
 };
 
 use mlapibot_common::LowercaseString;
@@ -78,7 +76,7 @@ impl super::Module for PostFlairs {
         subreddit: &mut crate::client::Subreddit,
         config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
-        has_seen: bool,
+        _has_seen: bool,
     ) -> anyhow::Result<PostAction> {
         if subreddit.is_moderator(post.author().as_str())? {
             return Ok(PostAction::Ignore);

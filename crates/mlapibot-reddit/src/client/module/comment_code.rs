@@ -1,6 +1,6 @@
 use roux::{builders::submission::SubmissionSubmitBuilder, client::RedditClient};
 
-use crate::client::module::{Module, SplitSubMask, SubMask};
+use crate::client::module::Module;
 
 pub struct CommentCode;
 

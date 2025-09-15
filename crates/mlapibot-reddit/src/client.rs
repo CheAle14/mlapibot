@@ -6,37 +6,32 @@ use std::{
 };
 
 use anyhow::{Context, bail};
-use mlapibot_common::{Cached, LowercaseString};
+use mlapibot_common::Cached;
 use mlapibot_datastore::MlapiDb;
 use roux::{
-    api::{Distinguished, ThingFullname, subreddit::ModActionType},
+    api::Distinguished,
     client::{OAuthClient, RedditClient as RouxRedditClient},
-    models::Distinguish,
 };
 use statuspage::{StatusClient, component::Component, status::StatusIndicator};
 use tera::Tera;
 
 use mlapibot_analysis::{ContextWarning, analzyer::Analyzer};
 use mlapibot_imgur::ImgurClient;
-use mlapibot_webhook::{
-    WebhookClient, create_generic_error_message, create_multiple_error_message,
-};
+use mlapibot_webhook::{WebhookClient, create_multiple_error_message};
 
-use super::{RedditMessage, RouxClient, Submission};
+use super::{RouxClient, Submission};
 
 use crate::{
     client::module::{
-        InboxAction, InboxMsg, Module, ModuleWants, PostAction, SplitSubMask, SubMask,
-        post_flairs::PostFlairCache,
+        InboxAction, InboxMsg, Module, PostAction, SplitSubMask, post_flairs::PostFlairCache,
     },
-    config::{RedditCredentials, SubredditConfig, SubredditsConfig},
-    exts::{DetectionExt, SubmissionExt},
+    config::{RedditCredentials, SubredditsConfig},
+    exts::SubmissionExt,
     ratelimiter::Ratelimiter,
     status_tracker::{CachedIncidentSubmissions, WebhookEvent},
     subreddit::Subreddit,
     webhook::{
-        create_deleted_downvoted_comment, create_error_processing_message, create_inbox_message,
-        create_moderator_downvoted_comment,
+        create_deleted_downvoted_comment, create_inbox_message, create_moderator_downvoted_comment,
     },
 };
 
@@ -601,7 +596,8 @@ impl<'client> ModuleRedditClient<'client> {
 
                 let mod_act = module
                     .run_post(self, subreddit, config, &post, has_seen)
-                    .with_context(|| format!("{name}.run_post({})", post.name().full()))?;
+                    .with_context(|| format!("{name}.run_post({})", post.name().full()))?
+                    .with_module(module.name());
 
                 action = action.join(mod_act);
             }
@@ -609,7 +605,7 @@ impl<'client> ModuleRedditClient<'client> {
 
         match action {
             PostAction::Action(data) if !self.dry_run => {
-                data.execute(self.db, &post)?;
+                data.execute(self.webhook.as_mut(), self.db, &post)?;
             }
             PostAction::Ignore | PostAction::Action(..) => {
                 self.db.set_ignored(post.name().full())?;

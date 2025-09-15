@@ -1,14 +1,16 @@
 use mlapibot_datastore::MlapiDb;
+use mlapibot_webhook::WebhookClient;
 use roux::{
     client::AuthedClient,
     models::{Distinguish, LatestComment},
 };
 
 use crate::{
-    Comment, RedditMessage, Submission,
+    RedditMessage, Submission,
     client::ModuleRedditClient,
     config::{SubredditConfig, SubredditsConfig},
     subreddit::Subreddit,
+    webhook::create_detection_message,
 };
 
 pub mod comment_cdn_links;
@@ -272,6 +274,16 @@ pub enum PostAction {
 }
 
 impl PostAction {
+    pub fn with_module(mut self, name: &str) -> PostAction {
+        match self {
+            PostAction::Ignore => PostAction::Ignore,
+            PostAction::Action(mut data) => {
+                data.set_module(name);
+                PostAction::Action(data)
+            }
+        }
+    }
+
     pub fn join(self, other: PostAction) -> PostAction {
         match (self, other) {
             (PostAction::Ignore, other) => other,
@@ -297,6 +309,12 @@ impl PostAction {
     }
 
     fn merge(this: ActionData, other: ActionData) -> ActionData {
+        let module = if this.module.len() == 0 {
+            other.module
+        } else {
+            this.module + "," + other.module.as_str()
+        };
+
         let analyser = match (this.analyser, other.analyser) {
             (None, None) => None,
             (None, Some(t)) | (Some(t), None) => Some(t),
@@ -328,6 +346,7 @@ impl PostAction {
         };
 
         ActionData {
+            module,
             analyser,
             reply,
             moderate: this.moderate,
@@ -338,6 +357,7 @@ impl PostAction {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActionData {
     analyser: Option<String>,
+    module: String,
     reply: Option<PostReply>,
     moderate: ModAct,
 }
@@ -346,12 +366,18 @@ impl ActionData {
     pub fn new() -> Self {
         Self {
             analyser: None,
+            module: String::new(),
             reply: None,
             moderate: ModAct::None,
         }
     }
 
-    pub fn execute(self, db: &MlapiDb, post: &Submission) -> anyhow::Result<()> {
+    pub fn execute(
+        self,
+        webhook: Option<&mut WebhookClient>,
+        db: &MlapiDb,
+        post: &Submission,
+    ) -> anyhow::Result<()> {
         let reply_fullname = if let Some(reply) = self.reply {
             let comment = post.comment(&reply.text)?;
             if reply.distinguish != Distinguish::None {
@@ -391,7 +417,26 @@ impl ActionData {
             removed,
         )?;
 
+        if let Some(webhook) = webhook {
+            let msg = create_detection_message(
+                post,
+                &self.module,
+                self.analyser.as_ref().map(|c| c.as_str()),
+            );
+            webhook.send(&msg)?;
+        }
+
         Ok(())
+    }
+
+    fn set_module(&mut self, name: &str) -> &mut Self {
+        self.module = name.to_string();
+        self
+    }
+
+    pub fn module(mut self, name: &str) -> Self {
+        self.set_module(name);
+        self
     }
 
     pub fn analyser(mut self, name: &str) -> Self {
@@ -443,20 +488,6 @@ pub struct PostReply {
     distinguish: Distinguish,
 }
 
-impl PostReply {
-    pub fn new(text: String) -> Self {
-        Self {
-            text,
-            distinguish: Distinguish::None,
-        }
-    }
-
-    pub fn moderator(mut self) -> Self {
-        self.distinguish = Distinguish::Moderator;
-        self
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ModAct {
     None,
@@ -501,6 +532,7 @@ mod tests {
         let first = PostAction::Action(
             ActionData::new()
                 .analyser("first")
+                .module("group")
                 .remove()
                 .reply("first text".into(), false),
         );
@@ -508,6 +540,7 @@ mod tests {
         let second = PostAction::Action(
             ActionData::new()
                 .analyser("second")
+                .module("parent")
                 .remove()
                 .reply("second text".into(), true),
         );
@@ -515,6 +548,7 @@ mod tests {
         let expected = PostAction::Action(
             ActionData::new()
                 .analyser("first,second")
+                .module("group,parent")
                 .remove()
                 .reply("first text\n------\nsecond text".into(), true),
         );
@@ -525,6 +559,7 @@ mod tests {
         let expected = PostAction::Action(
             ActionData::new()
                 .analyser("second,first")
+                .module("parent,group")
                 .remove()
                 .reply("second text\n------\nfirst text".into(), true),
         );

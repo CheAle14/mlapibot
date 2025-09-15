@@ -5,7 +5,7 @@ use crate::{
     RedditClient,
     client::module::{ActionData, PostAction},
     exts::SubmissionExt,
-    webhook::{create_detection_message, create_error_processing_post},
+    webhook::create_error_processing_post,
 };
 
 pub struct PostScams;
@@ -108,7 +108,7 @@ impl super::Module for PostScams {
 
             let mut action = ActionData::new().analyser(&detected.name);
 
-            let imgur_link = match (
+            match (
                 detected.template.name().is_some(), // no point uploading images if we aren't replying
                 ctx.images.len() > 0,
                 client.imgur.as_mut(),
@@ -159,11 +159,6 @@ impl super::Module for PostScams {
                 action.set_remove();
             } else if detected.report {
                 action.set_report();
-            }
-
-            if let Some(webhook) = &mut client.webhook {
-                let msg = create_detection_message(&post, &detection, detected, imgur_link);
-                webhook.send(&msg).context("send detection webhook")?;
             }
 
             Ok(PostAction::Action(action))

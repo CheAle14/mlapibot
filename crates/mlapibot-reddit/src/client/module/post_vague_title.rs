@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use mlapibot_common::Words;
-use roux::{builders::submission::SubmissionSubmitBuilder, client::RedditClient};
 
 use crate::client::module::{ActionData, PostAction};
 
@@ -27,7 +26,7 @@ impl super::Module for PostVagueTitle {
 
     fn run_post<'client>(
         &mut self,
-        client: &mut crate::client::ModuleRedditClient<'client>,
+        _client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
         config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
