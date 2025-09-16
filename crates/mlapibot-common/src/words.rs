@@ -208,6 +208,7 @@ static STOP_WORDS: &[&str] = &[
     "his",
     "how",
     "i",
+    "idk",
     "if",
     "im",
     "in",
@@ -279,6 +280,7 @@ static STOP_WORDS: &[&str] = &[
     "thought",
     "thoughts",
     "through",
+    "title",
     "to",
     "too",
     "under",
@@ -371,7 +373,8 @@ mod tests {
             "I’m confused please help if possible",
             "Okay please help",
             "any thoughts",
-            "i didn't expect this"
+            "i didn't expect this",
+            "Idk what to title this"
         );
     }
 
