@@ -15,6 +15,11 @@ pub struct Words {
 impl Words {
     pub fn clean(text: &mut String) {
         text.make_ascii_lowercase();
+
+        while let Some(idx) = text.find(['-', '/']) {
+            text.replace_range(idx..=idx, " ");
+        }
+
         text.retain(allowed_char);
     }
 
@@ -150,6 +155,8 @@ static STOP_WORDS: &[&str] = &[
     "am",
     "an",
     "and",
+    "answer",
+    "answers",
     "any",
     "anyone",
     "are",
@@ -169,6 +176,7 @@ static STOP_WORDS: &[&str] = &[
     "by",
     "can",
     "confused",
+    "correct",
     "did",
     "didnt",
     "discord",
@@ -186,12 +194,14 @@ static STOP_WORDS: &[&str] = &[
     "even",
     "exist",
     "expect",
+    "false",
     "feature",
     "few",
     "fix",
     "for",
     "from",
     "further",
+    "genuine",
     "had",
     "happened",
     "has",
@@ -206,6 +216,7 @@ static STOP_WORDS: &[&str] = &[
     "him",
     "himself",
     "his",
+    "honest",
     "how",
     "i",
     "idk",
@@ -283,6 +294,7 @@ static STOP_WORDS: &[&str] = &[
     "title",
     "to",
     "too",
+    "true",
     "under",
     "until",
     "up",
@@ -326,24 +338,6 @@ mod tests {
             panic!("{vec:#?}");
         }
     }
-
-    #[test]
-    pub fn test_phrase_matcher_split() {
-        let matcher = Words::new("hello world goes here");
-
-        assert_eq!(matcher.as_words(), vec!["hello", "world", "goes", "here"]);
-    }
-
-    #[test]
-    pub fn test_phrase_matcher_split_numbers() {
-        let matcher = Words::new("some 10mb goes 10 mb here");
-
-        assert_eq!(
-            matcher.as_words(),
-            vec!["some", "10mb", "goes", "10", "mb", "here"]
-        );
-    }
-
     #[test]
     pub fn test_remove_stop_words() {
         macro_rules! assert_all_removed {
@@ -374,7 +368,25 @@ mod tests {
             "Okay please help",
             "any thoughts",
             "i didn't expect this",
-            "Idk what to title this"
+            "Idk what to title this",
+            "need genuine answers/help"
+        );
+    }
+
+    #[test]
+    pub fn test_phrase_matcher_split() {
+        let matcher = Words::new("hello world goes here");
+
+        assert_eq!(matcher.as_words(), vec!["hello", "world", "goes", "here"]);
+    }
+
+    #[test]
+    pub fn test_phrase_matcher_split_numbers() {
+        let matcher = Words::new("some 10mb goes 10 mb here");
+
+        assert_eq!(
+            matcher.as_words(),
+            vec!["some", "10mb", "goes", "10", "mb", "here"]
         );
     }
 
@@ -429,5 +441,11 @@ mod tests {
         assert_eq!(word_iter.next(), Some("lazy"));
         assert_eq!(word_iter.next(), Some("dog"));
         assert_eq!(word_iter.next(), None);
+    }
+
+    #[test]
+    pub fn test_words_replace_with_spaces() {
+        let words = Words::new("here is/some kind-of text");
+        assert_eq!(words.full_text(), "here is some kind of text");
     }
 }
