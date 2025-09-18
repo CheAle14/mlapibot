@@ -1057,6 +1057,14 @@
             ],
             "remove": true,
             "template": "modRemoveOnly"
+        },
+        {
+            "name": "activityDM",
+            "ocr": [
+                "farm merge valley"
+            ],
+            "remove": true,
+            "template": "activityDM"
         }
     ]
 }
