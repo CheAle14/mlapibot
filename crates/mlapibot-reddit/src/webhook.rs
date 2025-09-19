@@ -1,5 +1,3 @@
-use mlapibot_analysis::analzyer::Analyzer;
-use mlapibot_common::Detection;
 use mlapibot_webhook::{LinkExt, Message, MessageEmbed, MessageEmbedAuthor};
 
 use crate::{CreatedCommentWithLinkInfo, RedditMessage, Submission, utils::clamp};
@@ -8,22 +6,24 @@ pub fn create_detection_message(
     submission: &Submission,
     module: &str,
     analyser: Option<&str>,
+    is_debug: bool,
 ) -> Message {
-    let mut embed = MessageEmbed::builder();
-    embed
-        .with_title(submission.title())
-        .with_description(format!(
+    let mut embed = MessageEmbed::builder()
+        .title(submission.title())
+        .description(format!(
             "{module}: {}",
             analyser
                 .map(|c| c.to_string())
                 .unwrap_or_else(|| String::from("(no analyser)"))
         ))
-        .with_reddit_link(submission.permalink())
-        .with_author(MessageEmbedAuthor::new(submission.author()));
+        .reddit_link(submission.permalink())
+        .author(MessageEmbedAuthor::new(submission.author()));
 
-    let mut message = Message::builder();
-    message.with_embed(embed);
-    message
+    if is_debug {
+        embed.with_color(255, 0, 0);
+    }
+
+    Message::builder().embed(embed)
 }
 
 pub fn create_change_flair_message(submission: &Submission, now_flair: &str) -> Message {

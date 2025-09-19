@@ -1,3 +1,5 @@
+use serde::Serializer;
+
 #[derive(Debug, serde::Serialize)]
 pub struct MessageEmbedAuthor {
     pub name: String,
@@ -27,6 +29,21 @@ pub struct MessageEmbed {
     pub url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<MessageEmbedAuthor>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_int"
+    )]
+    pub color: Option<[u8; 3]>,
+}
+
+fn serialize_int<S: Serializer>(value: &Option<[u8; 3]>, s: S) -> Result<S::Ok, S::Error> {
+    match value {
+        Some(value) => {
+            let int = u32::from_be_bytes([0, value[0], value[1], value[2]]);
+            s.serialize_u32(int)
+        }
+        None => s.serialize_none(),
+    }
 }
 
 impl MessageEmbed {
@@ -36,6 +53,7 @@ impl MessageEmbed {
             description: None,
             url: None,
             author: None,
+            color: None,
         }
     }
 
@@ -76,6 +94,16 @@ impl MessageEmbed {
 
     pub fn with_author(&mut self, author: MessageEmbedAuthor) -> &mut Self {
         self.author = Some(author);
+        self
+    }
+
+    pub fn color(mut self, red: u8, green: u8, blue: u8) -> Self {
+        self.with_color(red, green, blue);
+        self
+    }
+
+    pub fn with_color(&mut self, red: u8, green: u8, blue: u8) -> &mut Self {
+        self.color = Some([red, green, blue]);
         self
     }
 }

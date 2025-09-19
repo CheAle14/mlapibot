@@ -605,7 +605,7 @@ impl<'client> ModuleRedditClient<'client> {
 
         match action {
             PostAction::Action(data) if !self.dry_run => {
-                data.execute(self.webhook.as_mut(), self.db, &post)?;
+                data.execute(self.debug, self.webhook.as_mut(), self.db, &post)?;
             }
             PostAction::Ignore | PostAction::Action(..) => {
                 self.db.set_ignored(post.name().full())?;

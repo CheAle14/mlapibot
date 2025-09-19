@@ -374,6 +374,7 @@ impl ActionData {
 
     pub fn execute(
         self,
+        is_debug: bool,
         webhook: Option<&mut WebhookClient>,
         db: &MlapiDb,
         post: &Submission,
@@ -422,6 +423,7 @@ impl ActionData {
                 post,
                 &self.module,
                 self.analyser.as_ref().map(|c| c.as_str()),
+                is_debug,
             );
             webhook.send(&msg)?;
         }

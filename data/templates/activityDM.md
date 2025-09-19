@@ -4,3 +4,7 @@ Your post appears to relate to an application or bot sending you unsolicited mes
 This comes from an Activity (voice chat game) which asked you for permission to send you messages, which you authorized. 
 
 You can revoke the app's authorization to send you messages under User Settings > Authorised Apps.
+
+---
+
+{{ removal_reason }} {% if imgur_url %} ^[[OCR]]({{ imgur_url }}) {% endif %}
