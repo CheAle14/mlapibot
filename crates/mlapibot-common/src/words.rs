@@ -202,6 +202,8 @@ static STOP_WORDS: &[&str] = &[
     "from",
     "further",
     "genuine",
+    "guy",
+    "guys",
     "had",
     "happened",
     "has",
@@ -369,7 +371,8 @@ mod tests {
             "any thoughts",
             "i didn't expect this",
             "Idk what to title this",
-            "need genuine answers/help"
+            "need genuine answers/help",
+            "Guys so Idk what happened but I need help I think"
         );
     }
 
