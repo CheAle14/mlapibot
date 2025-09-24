@@ -159,6 +159,7 @@ static STOP_WORDS: &[&str] = &[
     "answers",
     "any",
     "anyone",
+    "appreciate",
     "are",
     "as",
     "at",
@@ -221,6 +222,7 @@ static STOP_WORDS: &[&str] = &[
     "honest",
     "how",
     "i",
+    "id",
     "idk",
     "if",
     "im",
@@ -260,6 +262,8 @@ static STOP_WORDS: &[&str] = &[
     "over",
     "own",
     "please",
+    "pls",
+    "plz",
     "possible",
     "probably",
     "problem",
@@ -372,7 +376,9 @@ mod tests {
             "i didn't expect this",
             "Idk what to title this",
             "need genuine answers/help",
-            "Guys so Idk what happened but I need help I think"
+            "Guys so Idk what happened but I need help I think",
+            "How do i fix this pls??",
+            "If you can help id appreciate it"
         );
     }
 
