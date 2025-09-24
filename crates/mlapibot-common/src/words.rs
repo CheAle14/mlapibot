@@ -206,7 +206,10 @@ static STOP_WORDS: &[&str] = &[
     "guy",
     "guys",
     "had",
+    "happen",
     "happened",
+    "happening",
+    "happens",
     "has",
     "have",
     "having",
@@ -378,7 +381,8 @@ mod tests {
             "need genuine answers/help",
             "Guys so Idk what happened but I need help I think",
             "How do i fix this pls??",
-            "If you can help id appreciate it"
+            "If you can help id appreciate it",
+            "what do I do if this happens"
         );
     }
 
