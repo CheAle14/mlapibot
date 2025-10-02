@@ -300,6 +300,7 @@ static STOP_WORDS: &[&str] = &[
     "thought",
     "thoughts",
     "through",
+    "tired",
     "title",
     "to",
     "too",
@@ -338,7 +339,6 @@ mod tests {
 
     use super::Words;
 
-    #[test]
     pub fn test_stop_word_ordered() {
         let mut vec = STOP_WORDS.to_vec();
         vec.sort();
@@ -347,8 +347,11 @@ mod tests {
             panic!("{vec:#?}");
         }
     }
+
     #[test]
     pub fn test_remove_stop_words() {
+        test_stop_word_ordered();
+
         macro_rules! assert_all_removed {
             ($($words:literal),* $(,)?) => {
                 $(
@@ -382,7 +385,8 @@ mod tests {
             "Guys so Idk what happened but I need help I think",
             "How do i fix this pls??",
             "If you can help id appreciate it",
-            "what do I do if this happens"
+            "what do I do if this happens",
+            "I'm tired"
         );
     }
 
