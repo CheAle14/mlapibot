@@ -108,6 +108,7 @@ impl super::Module for PostScams {
 
             let mut action = ActionData::new().analyser(&detected.name);
 
+            #[cfg(feature = "imgur")]
             match (
                 detected.template.name().is_some(), // no point uploading images if we aren't replying
                 ctx.images.len() > 0,

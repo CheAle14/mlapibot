@@ -3,6 +3,9 @@ name = "mlapibot-reddit"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+imgur = []
+
 [dependencies]
 mlapibot-analysis = { path = "../mlapibot-analysis" }
 mlapibot-common = { path = "../mlapibot-common" }
