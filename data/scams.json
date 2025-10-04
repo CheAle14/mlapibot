@@ -1059,6 +1059,18 @@
             "template": "modRemoveOnly"
         },
         {
+            "name": "supportDataBreach",
+            "ocr": [
+                "important information regarding your personal data",
+                "recent security incident",
+                "unauthorized party gained limited access",
+                "other contact details if you provided them",
+                "limited payment information"
+            ],
+            "remove": true,
+            "template": "modRemoveOnly"
+        },
+        {
             "name": "activityDM",
             "ocr": [
                 "farm merge valley"
