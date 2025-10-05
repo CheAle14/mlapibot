@@ -1068,7 +1068,7 @@
                 "limited payment information"
             ],
             "remove": true,
-            "template": "modRemoveOnly"
+            "template": "supportDataBreach"
         },
         {
             "name": "activityDM",
