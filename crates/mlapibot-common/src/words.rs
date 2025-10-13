@@ -158,7 +158,9 @@ static STOP_WORDS: &[&str] = &[
     "answer",
     "answers",
     "any",
+    "anybody",
     "anyone",
+    "anything",
     "appreciate",
     "are",
     "as",
@@ -279,6 +281,7 @@ static STOP_WORDS: &[&str] = &[
     "should",
     "so",
     "some",
+    "someone",
     "struggle",
     "such",
     "t",
@@ -386,7 +389,9 @@ mod tests {
             "How do i fix this pls??",
             "If you can help id appreciate it",
             "what do I do if this happens",
-            "I'm tired"
+            "I'm tired",
+            "Is anybody else having this issue??",
+            "Can someone help me please..."
         );
     }
 
