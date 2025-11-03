@@ -258,6 +258,7 @@ static STOP_WORDS: &[&str] = &[
     "once",
     "one",
     "only",
+    "opinion",
     "or",
     "other",
     "our",
@@ -391,7 +392,9 @@ mod tests {
             "what do I do if this happens",
             "I'm tired",
             "Is anybody else having this issue??",
-            "Can someone help me please..."
+            "Can someone help me please...",
+            "Discord, why?!?!?!?!?",
+            "I need help and your opinion"
         );
     }
 
