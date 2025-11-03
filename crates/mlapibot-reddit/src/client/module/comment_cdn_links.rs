@@ -8,7 +8,17 @@ impl CdnLinks {
     const ALLOWED_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg"];
 
     fn extract_cdn_links(text: &str) -> Vec<Url> {
-        mlapibot_analysis::extract_all_links(text, Some("https://cdn.discordapp.com/attachments"))
+        let mut urls = mlapibot_analysis::extract_all_links(text, None);
+
+        urls.retain(|url| {
+            url.as_str()
+                .starts_with("https://cdn.discordapp.com/attachments")
+                || url
+                    .as_str()
+                    .starts_with("https://media.discordapp.net/attachments")
+        });
+
+        urls
     }
 }
 
@@ -36,6 +46,10 @@ impl super::Module for CdnLinks {
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
         let links = Self::extract_cdn_links(comment.body().as_str());
+
+        if links.len() == 0 {
+            return Ok(());
+        }
 
         let http = reqwest::blocking::Client::new();
 
@@ -98,5 +112,23 @@ impl super::Module for CdnLinks {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    pub fn test_extract_cdn_links() {
+        let text = "hello \
+         https://example.com \
+         https://cdn.discordapp.com/attachments/538100008581357578/1434734815500000075/file.png?ex=6909686c&is=690816ec&hm=1dc00225da06c9bb2f1d11032dffafe08c029dde7f7b9e9e05aaa6202fbb255d& \
+         https://media.discordapp.net/attachments/1325000089812707399/1426338000063653180/Screenshot_20200010_150001.jpg?ex=68eed18a&is=68ed800a&hm=efaff538ea1fa78016d20d0e699a9ff916b0527bac632bf436a9bb0c8d8d80a9&=&format=webp&quality=lossless";
+
+        let urls = super::CdnLinks::extract_cdn_links(text);
+
+        assert_eq!(urls.len(), 2);
+
+        assert_eq!(urls[1].domain(), "media.discordapp.net");
+        assert_eq!(urls[0].domain(), "cdn.discordapp.com");
     }
 }

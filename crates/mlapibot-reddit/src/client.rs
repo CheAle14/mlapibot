@@ -42,7 +42,7 @@ pub struct RedditClient<'a> {
     db: MlapiDb,
     analzyers: &'a [Analyzer],
     own_name: String,
-    client: RouxClient,
+    pub client: RouxClient,
     subreddits: Vec<Subreddit>,
     templates: Tera,
     webhook: Option<WebhookClient>,
@@ -373,6 +373,10 @@ impl<'a> RedditClient<'a> {
             let mut view = make_view!(self);
 
             for comment in comments {
+                if comment.author() == &self.own_name {
+                    continue;
+                }
+
                 if self.db.has_seen(comment.name().full())? {
                     continue;
                 }
