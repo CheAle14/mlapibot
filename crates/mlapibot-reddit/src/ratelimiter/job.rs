@@ -1,5 +1,7 @@
 use std::time::{Duration, Instant};
 
+use crate::QuickStopError;
+
 use super::task::RateTask;
 
 pub struct RateJob<Ctx> {
@@ -55,11 +57,14 @@ impl<Ctx> RateJob<Ctx> {
             .unwrap_or_else(|| Instant::now());
     }
 
-    pub fn run(&mut self, ctx: &mut Ctx) -> Instant {
+    pub fn run(&mut self, ctx: &mut Ctx) -> Result<Instant, QuickStopError> {
         match self.task.run(ctx) {
             Ok(dur) => {
                 self.mark_success();
                 self.set_next_time(dur)
+            }
+            Err(err) if err.downcast_ref::<QuickStopError>().is_some() => {
+                return Err(QuickStopError);
             }
             Err(err) => {
                 self.mark_failed();
@@ -72,7 +77,7 @@ impl<Ctx> RateJob<Ctx> {
             }
         };
 
-        self.next
+        Ok(self.next)
     }
 }
 

@@ -231,7 +231,9 @@ impl<'a> InboxMsg<'a> {
         let (subject, body) = if subject == "[direct chat room]" {
             match inner.body().split_once('\n') {
                 Some(pair) => pair,
-                None => (subject, inner.body().as_str()),
+                // If body has only one line, that is new subject,
+                // and the body is empty
+                None => (inner.body().as_str(), ""),
             }
         } else {
             (subject, inner.body().as_str())

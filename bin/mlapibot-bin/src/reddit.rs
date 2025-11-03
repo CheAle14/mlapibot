@@ -3,7 +3,7 @@ use std::{any::Any, fmt::Write, path::PathBuf};
 use anyhow::Context;
 use mlapibot_common::LowercaseString;
 use mlapibot_reddit::{
-    RedditClient,
+    QuickStopError, RedditClient,
     config::{RedditCredentials, SubredditsConfig},
 };
 use mlapibot_webhook::{WebhookClient, create_generic_error_message};
@@ -104,6 +104,11 @@ impl RedditArgs {
                         let message = create_generic_error_message("Fatal error occured", s);
                         client.send(&message)?;
                     }
+                }
+
+                if error.downcast_ref::<QuickStopError>().is_some() {
+                    println!("Quickly stopped successfully");
+                    return Ok(());
                 }
 
                 Err(error)

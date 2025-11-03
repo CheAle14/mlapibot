@@ -6,6 +6,7 @@ use roux::{
 };
 
 use crate::{
+    QuickStopError,
     client::{
         ModuleRedditClient,
         module::{InboxAction, InboxMsg, Module},
@@ -49,6 +50,8 @@ impl Module for InboxCommands {
             client.send_removal_reasons(&item)?;
         } else if item.subject == "sticky" {
             client.try_sticky_status_post(subreddits, &item)?;
+        } else if item.subject.trim().eq_ignore_ascii_case("stop") {
+            client.try_stop_bot(subreddits, &item)?;
         } else if item.author == "" {
             if let Some(subreddit) = item.subject.strip_prefix("invitation to moderate /r/") {
                 let sub = client.client.subreddit(subreddit);
@@ -99,6 +102,24 @@ impl<'client> ModuleRedditClient<'client> {
                 )?;
             }
         };
+        Ok(())
+    }
+
+    fn try_stop_bot(
+        &mut self,
+        subreddits: &mut [Subreddit],
+        message: &InboxMsg<'_>,
+    ) -> anyhow::Result<()> {
+        for sub in subreddits {
+            if sub.is_moderator(message.author)? {
+                let _ = message.reply("Stopping...");
+
+                return Err(anyhow::Error::from(QuickStopError));
+            }
+        }
+
+        message.reply("You are authorised to do that")?;
+
         Ok(())
     }
 

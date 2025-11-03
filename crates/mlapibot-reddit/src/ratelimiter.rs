@@ -3,6 +3,8 @@ use std::{collections::BinaryHeap, time::Instant};
 use job::RateJob;
 use task::RateTask;
 
+use crate::QuickStopError;
+
 mod job;
 mod task;
 
@@ -42,11 +44,11 @@ impl<Ctx> Ratelimiter<Ctx> {
 
     /// Runs all pending tasks (if any), returning the Instant when the next
     /// task is due to be run.
-    pub fn run(&mut self, ctx: &mut Ctx, now: Instant) -> Instant {
+    pub fn run(&mut self, ctx: &mut Ctx, now: Instant) -> Result<Instant, QuickStopError> {
         if let Some(peek) = self.jobs.peek() {
             // Short circuit if none are ready.
             if peek.next() > now {
-                return peek.next();
+                return Ok(peek.next());
             }
         }
 
@@ -68,7 +70,7 @@ impl<Ctx> Ratelimiter<Ctx> {
             }
 
             println!("[ratelimit] running {}", job.name());
-            let job_next = job.run(ctx);
+            let job_next = job.run(ctx)?;
 
             match next {
                 Some(nxt) => next = Some(nxt.min(job_next)),
@@ -82,6 +84,6 @@ impl<Ctx> Ratelimiter<Ctx> {
             self.jobs.push(job);
         }
 
-        next.unwrap_or_else(|| Instant::now())
+        Ok(next.unwrap_or_else(|| Instant::now()))
     }
 }

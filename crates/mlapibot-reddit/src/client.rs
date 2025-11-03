@@ -535,7 +535,7 @@ impl<'a> RedditClient<'a> {
             }
 
             let now = Instant::now();
-            let next = ratelimiter.run(self, now);
+            let next = ratelimiter.run(self, now)?;
 
             match rx.recv_timeout(next - now) {
                 Ok(event) => self.handle_webhook_event(event, &mut ratelimiter)?,
