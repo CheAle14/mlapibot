@@ -35,45 +35,43 @@ impl super::Module for CdnLinks {
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
-        let Some(imgur) = client.imgur.as_mut() else {
-            return Ok(());
-        };
-
         let links = Self::extract_cdn_links(comment.body().as_str());
 
         let http = reqwest::blocking::Client::new();
 
         let mut uploaded = Vec::new();
 
-        for link in links {
-            let Some((_, extension)) = link.path().rsplit_once('.') else {
-                continue;
-            };
+        if let Some(imgur) = client.imgur.as_mut() {
+            for link in links {
+                let Some((_, extension)) = link.path().rsplit_once('.') else {
+                    continue;
+                };
 
-            if !Self::ALLOWED_EXTENSIONS
-                .iter()
-                .any(|e| e.eq_ignore_ascii_case(extension))
-            {
-                continue;
+                if !Self::ALLOWED_EXTENSIONS
+                    .iter()
+                    .any(|e| e.eq_ignore_ascii_case(extension))
+                {
+                    continue;
+                }
+
+                let mut response = http
+                    .get(link.as_str())
+                    .send()
+                    .with_context(|| format!("sending {}", link.as_str()))?
+                    .error_for_status()
+                    .with_context(|| format!("status {}", link.as_str()))?;
+
+                let mut temp = tempfile::NamedTempFile::with_suffix(extension)
+                    .with_context(|| format!("tempfile {}", link.as_str()))?;
+
+                response.copy_to(&mut temp)?;
+
+                let link = imgur.upload_image(ImageBuilder::builder(temp.path()))?;
+                uploaded.push(link);
             }
-
-            let mut response = http
-                .get(link.as_str())
-                .send()
-                .with_context(|| format!("sending {}", link.as_str()))?
-                .error_for_status()
-                .with_context(|| format!("status {}", link.as_str()))?;
-
-            let mut temp = tempfile::NamedTempFile::with_suffix(extension)
-                .with_context(|| format!("tempfile {}", link.as_str()))?;
-
-            response.copy_to(&mut temp)?;
-
-            let link = imgur.upload_image(ImageBuilder::builder(temp.path()))?;
-            uploaded.push(link);
         }
 
-        if uploaded.len() > 0 {
+        let text = if uploaded.len() > 0 {
             let mut text = String::from(
                 "Discord's CDN links will expire after a relatively short duration; any such links found in your comment have been re-uploaded to Imgur so they last a bit longer:\r\n",
             );
@@ -83,11 +81,20 @@ impl super::Module for CdnLinks {
                 text.push_str(&link.id);
             }
 
-            let reply = comment.reply(&text)?;
+            text
+        } else {
+            String::from(
+                "Discord's CDN links will expire after a relatively short duration. \
+                To help those in the future, especially if this is a bug report, \
+                you should consider uploading it directly to Reddit or re-uploading it \
+                to a dedicated media host (e.g. Imgur) and updating the link(s) in your message.",
+            )
+        };
 
-            if reply.can_mod_post() {
-                reply.lock()?;
-            }
+        let reply = comment.reply(&text)?;
+
+        if reply.can_mod_post() {
+            reply.lock()?;
         }
 
         Ok(())
