@@ -1,7 +1,6 @@
 use clap::Parser;
-use reddit::RedditArgs;
-use single::SingleArgs;
 
+mod download;
 mod reddit;
 mod single;
 
@@ -13,8 +12,9 @@ pub struct MainArgs {
 
 #[derive(clap::Subcommand)]
 pub enum MainCommands {
-    Reddit(RedditArgs),
-    Test(SingleArgs),
+    Reddit(reddit::RedditArgs),
+    Test(single::SingleArgs),
+    Download(download::DownloadArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -23,5 +23,6 @@ fn main() -> anyhow::Result<()> {
     match args.commands {
         MainCommands::Reddit(reddit) => reddit.run(),
         MainCommands::Test(single) => single.run(),
+        MainCommands::Download(download) => download.run(),
     }
 }

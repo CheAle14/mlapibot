@@ -1,1082 +1,888 @@
 {
-    "scams": [
+  "scams": [
+    {
+      "colours": ["#000000", "#FFFFFF", "#131215", "#212023", "#2F3137"],
+      "disabled": true,
+      "name": "vencordNoLoad",
+      "remove": true,
+      "template": "vencordNoLoad",
+      "threshold": 0.8,
+      "type": "colour"
+    },
+    {
+      "name": "emailFreeNitro",
+      "ocr": [
+        "we'd like to directly apologize for the recent issues regarding your discord account which resulted in a temporary ban",
+        "we're working diligently to make sure this does not occur again in the future",
+        "we'd like to give you three months of discord nitro as a thank you for your patience during this situation",
         {
-            "colours": [
-                "#000000",
-                "#FFFFFF",
-                "#131215",
-                "#212023",
-                "#2F3137"
-            ],
-            "disabled": true,
-            "name": "vencordNoLoad",
-            "remove": true,
-            "template": "vencordNoLoad",
-            "threshold": 0.8,
-            "type": "colour"
+          "children": ["discords", "email", "service", "compromised"],
+          "type": "ordered"
         },
         {
-            "name": "emailFreeNitro",
-            "ocr": [
-                "we'd like to directly apologize for the recent issues regarding your discord account which resulted in a temporary ban",
-                "we're working diligently to make sure this does not occur again in the future",
-                "we'd like to give you three months of discord nitro as a thank you for your patience during this situation",
-                {
-                    "children": [
-                        "discords",
-                        "email",
-                        "service",
-                        "compromised"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "discords",
-                        "email",
-                        "servers",
-                        "compromised"
-                    ],
-                    "type": "ordered"
-                }
-            ],
-            "remove": true,
-            "template": "emailFreeNitro"
-        },
-        {
-            "blacklist": [
-                "epic games",
-                "epic game",
-                "t-mobile",
-                "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to",
-                "just waiting here until you choose a server to give it to",
-                "get a free boost for inviting each of these contacts when they sign up for discord"
-            ],
-            "ignore_self_posts": true,
-            "name": "Free NitroBoost",
-            "ocr": [
-                "if you want to win a free discord nitro invite this bot to your server",
-                "free discord nitro",
-                "discord nitro free",
-                "when you added the bot you have to wait 24 hours and our bot will come and send you your reward in private message",
-                "get 3 months of discord nitro free from steam",
-                "steam is giving out discord ntiro",
-                "you have win the nitro so add the bot",
-                "click on the nitro link and add the bot in all servers",
-                "you've been gifted a 1 month nitro games",
-                "you won 1 month nitro",
-                "claim your nitro",
-                "nitro gift sender",
-                "click link to accept you've got this message because a friend awarded you nitro",
-                "you've been gifted a 1 month nitro games by discord for events",
-                "click on the link for accept add the bot",
-                "click on the link to accept add the bot hello for our anniversary we decided to gift to all discord users",
-                "1 month nitro for free take it",
-                "yo got some nitro left over here",
-                "giveaway sponsored by discord",
-                "discord has gifted you nitro for 1 month",
-                "i got a nitro left over incase you want it because my friends didnt want it",
-                "you won 10 nitro gift congratulations",
-                "selected as the lucky winner for the nitro giveaway",
-                "free boost",
-                "invite this bot to your server, wait 1 day and your server will have 30 boosts.",
-                "click here for invite the bot",
-                "invite for free boost",
-                "discord boosting official",
-                "free boosting event",
-                "discord offical & legit boosting event.",
-                "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros",
-                "free boosting event",
-                "discord nitro event",
-                "free discord boosting",
-                "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend",
-                "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer",
-                "new giveaway server free nitro need join to receive boost nitro",
-                "to claim your x30 boost and nitro you have to click on the blue link",
-                "christmas is almost here to celebrate we are doing a limited time christmas free boosts event",
-                "congratulations you won the free 28x boosts giveaway",
-                "congrats you have been selected as the winner for the 30x boosts giveaway",
-                "has gifted you 14x boosts",
-                "wait 1 day and your server will have 14 boosts",
-                "discord has gifted you nitro boosts for 1 year",
-                "giveaway bot you've been gifted a subscription",
-                "discord gift event",
-                "discord has chose you as the winner of the event",
-                "offical new years discord bot",
-                "you've been gifted 1 year of nitro",
-                "has gifted you nitro boosts for 1 year",
-                "you've won the discord snowsgiving event",
-                "to claim your prize select your prize below",
-                "you won the 30x server boosts discord event to redeem your boosts add me to your server",
-                "you've won 15x boosts congratulations",
-                "you won the 26x server boosts discord event",
-                "you've been gifted 14x boosts",
-                "click here to claim your 14x boosts",
-                "congratulations you won the free 14x boosts giveaway hosted by",
-                "you've been gifted 15x discord server boosts from the arkazi development team",
-                "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
-                "you have been gifted 14x boosts for your server",
-                "you won the 14x boosts giveaway",
-                "you've won a giveaway you just won a 10 discord nitro",
-                "follow these steps to claim the 10 nitro gift code",
-                "you won 15x boosts",
-                "you were randomly selected to win 15x discord boosts from spooked",
-                {
-                    "children": [
-                        "here",
-                        "your",
-                        "discord",
-                        "nitro",
-                        "gift"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "protect",
-                        "automated",
-                        "claiming",
-                        "nitro"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "you",
-                        "won",
-                        "nitro"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "you've",
-                        "been",
-                        "gifted",
-                        "roblox",
-                        "giftcard"
-                    ],
-                    "type": "ordered"
-                }
-            ],
-            "remove": true
-        },
-        {
-            "blacklist": [
-                "registered games",
-                "activity settings"
-            ],
-            "ignore_self_posts": true,
-            "name": "verify scam",
-            "ocr": [
-                "we're doing a lot of giveaways first 100 members to join and verify will be sent nitro",
-                "we decided to move to a new server to promote the growth",
-                "can't believe you said that to a 13 year old if you don't know what im talking about even thought im 100 sure you do check",
-                "blocking you until i have more information about if its actually you",
-                "i do not wanna take risks with having weirdos on my friendslist",
-                "idk what happened or if its really you but it was your name and the same avatar and you sent a girl erm stuff like what the fuck",
-                "idk what happened or if its really you",
-                "idk if it's really you but it was your pfp and name",
-                "you sent a girl weird stuff like wtf",
-                "sorry if this is a misunderstanding but until you explain what happened",
-                "i dont want creeps on my friends list",
-                "im blocking you sorry if its a misunderstanding"
-            ],
-            "remove": true,
-            "template": "verifyscam"
-        },
-        {
-            "name": "Custom status text",
-            "ocr": [
-                "user is suspected to be part of an online terrorist organization",
-                "user is suspected to be apart of an online terrorist organization",
-                "please report any suspicious activity to discord staff",
-                "this user is suspected to be a part of online terrorist organization",
-                "please report any suspicious activity to discord support",
-                "online terrorist organization",
-                "active terrorist group",
-                "learn about discord's safety policy at",
-                "this user may be a part of an active terrorist group contact discord immediately if any suspicious activities are detected"
-            ],
-            "report": true,
-            "template": "status"
-        },
-        {
-            "name": "jokeMessage",
-            "ocr": [
-                "this user is under survellience by the fbi",
-                "this user is under survellience by the us fbi",
-                "do not contact this user he is the subject of a criminal case",
-                "18 usc 2332b",
-                "user is the subject of a criminal case"
-            ],
-            "report": true,
-            "template": "jokeMessage"
-        },
-        {
-            "name": "s/e/d",
-            "ocr": [
-                "discord sex hack"
-            ],
-            "report": true,
-            "template": "sed"
-        },
-        {
-            "name": "Join servers",
-            "template": "joinServers",
-            "title": [
-                "randomly added to servers",
-                "added to random servers",
-                "added to random discord servers",
-                "keep getting added to servers",
-                "keep getting into servers",
-                "keep getting into random servers",
-                "keep getting invited to other servers",
-                "automatically joining servers",
-                "automatically join servers"
-            ],
-            "type": "text"
-        },
-        {
-            "name": "Age Restricted",
-            "ocr": [
-                "age restricted servers are blocked on the ios platform per app store guidelines",
-                "if you're over 18 you can join on the desktop app or website"
-            ],
-            "report": true,
-            "template": "ageRestricted"
-        },
-        {
-            "ignore_self_posts": true,
-            "name": "Invite Scam",
-            "ocr": [
-                "you have to invite me to your servers",
-                "invite this bot to your server",
-                "click here for invite the bot",
-                "click here to add the bot",
-                "invite the bot to your server",
-                "invite this bot on your biggest server wait 1 day and you will receive the prizes listed above on your account"
-            ],
-            "remove": true
-        },
-        {
-            "ignore_self_posts": false,
-            "name": "Account report",
-            "ocr": [
-                "we recommend contacting the users who have been reported and encouraging them to reach out",
-                "just wanna confirm something this account belongs to you",
-                "i just want to say sorry because i filed tickets on your account",
-                "you still have time to prove your innocence i hope you can get in time",
-                "may i ask if you are the owner of this steam profile account",
-                "while our team investigates this please read through the following points",
-                "the complainant has also submitted to us a federal law report",
-                "our discord support team can be found under the username",
-                "we have taken a step to do this action since they will not be notified about these claims",
-                "we are working with some officials for this matter so that we can record all processes taken legally and are not violating",
-                "we can verify here that the said user doesn't have any past history of reports regarding this",
-                "i clicked on a link 2 days ago and somebody else had access my account but luckily i have my 2fa on",
-                "both of our accounts could get deleted and worst get our ip addresses blocked from accessing discord",
-                "the discord support said that your account will be banned if you didn't take any action for this",
-                "i was hacked last day because of a fake nitro link that i happened to click on discord",
-                "it appears that the account you reported has generated a comprehensive report covering a majority of users in your fiend list",
-                "we recommend contacting the users who have been reported and encouraging them to reach out to the same corporate team",
-                "exercise cauion regarding potental impersonators attempting to replicate our profile please ensure to accurately document the correct discord username",
-                "hey don't really know how to say this please don't be mad clicked on a link that matched my paypal",
-                "we have identified the account that you have been reported for as it has violated our terms of service or community guidelines",
-                "failure to validate the legality of an account within a specific time frame 12 hours may result in account suspension restrictions",
-                "by implementing this process we can assure that your discord account is not susceptible to fraudulent",
-                "your ip will be blocked on discord if there is no action taken from you",
-                "someone sent me a link but i clicked on it by accident",
-                "i accidentally reported you for scamming instead of someone else",
-                "discord staff emailed me",
-                "would you please help me to prove your innocence",
-                "please contact our corporate security head for assistance by sending a friend request on Discord",
-                "the user who performed the reports already provided a followup statement that you are not involved",
-                "your account might get deleted eternally",
-                "the provided evidence does not meet the criteria for validation",
-                "for the appeal please contact the discord support who handled this report",
-                "to prevent your account from getting suspended",
-                "use the password that i asked you to copy",
-                "contact the reported user",
-                "you may appeal by contacting the designated discord support staff",
-                "official discord support",
-                "discord official support",
-                {
-                    "children": [
-                        "illegal",
-                        "investigation",
-                        "case"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "verification",
-                        "process",
-                        "purchase"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "purchased",
-                        "validation",
-                        "report"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "account",
-                        "suspended",
-                        "no",
-                        "proof",
-                        "given"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "somebody",
-                        "else",
-                        "access",
-                        "my",
-                        "account",
-                        [
-                            "report",
-                            "reported"
-                        ]
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "temporarily",
-                        "change",
-                        "your",
-                        "email"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "system",
-                        "your",
-                        [
-                            "profile",
-                            "account"
-                        ],
-                        "massive",
-                        "reports"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "reason",
-                        [
-                            "process",
-                            "appeal"
-                        ],
-                        [
-                            "ensure",
-                            "prove"
-                        ],
-                        [
-                            "own",
-                            "owner"
-                        ],
-                        [
-                            "account",
-                            "profile"
-                        ]
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "help",
-                        "explain",
-                        [
-                            "discord support",
-                            "discord staff"
-                        ],
-                        [
-                            "reports",
-                            "complaints"
-                        ],
-                        [
-                            "false",
-                            "mistake",
-                            "accident"
-                        ]
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        [
-                            "discord agent",
-                            "discord staff",
-                            "discord support",
-                            "discord mailed"
-                        ],
-                        [
-                            "saying",
-                            "said",
-                            "told me"
-                        ],
-                        {
-                            "children": [
-                                [
-                                    "your",
-                                    "the users"
-                                ],
-                                [
-                                    "account",
-                                    "profile"
-                                ]
-                            ],
-                            "type": "ordered"
-                        },
-                        [
-                            "suspended",
-                            "banned",
-                            "deleted",
-                            "blocked"
-                        ]
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        [
-                            "massive",
-                            "massively",
-                            "apologize",
-                            "decieve",
-                            "decieved",
-                            "mistakenly",
-                            "accidentally"
-                        ],
-                        [
-                            {
-                                "children": [
-                                    [
-                                        "threw",
-                                        "filed",
-                                        "filing",
-                                        "filled"
-                                    ],
-                                    [
-                                        "report",
-                                        "tickets"
-                                    ]
-                                ],
-                                "type": "ordered"
-                            },
-                            "reported",
-                            "reporting"
-                        ],
-                        [
-                            {
-                                "children": [
-                                    "your",
-                                    [
-                                        "account",
-                                        "profile"
-                                    ]
-                                ],
-                                "type": "ordered"
-                            },
-                            {
-                                "children": [
-                                    "you",
-                                    "for"
-                                ],
-                                "type": "ordered"
-                            }
-                        ]
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        {
-                            "children": [
-                                "username",
-                                "similar",
-                                "yours",
-                                "your account"
-                            ],
-                            "type": "ordered"
-                        },
-                        [
-                            "spamming",
-                            "phishing",
-                            "fraud"
-                        ],
-                        [
-                            "accidentally",
-                            "mistakenly",
-                            "confusing"
-                        ],
-                        [
-                            "reported",
-                            {
-                                "children": [
-                                    [
-                                        "threw",
-                                        "filed"
-                                    ],
-                                    [
-                                        "report",
-                                        "ticket"
-                                    ]
-                                ],
-                                "type": "ordered"
-                            },
-                            "reporting"
-                        ]
-                    ],
-                    "type": "all"
-                },
-                {
-                    "children": [
-                        [
-                            {
-                                "children": [
-                                    "filed",
-                                    "report"
-                                ],
-                                "type": "ordered"
-                            },
-                            "reported",
-                            "reporting"
-                        ],
-                        "your",
-                        [
-                            "account",
-                            "profile"
-                        ],
-                        [
-                            "mistake",
-                            "accident"
-                        ]
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        [
-                            "contact",
-                            "reach out"
-                        ],
-                        "corporate",
-                        "security"
-                    ],
-                    "type": "ordered"
-                }
-            ],
-            "remove": true,
-            "template": "accountreport",
-            "title": [
-                {
-                    "children": [
-                        [
-                            "accidentally",
-                            "mass"
-                        ],
-                        [
-                            "report",
-                            "reported"
-                        ],
-                        [
-                            "account",
-                            "profile"
-                        ]
-                    ],
-                    "type": "ordered"
-                }
-            ]
-        },
-        {
-            "name": "externalApp",
-            "ocr": [
-                "message could not be loaded"
-            ],
-            "template": "externalApp"
-        },
-        {
-            "name": "externalAppConfident",
-            "ocr": [
-                "solara is back",
-                "solara executor"
-            ],
-            "remove": true,
-            "template": "externalApp"
-        },
-        {
-            "name": "doneReading",
-            "ocr": [
-                "done reading check out other channels",
-                "done reading check out chat"
-            ],
-            "template": "doneReading"
-        },
-        {
-            "name": "Mac Keybind Perms",
-            "ocr": [
-                "would like to receive keystrokes from any application",
-                "grant access to this application in security privacy preferences located in system preferences"
-            ],
-            "template": "macKeybinds"
-        },
-        {
-            "name": "promotions link",
-            "ocr": [
-                "i know this might be a bit random but i still have many discord nitro codes from the promotion",
-                "ill give you one for free if u need it",
-                "i still got a spare nitro code from the epic games promotion"
-            ],
-            "template": "malwareLink"
-        },
-        {
-            "name": "image malware",
-            "ocr": [
-                "the nature of this attack appears to be auth token based",
-                "there's a new scam going around so exercise extreme caution",
-                "there's anew scam going around so exercise extreme caution"
-            ],
-            "template": "imageMalware"
-        },
-        {
-            "name": "Verification",
-            "ocr": [
-                "verification required",
-                "we've detected something out of the ordinary going on"
-            ],
-            "remove": true,
-            "template": "phone"
-        },
-        {
-            "name": "bitly game malware",
-            "ocr": [
-                "hi bro i made a game please rate it",
-                "i am making a game can you rate it",
-                "i created a new game rate tried very hard",
-                "i create game rate it"
-            ],
-            "remove": true,
-            "template": "malwareLink"
-        },
-        {
-            "ignore_self_posts": false,
-            "name": "tryGameMalware",
-            "ocr": {
-                "children": [
-                    [
-                        "develop",
-                        "developed"
-                    ],
-                    "game",
-                    "feedback"
-                ],
-                "type": "ordered"
-            },
-            "template": "tryGameMalware"
-        },
-        {
-            "name": "discord support",
-            "ocr": [
-                "you have successfully completed the test period on the discord testers server",
-                "to complete the process of becoming a discord moderator you will need to take a",
-                "we are pleased to announce that we are starting the moderator program again but now we're releasing it to people who've been using discord for a while and this app is just for selected people and you were one of those selected congratulations",
-                "however to participate you must register to start the analysis procedure as a first step you must fill in a form the observation are below",
-                "fill out the form carefully and be formal as it is very important that our team make your assessment",
-                "we are pleased to announce that we are starting the moderator and hypesquad events program again",
-                "people who've been using discord for a while only for selected people and you were one of those selected",
-                "we are pleased to announce that discord has decided to open moderator academy however to participate you must register to start the analysis procedure",
-                "we are here to present you a new update of our launcher discord we are experiencing updates improvements performances and more we want to hear from you what do you think we should improve in our discord beta",
-                "you were one of those chosen in our system to be able to participate in our launcher beta",
-                "we want to launch a new discord one hundred percent good and that's why we need your help we need your help to find bugs",
-                "your account is receiving this notice due to your approval as a discord beta user",
-                "specifically discord beta has been released to a few users and you have been selected",
-                "first we wish you congratulations and thank you for being in our platform",
-                "get an exclusive hypesquad badge for your profile and make all your friends jelly",
-                "hype squad is recruiting new moderators",
-                "this time we come with a new chance for people who want to create events and have an animated badge on their profile",
-                "our team will be making an annual nitro available to all new hype squad moderators",
-                "if you do not follow the necessary steps within 30 minutes of receiving this notice your account will be suspended as a violation of our Guidelines",
-                "if you do not take the necessary steps outlined below within 6 hours of receiving this notice your account will be suspended",
-                "this notice is being sent to all users who have recently access the server your account has been flagged for the following reasons",
-                "your account has joined the server during an ongoing investigation",
-                "your account has accessed the server's channels where the content was being distributed within the past 10 minutes",
-                "your account may have been involved in the server for a longer period of time"
-            ],
-            "remove": true
-        },
-        {
-            "name": "Copyright",
-            "ocr": [
-                "when we share your account copyright is in your account in your account",
-                "your account has been reviewed by our team and found to contain copyright"
-            ]
-        },
-        {
-            "name": "TrojanImage",
-            "ocr": [
-                "trojandownloaderhtml",
-                "win32 badjoke ie"
-            ],
-            "template": "trojan"
-        },
-        {
-            "name": "Server Ban Appeal",
-            "template": "serverBanAppeal",
-            "title": {
-                "children": [
-                    "banned",
-                    "from",
-                    "server"
-                ],
-                "type": "ordered"
-            }
-        },
-        {
-            "name": "GenericChainSpam",
-            "ocr": [
-                "those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"
-            ],
-            "template": "chainspam"
-        },
-        {
-            "disabled": true,
-            "name": "GameTestersMalware",
-            "ocr": [
-                "you've been invited to test discord’s game testers",
-                "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"
-            ],
-            "template": "libraryMalware"
-        },
-        {
-            "name": "Twitch Nitro",
-            "ocr": [
-                "we are super happy to announce that discord has partnered with twitch",
-                "to show some love to our super great users from march 26 2020 until march 31 2020",
-                "all ours users will have access to a nitro games",
-                "© 2020 twitch interactive inc",
-                "©2020 twitch interactive inc",
-                "2020 twitch interactive inc."
-            ]
-        },
-        {
-            "name": "Partnership Autobot",
-            "ocr": [
-                "partnership autobox",
-                "make your partnership automatically thanks to this bot use the command *help to see the menu"
-            ]
-        },
-        {
-            "name": "MEE6 Premium",
-            "ocr": [
-                "mee6 premium",
-                "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"
-            ]
-        },
-        {
-            "name": "Discord Shutdown",
-            "ocr": [
-                "hi, this is a message from the discord creator and i'm going to tell you a little bit about what will happen on discord on july 23rd. please do not send this back to the person you received it from.",
-                "dear discord members, discord is supposed to close nov 7, 2020 because it has become too populated. there have been many members complaining that discord has become very slow. there are many active members of discord, but also many new members.",
-                "we will send this message to see if the members are active or not. if you are active, please copy and paste this to 15 other users to show that you are still active. those who do not send this message within 2 weeks will be deleted without hesitation to make more space.",
-                "send this message to all your friends to show that you are still active and that you will not be deleted.",
-                "hello this is a message from the discord creator and he tells you a little bit about what will happen on discord on july 23rd please do not send it back to the person you received it dear discord members discord is supposed to close on november 7 2020 because it has become too populated many members complained that the discord has become very slow indicate that there are many active members of the discord but also many new members we will send this message to see if the members are active or not if you are active please send to 15 other users using copy and paste to show that you are still active those who do not send this message within 2 weeks will be deleted without hesitation to make more room send this message to all your friends to show you're still active and you will not be deleted"
-            ],
-            "template": "chainspam"
-        },
-        {
-            "name": "Partner Bot",
-            "ocr": [
-                "partner bot",
-                "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started",
-                "link: https://discord.gg/ekajbfx",
-                "https://i.imgur.com/tmwigun.gif",
-                "want to gain members fast & see your advert here?",
-                "partner bot's info below",
-                "gain 2,000 members in a week time by adding me to your server than using the command",
-                "/partner [description here]"
-            ]
-        },
-        {
-            "name": "Xbox Partnership",
-            "ocr": [
-                "partnership: xbox & discord",
-                "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do claim when you have add the bot",
-                "step one add me on your servers",
-                "2020 xbox interactive, inc.",
-                "exclusive partnership",
-                "2?? : step one you have to invite me to yur servers (click here)",
-                "1?? : step one join our official discord event and wait a few moments (click here)"
-            ]
-        },
-        {
-            "ignore_self_posts": true,
-            "name": "Discord Rewards",
-            "ocr": [
-                "discord rewarding service",
-                "what is this you ask? simple. upon inviting out bot to your server, our bot will monitor chat and collect data on users day to day conversations, with this data our bot will learn day to day language through advanced learning and help build a hepful human-like ai",
-                "upon keep this bot in your server, the longer its their, the more data we collect, to reward Users who help us, we will select a few lucky server owners for some free nitro Happy Goood Luck",
-                "To start the process, you must invite the bot through the link at the top of this post and leave the bot to run idle in your server, the rest is up to our bot to silently collect data",
-                "you have win a official giveaway of discord",
-                "this is a discord official giveaways bot weare giving some rewards to our community randomly",
-                "this kind of random giveways are sponsored by discord's staffs",
-                "this is a official giveaways bot we are giving some rewards to our community randomly",
-                "sponsored by hypesquad",
-                "we are giving some rewards to our community randomly",
-                "add this bot for claim nitro gift 30 boost",
-                "thank you for your constant activity that you give us everyday",
-                "been gifted 1 year discord nitro",
-                "official gift event",
-                "you won a nitro gift as part of a limited time event",
-                "discord official event"
-            ],
-            "remove": true
-        },
-        {
-            "name": "Nitro Generator",
-            "ocr": [
-                "Nitro Generator",
-                "Nitro Generatorv2",
-                "Currently restocked with 250 Nitro Gift-codes (75 boost nitro)",
-                "Currently restocked with 250 Nitro Gift codes 75 boost nitro",
-                "This generator is still in beta and has a lot of bugs, because that some Anti-Virus apps detect is as a virus. That is why you must disable your Anti-Virus before downloading",
-                "1. After you have done so, download the Nitro Generator, move it out of the WinRaR to your desktop and open it",
-                "2. Put your discord username in the Generator (For example Wumpus#0000)",
-                "3. Pick what kind of Nitro you want the Generator to generate.",
-                "4. Then press on GENERATE",
-                "Please do NOT generate more than one Nitro Gift Code, so others can also get Nitro."
-            ]
-        },
-        {
-            "name": "Opidium",
-            "ocr": [
-                "Our team has been trying to get a hold of you multiple time but no response back so we re trying a last time",
-                "Alright so you won the giveaway in Opidium but you left the server and so we've been waiting in the server for you to collect it so we decided to first try to contact you before re rolling if you want to collect it please re join",
-                "abigail has invited you to join opidium"
-            ]
-        },
-        {
-            "name": "Discord Birthday Extravaganza",
-            "ocr": [
-                "Discord Birthday Extravaganza",
-                "2020 Discord's birthday Event bot.",
-                "Congratulations you have won a 1 month nitro",
-                "To accept the nitro, all you have to do is click the button 'click for claim this nitro' and then wait 1 hour",
-                "Click for claim this nitro"
-            ]
-        },
-        {
-            "name": "Bot Copypasta",
-            "ocr": [
-                "ok so basically dank memer can get your ip address this announcement was verified by discord earlier today",
-                "dank memer can send your messages in private dm's to a server of weirdos and most of your dm's can be very personal",
-                "due to this am not going to risk both myself and another person important to me getting hurt or having their personal information out on the interent because of a discord bot notsobot and dank memer can not be trusted especially if they are able to send creepy emails send your personal info to random weirdos who can harm you and literally get your email and so much personal information",
-                "do not add dank memer and notsobot on your servers i m warning you i'm not going to add further details to scare or creep out anybody but this is true they have done some weird shit notsobot and dank memer are going to be banned from discord due to these reasons getting ip addresses and kidnapping dank memer is doing it in a lower range to keep it lowkey now that this is all over the internet dank memer can't keep it lowkey anymore these bots are very very dangerous this is for your own good notsobot and dank memer should be removed from your servers this is a warning"
-            ]
-        },
-        {
-            "name": "Discord Birthday",
-            "ocr": [
-                "discord event birthday",
-                "to thank you for your loyalty on discord we are setting up an event to get free boost must add it in all your servers and wait 24h click to add siscord free voice and text chat for gamers",
-                "discord birthday free nitro boost",
-                "to thank you for your loyalty on discord we are setting up an event to get free boost must add it in all your servers and wait 24h",
-                "discord birthday official",
-                "happy birthday to us es discord event",
-                "to thank you for your loyalty on discord we are setting up an event to get free boost"
-            ]
-        },
-        {
-            "name": "Discord Ending",
-            "ocr": [
-                "discord important announcement of end",
-                "good evening to you discord user I am jason lemon the creator of discord just wanted to send you this",
-                "discord will soon be 5 years old and unfortunately we are losing a lot of our users if you are still present and active on our platform please add our bot on your servers so that we can understand that you are still there click here for to support us"
-            ],
-            "template": "chainspam"
-        },
-        {
-            "name": "Pokécord Return",
-            "ocr": [
-                "recently pokecord developers have taken down their bot but many of you guys were a huge fan of it to satisfy our fan base we've decided to create another pokecord bot add it to your servers and get back on that grind",
-                "to satisfy our fan base we've decided to create another pokecord bot",
-                "recently pokecord developers have taken down their bot but many of you guys were a huge fan of it",
-                "pokécord is back to it's normal stage and fully functional please help us spread the word and add the bot to support us",
-                "pokecord is back to it's normal stage and fully functional please help us spread the word and add the bot to support us",
-                "hey as most of you know the owner of the pokécord bot miles 6969 announced that he shutdown the bot today we are proud to announce that everything is recovered data",
-                "hey as most of you know the owner of the pokecord bot miles 6969 announced that he shutdown the bot today we are proud to announce that everything is recovered data",
-                "http hyperurl co pokecordbot"
-            ]
-        },
-        {
-            "name": "DDOS",
-            "ocr": [
-                "sending friend requests to random discord users and those who accept his friend requests will have their accounts ddosed and their groups exposed with the members inside it becoming a victim"
-            ],
-            "template": "chainspam"
-        },
-        {
-            "name": "Discord's Special Gift",
-            "ocr": [
-                "discord's special gift",
-                "discords special gift",
-                "you have to click on the nitro link and accept and then just wait 1 hour"
-            ]
-        },
-        {
-            "name": "HypeSquad Event",
-            "ocr": [
-                "new discord hypesquad event",
-                "invite this bot in all your servers",
-                "your account will have the hypesquad event badge",
-                "a nitro with 30 server boost",
-                "you won the rare hypesquad event badge",
-                "come one and come all to the newest discord event",
-                "we are very happy to announce that we are starting hypesquad events again and entries are selected between"
-            ],
-            "remove": true
-        },
-        {
-            "name": "AnarchyGrabber",
-            "ocr": [
-                "library application support discord 0 0 257 modules discord_desktop_core indexjs",
-                "library application support discord 0 0 257 modules discord _desktop_core indexjs",
-                "appdata roaming discord 0 0 306 modules discord _desktop_core indexjs",
-                "library application support discord 0 0 257 modules discord _desktop _core indexjs",
-                "appdata roaming discord 0 0 306 modules discord _desktop _core indexjs"
-            ],
-            "template": "anarchy"
-        },
-        {
-            "name": "WinInstallError",
-            "ocr": [
-                "fatal javascript error occured",
-                "javascript error occurred in the main process",
-                "error: cannot find module"
-            ],
-            "template": "install"
-        },
-        {
-            "name": "UnixTimestamp",
-            "ocr": [
-                "12 31 1969",
-                "01 01 1970",
-                "1 01 1970",
-                "1 1 1970",
-                "01 1 1970",
-                "jan 1 1970",
-                "dec 31 1969"
-            ],
-            "report": true,
-            "template": "timestamp"
-        },
-        {
-            "body": [
-                {
-                    "children": [
-                        "cyberattack",
-                        "event"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "cyber",
-                        "attack",
-                        "event"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "cyber",
-                        "attack",
-                        "tomorrow"
-                    ],
-                    "type": "ordered"
-                }
-            ],
-            "name": "CyberAttack",
-            "ocr": [
-                "there will be people trying to send you gore racist insults unholy lewd pictures",
-                "send this to your friends as well to spread the message",
-                "does not matter if it is real or not the important",
-                {
-                    "children": [
-                        "cyberattack",
-                        "event"
-                    ],
-                    "type": "ordered"
-                },
-                {
-                    "children": [
-                        "cyber",
-                        "attack",
-                        "event"
-                    ],
-                    "type": "ordered"
-                }
-            ],
-            "remove": true,
-            "template": "chainspam"
-        },
-        {
-            "name": "emailNewLoginLocation",
-            "ocr": [
-                {
-                    "children": [
-                        "login",
-                        "location",
-                        "detected",
-                        "check",
-                        "email"
-                    ],
-                    "type": "ordered"
-                }
-            ],
-            "report": true,
-            "template": "emailNewLoginLocation"
-        },
-        {
-            "name": "possible account support",
-            "ocr": [
-                "you broke the rules for",
-                "you have limited access to",
-                "this violation affects your account status"
-            ],
-            "remove": true,
-            "template": "modRemoveOnly"
-        },
-        {
-            "name": "supportDataBreach",
-            "ocr": [
-                "important information regarding your personal data",
-                "recent security incident",
-                "unauthorized party gained limited access",
-                "other contact details if you provided them",
-                "limited payment information"
-            ],
-            "remove": true,
-            "template": "supportDataBreach"
-        },
-        {
-            "name": "activityDM",
-            "ocr": [
-                "farm merge valley"
-            ],
-            "remove": true,
-            "template": "activityDM"
+          "children": ["discords", "email", "servers", "compromised"],
+          "type": "ordered"
         }
-    ]
+      ],
+      "remove": true,
+      "template": "emailFreeNitro"
+    },
+    {
+      "blacklist": [
+        "epic games",
+        "epic game",
+        "t-mobile",
+        "get a free month of discord nitro install the discord mobile app on your phone and log in with this account you'll automatically get your free month and have access to",
+        "just waiting here until you choose a server to give it to",
+        "get a free boost for inviting each of these contacts when they sign up for discord"
+      ],
+      "ignore_self_posts": true,
+      "name": "Free NitroBoost",
+      "ocr": [
+        "if you want to win a free discord nitro invite this bot to your server",
+        "free discord nitro",
+        "discord nitro free",
+        "when you added the bot you have to wait 24 hours and our bot will come and send you your reward in private message",
+        "get 3 months of discord nitro free from steam",
+        "steam is giving out discord ntiro",
+        "you have win the nitro so add the bot",
+        "click on the nitro link and add the bot in all servers",
+        "you've been gifted a 1 month nitro games",
+        "you won 1 month nitro",
+        "claim your nitro",
+        "nitro gift sender",
+        "click link to accept you've got this message because a friend awarded you nitro",
+        "you've been gifted a 1 month nitro games by discord for events",
+        "click on the link for accept add the bot",
+        "click on the link to accept add the bot hello for our anniversary we decided to gift to all discord users",
+        "1 month nitro for free take it",
+        "yo got some nitro left over here",
+        "giveaway sponsored by discord",
+        "discord has gifted you nitro for 1 month",
+        "i got a nitro left over incase you want it because my friends didnt want it",
+        "you won 10 nitro gift congratulations",
+        "selected as the lucky winner for the nitro giveaway",
+        "free boost",
+        "invite this bot to your server, wait 1 day and your server will have 30 boosts.",
+        "click here for invite the bot",
+        "invite for free boost",
+        "discord boosting official",
+        "free boosting event",
+        "discord offical & legit boosting event.",
+        "invite this bot to your server wait a few moment and your server will have 30 boosts and give you nitros",
+        "free boosting event",
+        "discord nitro event",
+        "free discord boosting",
+        "discord is giving away a free 30 boosts to servers that add our bot to conclude the birthday weekend",
+        "add this to your server and wait 24 hours then watch the magic happen enjoy this limited time offer",
+        "new giveaway server free nitro need join to receive boost nitro",
+        "to claim your x30 boost and nitro you have to click on the blue link",
+        "christmas is almost here to celebrate we are doing a limited time christmas free boosts event",
+        "congratulations you won the free 28x boosts giveaway",
+        "congrats you have been selected as the winner for the 30x boosts giveaway",
+        "has gifted you 14x boosts",
+        "wait 1 day and your server will have 14 boosts",
+        "discord has gifted you nitro boosts for 1 year",
+        "giveaway bot you've been gifted a subscription",
+        "discord gift event",
+        "discord has chose you as the winner of the event",
+        "offical new years discord bot",
+        "you've been gifted 1 year of nitro",
+        "has gifted you nitro boosts for 1 year",
+        "you've won the discord snowsgiving event",
+        "to claim your prize select your prize below",
+        "you won the 30x server boosts discord event to redeem your boosts add me to your server",
+        "you've won 15x boosts congratulations",
+        "you won the 26x server boosts discord event",
+        "you've been gifted 14x boosts",
+        "click here to claim your 14x boosts",
+        "congratulations you won the free 14x boosts giveaway hosted by",
+        "you've been gifted 15x discord server boosts from the arkazi development team",
+        "you've won 14x boosts you won the free 14x boosts giveaway hosted by discord",
+        "you have been gifted 14x boosts for your server",
+        "you won the 14x boosts giveaway",
+        "you've won a giveaway you just won a 10 discord nitro",
+        "follow these steps to claim the 10 nitro gift code",
+        "you won 15x boosts",
+        "you were randomly selected to win 15x discord boosts from spooked",
+        {
+          "phrase": "wumplus",
+          "type": "exact"
+        },
+        {
+          "children": ["here", "your", "discord", "nitro", "gift"],
+          "type": "ordered"
+        },
+        {
+          "children": ["protect", "automated", "claiming", "nitro"],
+          "type": "ordered"
+        },
+        {
+          "children": ["you", "won", "nitro"],
+          "type": "ordered"
+        },
+        {
+          "children": ["you've", "been", "gifted", "roblox", "giftcard"],
+          "type": "ordered"
+        }
+      ],
+      "remove": true
+    },
+    {
+      "blacklist": ["registered games", "activity settings"],
+      "ignore_self_posts": true,
+      "name": "verify scam",
+      "ocr": [
+        "we're doing a lot of giveaways first 100 members to join and verify will be sent nitro",
+        "we decided to move to a new server to promote the growth",
+        "can't believe you said that to a 13 year old if you don't know what im talking about even thought im 100 sure you do check",
+        "blocking you until i have more information about if its actually you",
+        "i do not wanna take risks with having weirdos on my friendslist",
+        "idk what happened or if its really you but it was your name and the same avatar and you sent a girl erm stuff like what the fuck",
+        "idk what happened or if its really you",
+        "idk if it's really you but it was your pfp and name",
+        "you sent a girl weird stuff like wtf",
+        "sorry if this is a misunderstanding but until you explain what happened",
+        "i dont want creeps on my friends list",
+        "im blocking you sorry if its a misunderstanding"
+      ],
+      "remove": true,
+      "template": "verifyscam"
+    },
+    {
+      "name": "Custom status text",
+      "ocr": [
+        "user is suspected to be part of an online terrorist organization",
+        "user is suspected to be apart of an online terrorist organization",
+        "please report any suspicious activity to discord staff",
+        "this user is suspected to be a part of online terrorist organization",
+        "please report any suspicious activity to discord support",
+        "online terrorist organization",
+        "active terrorist group",
+        "learn about discord's safety policy at",
+        "this user may be a part of an active terrorist group contact discord immediately if any suspicious activities are detected"
+      ],
+      "report": true,
+      "template": "status"
+    },
+    {
+      "name": "jokeMessage",
+      "ocr": [
+        "this user is under survellience by the fbi",
+        "this user is under survellience by the us fbi",
+        "do not contact this user he is the subject of a criminal case",
+        "18 usc 2332b",
+        "user is the subject of a criminal case"
+      ],
+      "report": true,
+      "template": "jokeMessage"
+    },
+    {
+      "name": "s/e/d",
+      "ocr": ["discord sex hack"],
+      "report": true,
+      "template": "sed"
+    },
+    {
+      "name": "Join servers",
+      "template": "joinServers",
+      "title": [
+        "randomly added to servers",
+        "added to random servers",
+        "added to random discord servers",
+        "keep getting added to servers",
+        "keep getting into servers",
+        "keep getting into random servers",
+        "keep getting invited to other servers",
+        "automatically joining servers",
+        "automatically join servers"
+      ],
+      "type": "text"
+    },
+    {
+      "name": "Age Restricted",
+      "ocr": [
+        "age restricted servers are blocked on the ios platform per app store guidelines",
+        "if you're over 18 you can join on the desktop app or website"
+      ],
+      "report": true,
+      "template": "ageRestricted"
+    },
+    {
+      "ignore_self_posts": true,
+      "name": "Invite Scam",
+      "ocr": [
+        "you have to invite me to your servers",
+        "invite this bot to your server",
+        "click here for invite the bot",
+        "click here to add the bot",
+        "invite the bot to your server",
+        "invite this bot on your biggest server wait 1 day and you will receive the prizes listed above on your account"
+      ],
+      "remove": true
+    },
+    {
+      "ignore_self_posts": false,
+      "name": "Account report",
+      "ocr": [
+        "we recommend contacting the users who have been reported and encouraging them to reach out",
+        "just wanna confirm something this account belongs to you",
+        "i just want to say sorry because i filed tickets on your account",
+        "you still have time to prove your innocence i hope you can get in time",
+        "may i ask if you are the owner of this steam profile account",
+        "while our team investigates this please read through the following points",
+        "the complainant has also submitted to us a federal law report",
+        "our discord support team can be found under the username",
+        "we have taken a step to do this action since they will not be notified about these claims",
+        "we are working with some officials for this matter so that we can record all processes taken legally and are not violating",
+        "we can verify here that the said user doesn't have any past history of reports regarding this",
+        "i clicked on a link 2 days ago and somebody else had access my account but luckily i have my 2fa on",
+        "both of our accounts could get deleted and worst get our ip addresses blocked from accessing discord",
+        "the discord support said that your account will be banned if you didn't take any action for this",
+        "i was hacked last day because of a fake nitro link that i happened to click on discord",
+        "it appears that the account you reported has generated a comprehensive report covering a majority of users in your fiend list",
+        "we recommend contacting the users who have been reported and encouraging them to reach out to the same corporate team",
+        "exercise cauion regarding potental impersonators attempting to replicate our profile please ensure to accurately document the correct discord username",
+        "hey don't really know how to say this please don't be mad clicked on a link that matched my paypal",
+        "we have identified the account that you have been reported for as it has violated our terms of service or community guidelines",
+        "failure to validate the legality of an account within a specific time frame 12 hours may result in account suspension restrictions",
+        "by implementing this process we can assure that your discord account is not susceptible to fraudulent",
+        "your ip will be blocked on discord if there is no action taken from you",
+        "someone sent me a link but i clicked on it by accident",
+        "i accidentally reported you for scamming instead of someone else",
+        "discord staff emailed me",
+        "would you please help me to prove your innocence",
+        "please contact our corporate security head for assistance by sending a friend request on Discord",
+        "the user who performed the reports already provided a followup statement that you are not involved",
+        "your account might get deleted eternally",
+        "the provided evidence does not meet the criteria for validation",
+        "for the appeal please contact the discord support who handled this report",
+        "to prevent your account from getting suspended",
+        "use the password that i asked you to copy",
+        "contact the reported user",
+        "you may appeal by contacting the designated discord support staff",
+        "official discord support",
+        "discord official support",
+        {
+          "children": ["illegal", "investigation", "case"],
+          "type": "ordered"
+        },
+        {
+          "children": ["verification", "process", "purchase"],
+          "type": "ordered"
+        },
+        {
+          "children": ["purchased", "validation", "report"],
+          "type": "ordered"
+        },
+        {
+          "children": ["account", "suspended", "no", "proof", "given"],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            "somebody",
+            "else",
+            "access",
+            "my",
+            "account",
+            ["report", "reported"]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": ["temporarily", "change", "your", "email"],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            "system",
+            "your",
+            ["profile", "account"],
+            "massive",
+            "reports"
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            "reason",
+            ["process", "appeal"],
+            ["ensure", "prove"],
+            ["own", "owner"],
+            ["account", "profile"]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            "help",
+            "explain",
+            ["discord support", "discord staff"],
+            ["reports", "complaints"],
+            ["false", "mistake", "accident"]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            [
+              "discord agent",
+              "discord staff",
+              "discord support",
+              "discord mailed"
+            ],
+            ["saying", "said", "told me"],
+            {
+              "children": [
+                ["your", "the users"],
+                ["account", "profile"]
+              ],
+              "type": "ordered"
+            },
+            ["suspended", "banned", "deleted", "blocked"]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            [
+              "massive",
+              "massively",
+              "apologize",
+              "decieve",
+              "decieved",
+              "mistakenly",
+              "accidentally"
+            ],
+            [
+              {
+                "children": [
+                  ["threw", "filed", "filing", "filled"],
+                  ["report", "tickets"]
+                ],
+                "type": "ordered"
+              },
+              "reported",
+              "reporting"
+            ],
+            [
+              {
+                "children": ["your", ["account", "profile"]],
+                "type": "ordered"
+              },
+              {
+                "children": ["you", "for"],
+                "type": "ordered"
+              }
+            ]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            {
+              "children": ["username", "similar", "yours", "your account"],
+              "type": "ordered"
+            },
+            ["spamming", "phishing", "fraud"],
+            ["accidentally", "mistakenly", "confusing"],
+            [
+              "reported",
+              {
+                "children": [
+                  ["threw", "filed"],
+                  ["report", "ticket"]
+                ],
+                "type": "ordered"
+              },
+              "reporting"
+            ]
+          ],
+          "type": "all"
+        },
+        {
+          "children": [
+            [
+              {
+                "children": ["filed", "report"],
+                "type": "ordered"
+              },
+              "reported",
+              "reporting"
+            ],
+            "your",
+            ["account", "profile"],
+            ["mistake", "accident"]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": [["contact", "reach out"], "corporate", "security"],
+          "type": "ordered"
+        },
+        {
+          "children": ["report", "phishing", "links"],
+          "type": "ordered"
+        },
+        {
+          "children": ["discord", "report", "protection", "custody"],
+          "type": "ordered"
+        },
+        {
+          "children": ["temporary", "database", "email"],
+          "type": "ordered"
+        },
+        {
+          "children": ["monitored", "federal", "authorities"],
+          "type": "ordered"
+        }
+      ],
+      "remove": true,
+      "template": "accountreport",
+      "title": [
+        {
+          "children": [
+            ["accidentally", "mass"],
+            ["report", "reported"],
+            ["account", "profile"]
+          ],
+          "type": "ordered"
+        }
+      ]
+    },
+    {
+      "name": "externalApp",
+      "ocr": ["message could not be loaded"],
+      "template": "externalApp"
+    },
+    {
+      "name": "externalAppConfident",
+      "ocr": ["solara is back", "solara executor"],
+      "remove": true,
+      "template": "externalApp"
+    },
+    {
+      "name": "doneReading",
+      "ocr": [
+        "done reading check out other channels",
+        "done reading check out chat"
+      ],
+      "template": "doneReading"
+    },
+    {
+      "name": "Mac Keybind Perms",
+      "ocr": [
+        "would like to receive keystrokes from any application",
+        "grant access to this application in security privacy preferences located in system preferences"
+      ],
+      "template": "macKeybinds"
+    },
+    {
+      "name": "promotions link",
+      "ocr": [
+        "i know this might be a bit random but i still have many discord nitro codes from the promotion",
+        "ill give you one for free if u need it",
+        "i still got a spare nitro code from the epic games promotion"
+      ],
+      "template": "malwareLink"
+    },
+    {
+      "name": "image malware",
+      "ocr": [
+        "the nature of this attack appears to be auth token based",
+        "there's a new scam going around so exercise extreme caution",
+        "there's anew scam going around so exercise extreme caution"
+      ],
+      "template": "imageMalware"
+    },
+    {
+      "name": "Verification",
+      "ocr": [
+        "verification required",
+        "we've detected something out of the ordinary going on"
+      ],
+      "remove": true,
+      "template": "phone"
+    },
+    {
+      "name": "bitly game malware",
+      "ocr": [
+        "hi bro i made a game please rate it",
+        "i am making a game can you rate it",
+        "i created a new game rate tried very hard",
+        "i create game rate it"
+      ],
+      "remove": true,
+      "template": "malwareLink"
+    },
+    {
+      "ignore_self_posts": false,
+      "name": "tryGameMalware",
+      "ocr": {
+        "children": [["develop", "developed"], "game", "feedback"],
+        "type": "ordered"
+      },
+      "template": "tryGameMalware"
+    },
+    {
+      "name": "discord support",
+      "ocr": [
+        "you have successfully completed the test period on the discord testers server",
+        "to complete the process of becoming a discord moderator you will need to take a",
+        "we are pleased to announce that we are starting the moderator program again but now we're releasing it to people who've been using discord for a while and this app is just for selected people and you were one of those selected congratulations",
+        "however to participate you must register to start the analysis procedure as a first step you must fill in a form the observation are below",
+        "fill out the form carefully and be formal as it is very important that our team make your assessment",
+        "we are pleased to announce that we are starting the moderator and hypesquad events program again",
+        "people who've been using discord for a while only for selected people and you were one of those selected",
+        "we are pleased to announce that discord has decided to open moderator academy however to participate you must register to start the analysis procedure",
+        "we are here to present you a new update of our launcher discord we are experiencing updates improvements performances and more we want to hear from you what do you think we should improve in our discord beta",
+        "you were one of those chosen in our system to be able to participate in our launcher beta",
+        "we want to launch a new discord one hundred percent good and that's why we need your help we need your help to find bugs",
+        "your account is receiving this notice due to your approval as a discord beta user",
+        "specifically discord beta has been released to a few users and you have been selected",
+        "first we wish you congratulations and thank you for being in our platform",
+        "get an exclusive hypesquad badge for your profile and make all your friends jelly",
+        "hype squad is recruiting new moderators",
+        "this time we come with a new chance for people who want to create events and have an animated badge on their profile",
+        "our team will be making an annual nitro available to all new hype squad moderators",
+        "if you do not follow the necessary steps within 30 minutes of receiving this notice your account will be suspended as a violation of our Guidelines",
+        "if you do not take the necessary steps outlined below within 6 hours of receiving this notice your account will be suspended",
+        "this notice is being sent to all users who have recently access the server your account has been flagged for the following reasons",
+        "your account has joined the server during an ongoing investigation",
+        "your account has accessed the server's channels where the content was being distributed within the past 10 minutes",
+        "your account may have been involved in the server for a longer period of time"
+      ],
+      "remove": true
+    },
+    {
+      "name": "Copyright",
+      "ocr": [
+        "when we share your account copyright is in your account in your account",
+        "your account has been reviewed by our team and found to contain copyright"
+      ]
+    },
+    {
+      "name": "TrojanImage",
+      "ocr": ["trojandownloaderhtml", "win32 badjoke ie"],
+      "template": "trojan"
+    },
+    {
+      "name": "Server Ban Appeal",
+      "template": "serverBanAppeal",
+      "title": {
+        "children": ["banned", "from", "server"],
+        "type": "ordered"
+      }
+    },
+    {
+      "name": "GenericChainSpam",
+      "ocr": [
+        "those who accept the friend requests will have their accounts disabled causing their members and their groups to become victims"
+      ],
+      "template": "chainspam"
+    },
+    {
+      "disabled": true,
+      "name": "GameTestersMalware",
+      "ocr": [
+        "you've been invited to test discord’s game testers",
+        "if you have no clue what this email is regarding please ignore it otherwise accept the invite below and you'll be able to try out the game using its discord integration"
+      ],
+      "template": "libraryMalware"
+    },
+    {
+      "name": "Twitch Nitro",
+      "ocr": [
+        "we are super happy to announce that discord has partnered with twitch",
+        "to show some love to our super great users from march 26 2020 until march 31 2020",
+        "all ours users will have access to a nitro games",
+        "© 2020 twitch interactive inc",
+        "©2020 twitch interactive inc",
+        "2020 twitch interactive inc."
+      ]
+    },
+    {
+      "name": "Partnership Autobot",
+      "ocr": [
+        "partnership autobox",
+        "make your partnership automatically thanks to this bot use the command *help to see the menu"
+      ]
+    },
+    {
+      "name": "MEE6 Premium",
+      "ocr": [
+        "mee6 premium",
+        "hi we are happy to announce you mee6 is now free cause of covid-19 so add it for got premiumed of mee6 premium"
+      ]
+    },
+    {
+      "name": "Discord Shutdown",
+      "ocr": [
+        "hi, this is a message from the discord creator and i'm going to tell you a little bit about what will happen on discord on july 23rd. please do not send this back to the person you received it from.",
+        "dear discord members, discord is supposed to close nov 7, 2020 because it has become too populated. there have been many members complaining that discord has become very slow. there are many active members of discord, but also many new members.",
+        "we will send this message to see if the members are active or not. if you are active, please copy and paste this to 15 other users to show that you are still active. those who do not send this message within 2 weeks will be deleted without hesitation to make more space.",
+        "send this message to all your friends to show that you are still active and that you will not be deleted.",
+        "hello this is a message from the discord creator and he tells you a little bit about what will happen on discord on july 23rd please do not send it back to the person you received it dear discord members discord is supposed to close on november 7 2020 because it has become too populated many members complained that the discord has become very slow indicate that there are many active members of the discord but also many new members we will send this message to see if the members are active or not if you are active please send to 15 other users using copy and paste to show that you are still active those who do not send this message within 2 weeks will be deleted without hesitation to make more room send this message to all your friends to show you're still active and you will not be deleted"
+      ],
+      "template": "chainspam"
+    },
+    {
+      "name": "Partner Bot",
+      "ocr": [
+        "partner bot",
+        "must join the server below to attend the 1 year nitro or 99$ paypal giveaway that just started",
+        "link: https://discord.gg/ekajbfx",
+        "https://i.imgur.com/tmwigun.gif",
+        "want to gain members fast & see your advert here?",
+        "partner bot's info below",
+        "gain 2,000 members in a week time by adding me to your server than using the command",
+        "/partner [description here]"
+      ]
+    },
+    {
+      "name": "Xbox Partnership",
+      "ocr": [
+        "partnership: xbox & discord",
+        "from april 26, 2020 until mai 6, 2020, all our users will have access to a nitro classic & 30 boost and will have access to xbox gamepass & xbox live. do claim when you have add the bot",
+        "step one add me on your servers",
+        "2020 xbox interactive, inc.",
+        "exclusive partnership",
+        "2?? : step one you have to invite me to yur servers (click here)",
+        "1?? : step one join our official discord event and wait a few moments (click here)"
+      ]
+    },
+    {
+      "ignore_self_posts": true,
+      "name": "Discord Rewards",
+      "ocr": [
+        "discord rewarding service",
+        "what is this you ask? simple. upon inviting out bot to your server, our bot will monitor chat and collect data on users day to day conversations, with this data our bot will learn day to day language through advanced learning and help build a hepful human-like ai",
+        "upon keep this bot in your server, the longer its their, the more data we collect, to reward Users who help us, we will select a few lucky server owners for some free nitro Happy Goood Luck",
+        "To start the process, you must invite the bot through the link at the top of this post and leave the bot to run idle in your server, the rest is up to our bot to silently collect data",
+        "you have win a official giveaway of discord",
+        "this is a discord official giveaways bot weare giving some rewards to our community randomly",
+        "this kind of random giveways are sponsored by discord's staffs",
+        "this is a official giveaways bot we are giving some rewards to our community randomly",
+        "sponsored by hypesquad",
+        "we are giving some rewards to our community randomly",
+        "add this bot for claim nitro gift 30 boost",
+        "thank you for your constant activity that you give us everyday",
+        "been gifted 1 year discord nitro",
+        "official gift event",
+        "you won a nitro gift as part of a limited time event",
+        "discord official event"
+      ],
+      "remove": true
+    },
+    {
+      "name": "Nitro Generator",
+      "ocr": [
+        "Nitro Generator",
+        "Nitro Generatorv2",
+        "Currently restocked with 250 Nitro Gift-codes (75 boost nitro)",
+        "Currently restocked with 250 Nitro Gift codes 75 boost nitro",
+        "This generator is still in beta and has a lot of bugs, because that some Anti-Virus apps detect is as a virus. That is why you must disable your Anti-Virus before downloading",
+        "1. After you have done so, download the Nitro Generator, move it out of the WinRaR to your desktop and open it",
+        "2. Put your discord username in the Generator (For example Wumpus#0000)",
+        "3. Pick what kind of Nitro you want the Generator to generate.",
+        "4. Then press on GENERATE",
+        "Please do NOT generate more than one Nitro Gift Code, so others can also get Nitro."
+      ]
+    },
+    {
+      "name": "Opidium",
+      "ocr": [
+        "Our team has been trying to get a hold of you multiple time but no response back so we re trying a last time",
+        "Alright so you won the giveaway in Opidium but you left the server and so we've been waiting in the server for you to collect it so we decided to first try to contact you before re rolling if you want to collect it please re join",
+        "abigail has invited you to join opidium"
+      ]
+    },
+    {
+      "name": "Discord Birthday Extravaganza",
+      "ocr": [
+        "Discord Birthday Extravaganza",
+        "2020 Discord's birthday Event bot.",
+        "Congratulations you have won a 1 month nitro",
+        "To accept the nitro, all you have to do is click the button 'click for claim this nitro' and then wait 1 hour",
+        "Click for claim this nitro"
+      ]
+    },
+    {
+      "name": "Bot Copypasta",
+      "ocr": [
+        "ok so basically dank memer can get your ip address this announcement was verified by discord earlier today",
+        "dank memer can send your messages in private dm's to a server of weirdos and most of your dm's can be very personal",
+        "due to this am not going to risk both myself and another person important to me getting hurt or having their personal information out on the interent because of a discord bot notsobot and dank memer can not be trusted especially if they are able to send creepy emails send your personal info to random weirdos who can harm you and literally get your email and so much personal information",
+        "do not add dank memer and notsobot on your servers i m warning you i'm not going to add further details to scare or creep out anybody but this is true they have done some weird shit notsobot and dank memer are going to be banned from discord due to these reasons getting ip addresses and kidnapping dank memer is doing it in a lower range to keep it lowkey now that this is all over the internet dank memer can't keep it lowkey anymore these bots are very very dangerous this is for your own good notsobot and dank memer should be removed from your servers this is a warning"
+      ]
+    },
+    {
+      "name": "Discord Birthday",
+      "ocr": [
+        "discord event birthday",
+        "to thank you for your loyalty on discord we are setting up an event to get free boost must add it in all your servers and wait 24h click to add siscord free voice and text chat for gamers",
+        "discord birthday free nitro boost",
+        "to thank you for your loyalty on discord we are setting up an event to get free boost must add it in all your servers and wait 24h",
+        "discord birthday official",
+        "happy birthday to us es discord event",
+        "to thank you for your loyalty on discord we are setting up an event to get free boost"
+      ]
+    },
+    {
+      "name": "Discord Ending",
+      "ocr": [
+        "discord important announcement of end",
+        "good evening to you discord user I am jason lemon the creator of discord just wanted to send you this",
+        "discord will soon be 5 years old and unfortunately we are losing a lot of our users if you are still present and active on our platform please add our bot on your servers so that we can understand that you are still there click here for to support us"
+      ],
+      "template": "chainspam"
+    },
+    {
+      "name": "Pokécord Return",
+      "ocr": [
+        "recently pokecord developers have taken down their bot but many of you guys were a huge fan of it to satisfy our fan base we've decided to create another pokecord bot add it to your servers and get back on that grind",
+        "to satisfy our fan base we've decided to create another pokecord bot",
+        "recently pokecord developers have taken down their bot but many of you guys were a huge fan of it",
+        "pokécord is back to it's normal stage and fully functional please help us spread the word and add the bot to support us",
+        "pokecord is back to it's normal stage and fully functional please help us spread the word and add the bot to support us",
+        "hey as most of you know the owner of the pokécord bot miles 6969 announced that he shutdown the bot today we are proud to announce that everything is recovered data",
+        "hey as most of you know the owner of the pokecord bot miles 6969 announced that he shutdown the bot today we are proud to announce that everything is recovered data",
+        "http hyperurl co pokecordbot"
+      ]
+    },
+    {
+      "name": "DDOS",
+      "ocr": [
+        "sending friend requests to random discord users and those who accept his friend requests will have their accounts ddosed and their groups exposed with the members inside it becoming a victim"
+      ],
+      "template": "chainspam"
+    },
+    {
+      "name": "Discord's Special Gift",
+      "ocr": [
+        "discord's special gift",
+        "discords special gift",
+        "you have to click on the nitro link and accept and then just wait 1 hour"
+      ]
+    },
+    {
+      "name": "HypeSquad Event",
+      "ocr": [
+        "new discord hypesquad event",
+        "invite this bot in all your servers",
+        "your account will have the hypesquad event badge",
+        "a nitro with 30 server boost",
+        "you won the rare hypesquad event badge",
+        "come one and come all to the newest discord event",
+        "we are very happy to announce that we are starting hypesquad events again and entries are selected between"
+      ],
+      "remove": true
+    },
+    {
+      "name": "AnarchyGrabber",
+      "ocr": [
+        "library application support discord 0 0 257 modules discord_desktop_core indexjs",
+        "library application support discord 0 0 257 modules discord _desktop_core indexjs",
+        "appdata roaming discord 0 0 306 modules discord _desktop_core indexjs",
+        "library application support discord 0 0 257 modules discord _desktop _core indexjs",
+        "appdata roaming discord 0 0 306 modules discord _desktop _core indexjs"
+      ],
+      "template": "anarchy"
+    },
+    {
+      "name": "WinInstallError",
+      "ocr": [
+        "fatal javascript error occured",
+        "javascript error occurred in the main process",
+        "error: cannot find module"
+      ],
+      "template": "install"
+    },
+    {
+      "name": "UnixTimestamp",
+      "ocr": [
+        "12 31 1969",
+        "01 01 1970",
+        "1 01 1970",
+        "1 1 1970",
+        "01 1 1970",
+        "jan 1 1970",
+        "dec 31 1969"
+      ],
+      "report": true,
+      "template": "timestamp"
+    },
+    {
+      "body": [
+        {
+          "children": ["cyberattack", "event"],
+          "type": "ordered"
+        },
+        {
+          "children": ["cyber", "attack", "event"],
+          "type": "ordered"
+        },
+        {
+          "children": ["cyber", "attack", "tomorrow"],
+          "type": "ordered"
+        }
+      ],
+      "name": "CyberAttack",
+      "ocr": [
+        "there will be people trying to send you gore racist insults unholy lewd pictures",
+        "send this to your friends as well to spread the message",
+        "does not matter if it is real or not the important",
+        {
+          "children": ["cyberattack", "event"],
+          "type": "ordered"
+        },
+        {
+          "children": ["cyber", "attack", "event"],
+          "type": "ordered"
+        }
+      ],
+      "remove": true,
+      "template": "chainspam"
+    },
+    {
+      "name": "emailNewLoginLocation",
+      "ocr": [
+        {
+          "children": ["login", "location", "detected", "check", "email"],
+          "type": "ordered"
+        }
+      ],
+      "report": true,
+      "template": "emailNewLoginLocation"
+    },
+    {
+      "name": "possible account support",
+      "ocr": [
+        "you broke the rules for",
+        "you have limited access to",
+        "this violation affects your account status"
+      ],
+      "remove": true,
+      "template": "modRemoveOnly"
+    },
+    {
+      "name": "supportDataBreach",
+      "ocr": [
+        "important information regarding your personal data",
+        "recent security incident",
+        "unauthorized party gained limited access",
+        "other contact details if you provided them",
+        "limited payment information"
+      ],
+      "remove": true,
+      "template": "supportDataBreach"
+    },
+    {
+      "name": "activityDM",
+      "ocr": ["farm merge valley"],
+      "remove": true,
+      "template": "activityDM"
+    }
+  ]
 }

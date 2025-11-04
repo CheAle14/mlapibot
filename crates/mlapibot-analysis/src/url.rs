@@ -57,6 +57,45 @@ impl Url {
         })
     }
 
+    pub fn fix(mut self) -> Option<Url> {
+        if self.scheme() != "https" {
+            None
+        } else {
+            let hostname = self.domain();
+            if hostname == "preview.redd.it" {
+                let _ = self.set_domain("i.redd.it");
+            } else if hostname == "gyazo.com" {
+                let _ = self.set_domain("i.gyazo.com");
+                let mut path = self.path().to_owned();
+                path.push_str(".png");
+                self.set_path(&path);
+            }
+
+            Some(self)
+        }
+    }
+
+    pub fn filename(&self) -> Option<&str> {
+        let path = self.path();
+        if path.trim().len() == 0 {
+            return None;
+        }
+        let index = path.find('/').unwrap_or_else(|| path.find('\\').unwrap());
+        let filename = &path[index + 1..];
+
+        Some(filename)
+    }
+
+    pub fn allowed_url(&self) -> bool {
+        if let Some(filename) = self.filename() {
+            crate::util::valid_extensions()
+                .iter()
+                .any(|ext| filename.ends_with(*ext))
+        } else {
+            false
+        }
+    }
+
     pub fn scheme(&self) -> &str {
         &self.text[..self.scheme_end as usize]
     }

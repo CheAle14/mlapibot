@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, thiserror::Error)]
 pub enum OcrError {
     #[error("failed to initialize ocr engine")]
@@ -14,6 +16,15 @@ pub enum OcrError {
 
     #[error("did not see any words in the image")]
     NoWords,
+
+    #[error("could not move {0:?} to the destination {0:?}")]
+    KeepMoveImage(PathBuf, PathBuf, #[source] std::io::Error),
+
+    #[error("could not copy {0:?} to the destination {0:?}")]
+    KeepCopyImage(PathBuf, PathBuf, #[source] std::io::Error),
+
+    #[error("could not persist temporary file to {0:?}")]
+    KeepPersistImage(PathBuf, #[source] tempfile::PersistError),
 }
 
 pub type Result<T, E = OcrError> = std::result::Result<T, E>;

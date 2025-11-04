@@ -5,7 +5,7 @@ use mlapibot_ocr::image::{ImageSource, OcrImage};
 use crate::{
     error::AnalysisError,
     url::Url,
-    util::{download_file, extract_image_links, fix_url},
+    util::{download_file, extract_image_links},
 };
 
 #[derive(Debug, Default)]
@@ -54,7 +54,7 @@ impl Context {
     }
 
     pub fn new_link(link: &str, warnings: &mut Vec<ContextWarning>) -> crate::error::Result<Self> {
-        let Ok(Some(url)) = Url::parse(link).map(fix_url) else {
+        let Ok(Some(url)) = Url::parse(link).map(|u| u.fix()) else {
             return Err(AnalysisError::Url(link.to_string()));
         };
 

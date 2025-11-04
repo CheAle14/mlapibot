@@ -6,7 +6,7 @@ mod context;
 mod url;
 mod util;
 
-pub use util::{extract_all_links, parse_url};
+pub use util::{download_file, extract_all_links, parse_url};
 
 pub use context::*;
 pub use url::*;

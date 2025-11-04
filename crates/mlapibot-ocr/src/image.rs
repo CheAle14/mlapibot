@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ab_glyph::{Font, FontRef, ScaleFont};
 use image::{DynamicImage, Rgba};
@@ -35,6 +35,30 @@ impl ImageSource {
                 .decode()
                 .map_err(OcrError::DecodeImage),
         }
+    }
+
+    pub fn move_and_keep(self, dest: &Path) -> crate::error::Result<Self> {
+        match self {
+            ImageSource::KeepFile(path_buf) => {
+                std::fs::rename(&path_buf, dest)
+                    .map_err(|e| OcrError::KeepMoveImage(path_buf, dest.to_path_buf(), e))?;
+            }
+            ImageSource::DeleteOnDropFile(named_temp_file) => match named_temp_file.persist(dest) {
+                Ok(_file) => (),
+                Err(err) if err.error.kind() == std::io::ErrorKind::CrossesDevices => {
+                    std::fs::copy(err.file.path(), dest).map_err(|e| {
+                        OcrError::KeepMoveImage(
+                            err.file.path().to_path_buf(),
+                            dest.to_path_buf(),
+                            e,
+                        )
+                    })?;
+                }
+                Err(err) => return Err(OcrError::KeepPersistImage(dest.to_path_buf(), err)),
+            },
+        }
+
+        Ok(Self::KeepFile(dest.to_path_buf()))
     }
 }
 

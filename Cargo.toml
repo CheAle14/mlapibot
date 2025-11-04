@@ -5,10 +5,12 @@ members = [
     "crates/mlapibot-analysis",
     "crates/mlapibot-common",
     "crates/mlapibot-datastore",
-    "crates/mlapibot-imgur", "crates/mlapibot-markdown",
+    "crates/mlapibot-imgur",
+    "crates/mlapibot-markdown",
     "crates/mlapibot-ocr",
     "crates/mlapibot-reddit",
     "crates/mlapibot-webhook",
+    "tests",
 ]
 
 [workspace.dependencies]
