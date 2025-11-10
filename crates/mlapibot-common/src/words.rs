@@ -187,6 +187,7 @@ static STOP_WORDS: &[&str] = &[
     "does",
     "doing",
     "don",
+    "dont",
     "down",
     "dumb",
     "during",
@@ -278,6 +279,7 @@ static STOP_WORDS: &[&str] = &[
     "really",
     "s",
     "same",
+    "say",
     "she",
     "should",
     "so",
@@ -394,7 +396,8 @@ mod tests {
             "Is anybody else having this issue??",
             "Can someone help me please...",
             "Discord, why?!?!?!?!?",
-            "I need help and your opinion"
+            "I need help and your opinion",
+            "I don't know what to say"
         );
     }
 
