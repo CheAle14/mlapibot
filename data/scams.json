@@ -276,6 +276,14 @@
           "type": "ordered"
         },
         {
+          "children": ["purchase", "verify", "ownership"],
+          "type": "ordered"
+        },
+        {
+          "children": ["verify", "lift", "ban"],
+          "type": "ordered"
+        },
+        {
           "children": ["account", "suspended", "no", "proof", "given"],
           "type": "ordered"
         },
