@@ -284,6 +284,14 @@
           "type": "ordered"
         },
         {
+          "children": ["discord", "report", "assistance"],
+          "type": "ordered"
+        },
+        {
+          "children": ["trading", "verification", "services"],
+          "type": "ordered"
+        },
+        {
           "children": ["account", "suspended", "no", "proof", "given"],
           "type": "ordered"
         },
@@ -382,7 +390,8 @@
               {
                 "children": ["you", "for"],
                 "type": "ordered"
-              }
+              },
+              ["me", "my account"]
             ]
           ],
           "type": "ordered"
