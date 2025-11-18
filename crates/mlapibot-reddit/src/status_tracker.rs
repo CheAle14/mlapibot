@@ -22,6 +22,7 @@ impl<'a> IncidentWithLive<'a> {
             format!("https://www.reddit.com/live/{}/", self.live_thread.fullname),
             false,
         )
+        .with_send_replies(false)
     }
 }
 
