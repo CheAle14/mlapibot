@@ -14,9 +14,11 @@ impl MlapiDb {
         subreddit: &str,
         incident_id: &str,
         post_fullname: &str,
-        body_hash: &str,
     ) -> rusqlite::Result<()> {
-        self.conn.execute("INSERT INTO IncidentPosts (Subreddit, IncidentId, PostFullname, BodyHash) VALUES (?1,?2,?3,?4)", (subreddit, incident_id, post_fullname, body_hash))?;
+        self.conn.execute(
+            "INSERT INTO IncidentPosts (Subreddit, IncidentId, PostFullname) VALUES (?1,?2,?3)",
+            (subreddit, incident_id, post_fullname),
+        )?;
 
         Ok(())
     }
@@ -27,7 +29,7 @@ impl MlapiDb {
         incident_id: &str,
     ) -> rusqlite::Result<Option<IncidentPostLite>> {
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, PriorStickyFullname FROM IncidentPosts WHERE Subreddit=?1 AND IncidentId=?2",
+            "SELECT PostFullname, StickyState, PriorStickyFullname FROM IncidentPosts WHERE Subreddit=?1 AND IncidentId=?2",
         )?;
 
         stmt.query_row((subreddit, incident_id), IncidentPostLite::from_row)
@@ -39,24 +41,11 @@ impl MlapiDb {
         fullname: &str,
     ) -> rusqlite::Result<Option<IncidentPostLite>> {
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, PriorStickyFullname FROM IncidentPosts WHERE PostFullname=?1",
+            "SELECT PostFullname, StickyState, PriorStickyFullname FROM IncidentPosts WHERE PostFullname=?1",
         )?;
 
         stmt.query_row((fullname,), IncidentPostLite::from_row)
             .optional()
-    }
-
-    pub fn update_incident_post(
-        &self,
-        post_fullname: &str,
-        body_hash: &str,
-    ) -> rusqlite::Result<()> {
-        self.conn.execute(
-            "UPDATE IncidentPosts SET BodyHash=?1, UpdatedAt=CURRENT_TIMESTAMP WHERE PostFullname=?2",
-            (body_hash, post_fullname),
-        )?;
-
-        Ok(())
     }
 
     pub fn get_unresolved_incident_posts(
@@ -105,7 +94,7 @@ impl MlapiDb {
         &self,
     ) -> rusqlite::Result<Vec<ResolvedIncidentPost>> {
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, BodyHash, UpdatedAt, StickyState, ResolvedAt, PriorStickyFullname FROM IncidentPosts WHERE ResolvedAt IS NOT NULL AND StickyState==1",
+            "SELECT PostFullname, StickyState, ResolvedAt, PriorStickyFullname FROM IncidentPosts WHERE ResolvedAt IS NOT NULL AND StickyState==1",
         )?;
 
         let mut v = Vec::new();

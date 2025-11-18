@@ -1,12 +1,15 @@
 use std::path::Path;
 
 pub mod incident_posts;
+pub mod live_incident_posts;
 pub mod monitored;
 
 mod seen;
 mod status;
 
 mod migrations;
+
+pub(crate) type DateTimeUtc = chrono::DateTime<chrono::Utc>;
 
 pub struct MlapiDb {
     pub(crate) conn: rusqlite::Connection,

@@ -1,4 +1,8 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 use anyhow::Context;
 use chrono::Utc;
@@ -8,6 +12,7 @@ use mlapibot_datastore::{
 };
 use roux::{
     api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
+    builders::submission::SubmissionSubmitBuilder,
     client::RedditClient,
     models::SubmissionStickySlot,
     util::{FeedOption, RouxError},
@@ -17,12 +22,12 @@ use statuspage::{StatusClient, incident::Incident};
 use mlapibot_common::{Cached, LazyCached, LowercaseString};
 
 use crate::{
-    cached_submission::CachedSubmission,
     client::StatusComponentCache,
     config::{StatusStickyConfig, SubredditStatusConfig},
+    status_tracker::IncidentWithLive,
 };
 
-use super::{RouxClient, Submission, status_tracker::CachedIncidentSubmissions};
+use super::{RouxClient, Submission};
 
 pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
 
@@ -114,16 +119,15 @@ impl Subreddit {
     fn send_incident_post(
         &mut self,
         db: &MlapiDb,
-        incident: &Incident,
+        incident: &IncidentWithLive,
         reddit: &RouxClient,
-        cached: &CachedSubmission,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", self.lower);
 
         let submission = match &config.flair_id {
-            Some(flair_id) => cached.to_builder().with_flair_id(flair_id),
-            None => cached.to_builder(),
+            Some(flair_id) => incident.to_builder().with_flair_id(flair_id),
+            None => incident.to_builder(),
         };
 
         let submission = reddit.submit(&self.lower.as_str(), &submission)?;
@@ -131,9 +135,8 @@ impl Subreddit {
 
         db.add_incident(
             self.lower.as_str(),
-            &incident.id,
+            &incident.incident.id,
             submission.name().full(),
-            cached.get_hash(),
         )?;
 
         if config.distinguish {
@@ -142,7 +145,7 @@ impl Subreddit {
 
         if let Some(sticky) = &config.sticky {
             if sticky.only_for.len() > 0 {
-                let has_components = (&incident.components)
+                let has_components = (&incident.incident.components)
                     .iter()
                     .any(|c| sticky.only_for.contains(&c.id) || sticky.only_for.contains(&c.name));
 
@@ -153,7 +156,7 @@ impl Subreddit {
             }
 
             if let Some(min_impact) = sticky.min_impact {
-                if incident.impact < min_impact {
+                if incident.incident.impact < min_impact {
                     println!("Incident does not meet minimum {min_impact:?} to sticky");
                     return Ok(());
                 }
@@ -202,24 +205,6 @@ impl Subreddit {
         );
 
         Ok(None)
-    }
-
-    fn update_incident_post(
-        &self,
-        db: &MlapiDb,
-        tracked: &IncidentPostLite,
-        cached: &CachedSubmission,
-        reddit: &RouxClient,
-    ) -> anyhow::Result<()> {
-        if tracked.body_hash != cached.get_hash() {
-            reddit.edit(
-                cached.get_body(),
-                &ThingFullname::try_from(tracked.post_fullname.as_str()).unwrap(),
-            )?;
-            db.update_incident_post(&tracked.post_fullname, cached.get_hash())?;
-        }
-
-        Ok(())
     }
 
     pub fn check_incident_sticky(
@@ -355,83 +340,33 @@ impl Subreddit {
         &mut self,
         db: &MlapiDb,
         reddit: &RouxClient,
-        status: &StatusClient,
-        cached: &mut CachedIncidentSubmissions,
-        all_components: &mut StatusComponentCache,
+        updated_incidents: &[IncidentWithLive<'_>],
         is_summary: bool,
         config: &SubredditStatusConfig,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<HashSet<String>> {
         self.check_posts_for_unsticky(db, config)
             .context("check unsticky")?;
+
         let mut unseen = db
             .get_unresolved_incident_posts(self.lower.as_str())
             .context("get unresolved")?;
 
-        for incident in &cached.incidents {
-            if let Some(tracked) =
-                db.get_incident_post(self.lower.as_str(), incident.id.as_str())?
+        for update in updated_incidents {
+            if let Some(_) =
+                db.get_incident_post(self.lower.as_str(), update.incident.id.as_str())?
             {
-                unseen.remove(&incident.id);
-                if needs_update(incident, &tracked) {
-                    let components = all_components.data(status)?;
-
-                    let cached = CachedIncidentSubmissions::get_submission(
-                        &mut cached.cache,
-                        incident,
-                        components,
-                    )?;
-
-                    self.update_incident_post(db, &tracked, cached, reddit)
-                        .context("update post")?;
-                }
-            } else if incident.impact >= config.min_impact {
-                let components = all_components.data(status)?;
-                unseen.remove(&incident.id);
-
-                let cached = CachedIncidentSubmissions::get_submission(
-                    &mut cached.cache,
-                    incident,
-                    components,
-                )?;
-
-                self.send_incident_post(db, &incident, reddit, cached, &config)?;
+                unseen.remove(&update.incident.id);
+            } else if update.incident.impact >= config.min_impact {
+                self.send_incident_post(db, update, reddit, &config)?;
             }
         }
 
         if !is_summary {
             // from a webhook, so it is expected that other incidents are missing
-            return Ok(());
+            return Ok(HashSet::new());
         }
 
-        for unseen in unseen {
-            let incident = status.get_incident(&unseen)?;
-
-            let components = all_components.data(status)?;
-
-            CachedIncidentSubmissions::add(&mut cached.cache, &incident, components)?;
-            let cached = CachedIncidentSubmissions::get_submission(
-                &mut cached.cache,
-                &incident,
-                components,
-            )?;
-
-            let Some(post) = db.get_incident_post(self.lower.as_str(), &incident.id)? else {
-                continue;
-            };
-
-            self.update_incident_post(db, &post, cached, reddit)?;
-
-            let resolved_at = match incident.resolved_at {
-                Some(dt) => dt.to_utc(),
-                None => Utc::now(),
-            };
-
-            db.resolve_incident_post(&post.post_fullname, resolved_at)?;
-
-            self.check_incident_sticky(db, post.resolve(resolved_at), config)?;
-        }
-
-        Ok(())
+        Ok(unseen)
     }
 
     pub fn newest_unseen(&mut self) -> anyhow::Result<Vec<Submission>> {
@@ -446,13 +381,6 @@ impl Subreddit {
 
     pub fn get_removal_reason(&mut self, id: &str) -> Result<Option<&RemovalReason>, RouxError> {
         self.removal_reasons.data(&self.data).map(|map| map.get(id))
-    }
-}
-
-fn needs_update(incident: &Incident, tracked: &IncidentPostLite) -> bool {
-    match incident.updated_at {
-        Some(updated_at) if updated_at > tracked.updated_at => true,
-        _ => false,
     }
 }
 

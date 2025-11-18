@@ -7,12 +7,12 @@ use std::{
 
 use anyhow::{Context, bail};
 use mlapibot_common::Cached;
-use mlapibot_datastore::MlapiDb;
+use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
 use roux::{
     api::Distinguished,
     client::{OAuthClient, RedditClient as RouxRedditClient},
 };
-use statuspage::{StatusClient, component::Component, status::StatusIndicator};
+use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
 use tera::Tera;
 
 use mlapibot_analysis::{ContextWarning, analzyer::Analyzer};
@@ -28,7 +28,7 @@ use crate::{
     config::{RedditCredentials, SubredditsConfig},
     exts::SubmissionExt,
     ratelimiter::Ratelimiter,
-    status_tracker::{CachedIncidentSubmissions, WebhookEvent},
+    status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
     subreddit::Subreddit,
     webhook::{
         create_deleted_downvoted_comment, create_inbox_message, create_moderator_downvoted_comment,
@@ -398,20 +398,140 @@ impl<'a> RedditClient<'a> {
         Ok(Duration::from_secs(15))
     }
 
+    fn check_status_updates(&mut self, incident: &IncidentWithLive) -> anyhow::Result<()> {
+        let current_timestamp = incident
+            .incident
+            .updated_at
+            .unwrap_or_else(|| incident.incident.created_at)
+            .to_utc();
+
+        if incident
+            .live_thread
+            .updated_at
+            .is_some_and(|last_updated| current_timestamp <= last_updated)
+        {
+            println!(
+                "{} has no updates since {:?}",
+                incident.incident.id, incident.live_thread.updated_at
+            );
+            return Ok(());
+        }
+
+        let mut prior = None;
+        for update in incident.incident.incident_updates.iter().rev() {
+            if incident
+                .live_thread
+                .updated_at
+                .is_some_and(|updated| update.created_at <= updated)
+            {
+                prior = Some(update.status);
+                continue;
+            }
+
+            let mut text = match prior {
+                Some(prior) if prior == update.status => {
+                    format!("# Update\n\n")
+                }
+                _ => format!("# {:?}\n\n", update.status),
+            };
+
+            text.push_str(&update.body);
+            prior = Some(update.status);
+
+            self.client
+                .update_live_thread(&incident.live_thread.fullname, &text)?;
+        }
+
+        self.db
+            .update_live_incident(&incident.incident.id, current_timestamp)?;
+
+        if incident.incident.resolved_at.is_some() {
+            self.client
+                .close_live_thread(&incident.live_thread.fullname)?;
+        }
+
+        Ok(())
+    }
+
     fn update_status_with(
         &mut self,
-        mut cached: CachedIncidentSubmissions,
+        incidents: &[Incident],
         is_summary: bool,
     ) -> anyhow::Result<()> {
+        let mut incidents_with_live = Vec::new();
+
+        let components = self.cached_status_components.data(&self.status)?;
+
+        for incident in incidents {
+            match self.db.get_live_incident(&incident.id)? {
+                None => {
+                    let any_would_post = self.subreddits.iter().any(|s| {
+                        self.subreddits_config
+                            .get_status(s.name())
+                            .is_some_and(|c| incident.impact >= c.min_impact)
+                    });
+
+                    if !any_would_post {
+                        // no since starting a live thread for an irrelevant incident.
+                        continue;
+                    }
+
+                    let mut resources = String::new();
+
+                    resources.push_str("- [Discord status website](https://discordstatus.com)  \n");
+                    resources.push_str(
+                        "- [Cloudflare status website](https://www.cloudflarestatus.com)  \n",
+                    );
+
+                    let _ = write_affected_components_list(&mut resources, incident, &components);
+
+                    let live_thread_id = self.client.create_live_thread(
+                        &get_title(incident, 128)?,
+                        &format!(
+                            "Tracking updates to [a Discord incident/outage]({}).",
+                            incident.shortlink
+                        ),
+                        false,
+                        &resources,
+                    )?;
+
+                    self.db
+                        .create_live_incident(&incident.id, &live_thread_id, None)?;
+
+                    if let Some(admin) = self.admin.as_ref() {
+                        self.client
+                            .invite_live_thread_contributor(&live_thread_id, &admin)?;
+                    }
+
+                    incidents_with_live.push(IncidentWithLive {
+                        incident,
+                        live_thread: LiveIncidentPost {
+                            incident_id: incident.id.clone(),
+                            fullname: live_thread_id,
+                            updated_at: None,
+                        },
+                    })
+                }
+                Some(live_thread) => incidents_with_live.push(IncidentWithLive {
+                    incident,
+                    live_thread,
+                }),
+            }
+        }
+
+        for incident in &incidents_with_live {
+            self.check_status_updates(incident).with_context(|| {
+                format!("check live updates for incident {}", incident.incident.id)
+            })?;
+        }
+
         for subreddit in &mut self.subreddits {
             if let Some(config) = self.subreddits_config.get_status(subreddit.name()) {
                 subreddit
                     .update_status(
                         &self.db,
                         &self.client,
-                        &self.status,
-                        &mut cached,
-                        &mut self.cached_status_components,
+                        &incidents_with_live,
                         is_summary,
                         config,
                     )
@@ -431,9 +551,7 @@ impl<'a> RedditClient<'a> {
             summary.incidents.len()
         );
 
-        let summary = CachedIncidentSubmissions::new(summary.incidents);
-
-        self.update_status_with(summary, true)?;
+        self.update_status_with(&summary.incidents, true)?;
 
         Ok(Duration::from_secs(5 * 60))
     }
@@ -483,8 +601,7 @@ impl<'a> RedditClient<'a> {
             crate::status_tracker::WebhookEvent::IncidentUpdate(incident) => {
                 println!("[status-recv] got incident webhook");
                 let incident = *incident;
-                let cache = CachedIncidentSubmissions::new(vec![incident]);
-                self.update_status_with(cache, false)?;
+                self.update_status_with(&[incident], false)?;
             }
             _ => {
                 println!("[status-recv] got unknown webhook, scheduling status check to run");
@@ -527,7 +644,7 @@ impl<'a> RedditClient<'a> {
         }
 
         ratelimiter.push("check_own_comments", Self::check_own_comments);
-        ratelimiter.push("check_status", Self::check_status);
+        // ratelimiter.push("check_status", Self::check_status);
 
         loop {
             while let Ok(event) = rx.try_recv() {

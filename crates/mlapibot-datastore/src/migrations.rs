@@ -44,6 +44,7 @@ migrations!(
     1 => migration00::Initial,
     2 => migration01::ResolvedAt,
     3 => migration02::StickyStoreId,
+    4 => migration03::StatusLiveThread,
 );
 
 trait Migration {

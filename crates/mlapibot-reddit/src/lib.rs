@@ -1,4 +1,3 @@
-mod cached_submission;
 mod client;
 pub mod config;
 pub mod exts;

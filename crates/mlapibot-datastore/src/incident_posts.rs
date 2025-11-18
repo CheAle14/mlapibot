@@ -4,22 +4,16 @@ use rusqlite::ToSql;
 #[derive(Debug)]
 pub struct IncidentPostLite {
     pub post_fullname: String,
-    pub body_hash: String,
-    pub updated_at: DateTime<Utc>,
     pub sticky_state: StickyState,
 }
 
 impl IncidentPostLite {
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let post_fullname = row.get(0)?;
-        let body_hash = row.get(1)?;
-        let updated_at: NaiveDateTime = row.get(2)?;
-        let sticky_state = StickyState::from_row(row, 3, 4)?;
+        let sticky_state = StickyState::from_row(row, 1, 2)?;
 
         Ok(Self {
             post_fullname,
-            body_hash,
-            updated_at: updated_at.and_utc(),
             sticky_state,
         })
     }
@@ -27,15 +21,11 @@ impl IncidentPostLite {
     pub fn resolve(self, resolved_at: DateTime<Utc>) -> ResolvedIncidentPost {
         let Self {
             post_fullname,
-            body_hash,
-            updated_at,
             sticky_state,
         } = self;
 
         ResolvedIncidentPost {
             post_fullname,
-            body_hash,
-            updated_at,
             sticky_state,
             resolved_at,
         }
@@ -45,8 +35,6 @@ impl IncidentPostLite {
 #[derive(Debug)]
 pub struct ResolvedIncidentPost {
     pub post_fullname: String,
-    pub body_hash: String,
-    pub updated_at: DateTime<Utc>,
     pub sticky_state: StickyState,
     pub resolved_at: DateTime<Utc>,
 }
@@ -54,19 +42,14 @@ pub struct ResolvedIncidentPost {
 impl ResolvedIncidentPost {
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let post_fullname = row.get(0)?;
-        let body_hash = row.get(1)?;
-        let updated_at: NaiveDateTime = row.get(2)?;
-
-        let sticky_state = StickyState::from_row(row, 3, 5)?;
+        let sticky_state = StickyState::from_row(row, 1, 3)?;
 
         // since we set it as a DateTime<Utc>, sqlite seems to give it us back
         // in this same format.
-        let resolved_at: DateTime<Utc> = row.get(4)?;
+        let resolved_at: DateTime<Utc> = row.get(2)?;
 
         Ok(Self {
             post_fullname,
-            body_hash,
-            updated_at: updated_at.and_utc(),
             sticky_state,
             resolved_at: resolved_at,
         })
@@ -83,7 +66,7 @@ pub enum StickyState {
     NeverStickied,
     /// Incident post is believed to still be sticked
     Stickied {
-        // The fullname of the post which was un-stickied to make way for this one.
+        /// The fullname of the post which was un-stickied to make way for this one.
         removed: Option<String>,
     },
     /// Incident post has been unsticked, after delay from resolution.
