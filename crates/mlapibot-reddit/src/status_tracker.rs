@@ -1,5 +1,6 @@
-use std::{collections::HashMap, sync::mpsc::Sender};
+use std::{collections::HashMap, io::Read, str::FromStr, sync::mpsc::Sender};
 
+use anyhow::Context;
 use chrono::{DateTime, FixedOffset, Utc};
 use mlapibot_datastore::live_incident_posts::LiveIncidentPost;
 use roux::builders::submission::SubmissionSubmitBuilder;
@@ -7,6 +8,7 @@ use statuspage::{
     component::Component,
     incident::{AffectedComponent, Incident, IncidentStatus, IncidentUpdate},
 };
+use tiny_http::Response;
 
 use crate::utils::clamp;
 
@@ -110,24 +112,40 @@ pub enum WebhookEvent {
     Closed,
 }
 
-pub fn start_webhook_listener_thread(channel: Sender<WebhookEvent>, addr: &str) {
-    let addr = addr.to_owned();
+pub fn start_webhook_listener_thread(
+    channel: Sender<WebhookEvent>,
+    addr: &str,
+) -> anyhow::Result<()> {
+    let socket = systemd_socket::SocketAddr::from_str(addr).context("parse socket addr")?;
+    println!("Using socket: {socket:#?}");
+    let listener = socket.bind().context("create tcp listener")?;
+    println!("Webhook listener is: {listener:?}");
+
+    let server = tiny_http::Server::from_listener(listener, None)
+        .map_err(|e| anyhow::Error::from_boxed(e))
+        .context("create server")?;
 
     std::thread::spawn(move || {
-        let chnl = channel.clone();
-        rouille::Server::new(addr, move |request| {
-            println!("[status-webhook] {} {}", request.method(), request.url());
-            let Some(body) = request.data() else {
-                return rouille::Response::empty_404();
+        loop {
+            let mut request = match server.recv() {
+                Ok(r) => r,
+                Err(err) => {
+                    eprintln!("listen webhook err: {err}");
+                    break;
+                }
             };
+            println!("[status-webhook] {} {}", request.method(), request.url());
+
+            let body = request.as_reader().take(1024 * 1024 * 10);
 
             let parsed: statuspage::webhook::StatusWebhook = match serde_json::from_reader(body) {
                 Ok(value) => value,
                 Err(err) => {
                     println!("[status-webhook] {err:?}");
                     // *something* has happened, so trigger a refresh anyway
-                    chnl.send(WebhookEvent::OtherUpdate).unwrap();
-                    return rouille::Response::text("failed to parse json").with_status_code(500);
+                    channel.send(WebhookEvent::OtherUpdate).unwrap();
+                    let _ = request.respond(Response::empty(500));
+                    continue;
                 }
             };
 
@@ -138,12 +156,12 @@ pub fn start_webhook_listener_thread(channel: Sender<WebhookEvent>, addr: &str) 
                 _ => WebhookEvent::OtherUpdate,
             };
 
-            chnl.send(event).unwrap();
+            channel.send(event).unwrap();
+            let _ = request.respond(Response::empty(204));
+        }
 
-            rouille::Response::empty_204()
-        })
-        .expect("Failed to start server")
-        .run();
-        channel.send(WebhookEvent::Closed).unwrap();
+        let _ = channel.send(WebhookEvent::Closed);
     });
+
+    Ok(())
 }

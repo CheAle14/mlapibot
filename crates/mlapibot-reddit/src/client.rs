@@ -103,6 +103,8 @@ impl<'a> RedditClient<'a> {
         subreddits_config: SubredditsConfig,
         debug: bool,
     ) -> anyhow::Result<Self> {
+        systemd_socket::init().context("initializing systemd sockets")?;
+
         let templates_path = data_dir.join("templates").join("*.md");
         let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
         let found: Vec<_> = templates.get_template_names().collect();
@@ -616,7 +618,8 @@ impl<'a> RedditClient<'a> {
 
         if let Some(addr) = &self.status_webhook {
             println!("Starting status webhook at {addr}");
-            crate::status_tracker::start_webhook_listener_thread(tx, &addr);
+            crate::status_tracker::start_webhook_listener_thread(tx, &addr)
+                .with_context(|| format!("status webhook at {addr}"))?;
         }
 
         let wants = self
