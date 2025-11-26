@@ -206,6 +206,8 @@ static STOP_WORDS: &[&str] = &[
     "from",
     "further",
     "genuine",
+    "get",
+    "got",
     "guy",
     "guys",
     "had",
@@ -397,7 +399,8 @@ mod tests {
             "Can someone help me please...",
             "Discord, why?!?!?!?!?",
             "I need help and your opinion",
-            "I don't know what to say"
+            "I don't know what to say",
+            "I got an issue",
         );
     }
 
