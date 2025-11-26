@@ -248,15 +248,13 @@ pub fn substr_markdown_many<'md>(
         while current_sum > max {
             let global_distance = current_sum - max;
 
-            let mut closest_to_distance: Option<(isize, &mut SubstrAttempt)> = None;
+            let mut closest_to_distance: Option<(usize, &mut SubstrAttempt)> = None;
             for substr in &mut substrs {
                 let Some(removable) = substr.1.removalable_len() else {
                     continue;
                 };
 
-                let distance_to_global = removable
-                    .checked_signed_diff(global_distance)
-                    .expect("never overflows");
+                let distance_to_global = removable.abs_diff(global_distance);
 
                 match closest_to_distance {
                     Some((r, _)) => {
