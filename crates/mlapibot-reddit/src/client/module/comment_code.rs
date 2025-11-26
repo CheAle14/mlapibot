@@ -29,7 +29,7 @@ impl Module for CommentCode {
     ) -> anyhow::Result<()> {
         use std::fmt::Write;
 
-        let fences = mlapibot_markdown::extract_code_fences(comment.body().as_str());
+        let fences = mlapibot_markdown::code_fence::extract_code_fences(comment.body().as_str());
 
         let all_small = fences.iter().all(|fence| {
             let mut lines = 0;
