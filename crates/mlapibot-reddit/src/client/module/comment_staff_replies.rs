@@ -141,7 +141,7 @@ impl super::Module for CommentStaffReplies {
         super::ModuleWants::COMMENTS
     }
 
-    impl_mask_subreddits!(comments_staff_flair_id => comments);
+    impl_mask_subreddits!(comments_staff_reply => comments);
 
     fn run_comment<'client>(
         &mut self,
@@ -152,13 +152,19 @@ impl super::Module for CommentStaffReplies {
             return Ok(());
         };
 
-        let Some(staff_flair_id) = config.comments_staff_flair_id.as_ref() else {
+        let Some(config) = config.comments_staff_reply.as_ref() else {
             return Ok(());
         };
 
+        for title_filter in &config.ignore_post_title_contains {
+            if comment.link_title().contains(title_filter) {
+                return Ok(());
+            }
+        }
+
         if comment
             .author_flair_template_id()
-            .is_none_or(|flair_id| flair_id != staff_flair_id)
+            .is_none_or(|flair_id| flair_id != config.staff_flair_id)
         {
             println!(
                 "comment author not staff flaired: {:?}",

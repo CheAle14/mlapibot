@@ -51,7 +51,7 @@ pub struct SubredditConfig {
     #[serde(default)]
     pub comments_cdn: bool,
     #[serde(default)]
-    pub comments_staff_flair_id: Option<String>,
+    pub comments_staff_reply: Option<SubredditStaffReplyConfig>,
     #[serde(default)]
     pub related_titles: bool,
 }
@@ -72,6 +72,15 @@ pub struct SubredditStatusConfig {
     /// Whether it should distinguish the posts it makes.
     #[serde(default)]
     pub distinguish: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubredditStaffReplyConfig {
+    /// Any user with this flair template ID is considered staff.
+    pub staff_flair_id: String,
+    /// Any staff replies under a post with any of these texts in the title are ignored.
+    #[serde(default)]
+    pub ignore_post_title_contains: Vec<String>,
 }
 
 fn default_comment_threshold() -> u64 {
