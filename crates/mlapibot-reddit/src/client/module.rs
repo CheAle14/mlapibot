@@ -15,6 +15,7 @@ use crate::{
 
 pub mod comment_cdn_links;
 pub mod comment_code;
+pub mod comment_staff_replies;
 pub mod inbox_commands;
 pub mod post_flairs;
 pub mod post_scams;
@@ -22,6 +23,7 @@ pub mod post_vague_title;
 
 pub use comment_cdn_links::CdnLinks;
 pub use comment_code::CommentCode;
+pub use comment_staff_replies::CommentStaffReplies;
 pub use inbox_commands::InboxCommands;
 pub use post_flairs::PostFlairs;
 pub use post_scams::PostScams;
@@ -227,22 +229,19 @@ pub struct InboxMsg<'a> {
 
 impl<'a> InboxMsg<'a> {
     pub fn new(inner: &'a RedditMessage) -> (Self, bool) {
-        let subject = inner.subject().as_str();
+        let subject = inner.subject();
         let (subject, body) = if subject == "[direct chat room]" {
             match inner.body().split_once('\n') {
                 Some(pair) => pair,
                 // If body has only one line, that is new subject,
                 // and the body is empty
-                None => (inner.body().as_str(), ""),
+                None => (inner.body(), ""),
             }
         } else {
-            (subject, inner.body().as_str())
+            (subject, inner.body())
         };
 
-        let author = match inner.author() {
-            Some(s) => s.as_str(),
-            None => "",
-        };
+        let author = inner.author().unwrap_or_default();
 
         let (subject, dev_only) = match subject.strip_prefix("[dev-only]") {
             Some(rem) => (rem.trim_start(), true),

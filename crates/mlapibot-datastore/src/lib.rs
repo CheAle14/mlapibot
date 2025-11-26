@@ -3,6 +3,7 @@ use std::path::Path;
 pub mod incident_posts;
 pub mod live_incident_posts;
 pub mod monitored;
+pub mod staff_replies;
 
 mod seen;
 mod status;
@@ -35,5 +36,26 @@ impl MlapiDb {
 
     pub fn set_migration_version(&self, v: u32) -> rusqlite::Result<()> {
         self.conn.pragma_update(None, "user_version", v)
+    }
+}
+
+pub(crate) trait QueryCollect {
+    fn query_collect<T, P, F>(&mut self, params: P, f: F) -> Result<Vec<T>, rusqlite::Error>
+    where
+        P: rusqlite::Params,
+        F: FnMut(&rusqlite::Row) -> Result<T, rusqlite::Error>;
+}
+
+impl<'conn> QueryCollect for rusqlite::Statement<'conn> {
+    fn query_collect<T, P, F>(&mut self, params: P, f: F) -> Result<Vec<T>, rusqlite::Error>
+    where
+        P: rusqlite::Params,
+        F: FnMut(&rusqlite::Row) -> Result<T, rusqlite::Error>,
+    {
+        let mut vec = Vec::new();
+        for item in self.query_map(params, f)? {
+            vec.push(item?);
+        }
+        Ok(vec)
     }
 }

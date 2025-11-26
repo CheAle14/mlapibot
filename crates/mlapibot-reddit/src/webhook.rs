@@ -42,11 +42,7 @@ pub fn create_change_flair_message(submission: &Submission, now_flair: &str) -> 
 pub fn create_inbox_message(message: &RedditMessage) -> Message {
     let subject = clamp(&message.subject(), 128);
     let description = clamp(&message.body(), 4096);
-    let author = if let Some(author) = &message.author() {
-        MessageEmbedAuthor::new(author)
-    } else {
-        MessageEmbedAuthor::new("no author")
-    };
+    let author = MessageEmbedAuthor::new(message.author().unwrap_or("no author"));
 
     let mut embed = MessageEmbed::builder()
         .title(format!("Inbox: {}", subject))

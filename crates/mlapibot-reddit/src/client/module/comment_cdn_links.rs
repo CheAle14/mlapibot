@@ -45,7 +45,7 @@ impl super::Module for CdnLinks {
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
-        let links = Self::extract_cdn_links(comment.body().as_str());
+        let links = Self::extract_cdn_links(comment.body());
 
         if links.len() == 0 {
             return Ok(());

@@ -9,6 +9,10 @@ pub struct SubstrAttempt<'md> {
 }
 
 impl<'md> SubstrAttempt<'md> {
+    pub fn text(&self) -> &'md str {
+        self.markdown
+    }
+
     fn token(markdown: &'md str, start_of_token: usize) -> Self {
         Self {
             markdown,
@@ -243,9 +247,6 @@ pub fn substr_markdown_many<'md>(
 
         while current_sum > max {
             let global_distance = current_sum - max;
-            println!(
-                "{current_sum} > {max} (= {global_distance}) (for each {items_max}); {substrs:?}"
-            );
 
             let mut closest_to_distance: Option<(isize, &mut SubstrAttempt)> = None;
             for substr in &mut substrs {
@@ -256,11 +257,6 @@ pub fn substr_markdown_many<'md>(
                 let distance_to_global = removable
                     .checked_signed_diff(global_distance)
                     .expect("never overflows");
-
-                println!(
-                    "can remove {removable} ({distance_to_global}) for {:?}",
-                    substr.1.markdown
-                );
 
                 match closest_to_distance {
                     Some((r, _)) => {
@@ -276,23 +272,13 @@ pub fn substr_markdown_many<'md>(
                 Some((_, substr)) => {
                     let new = substr.trim_to_token().expect("removable not None");
                     let diff = substr.len() - new.len();
-                    println!("removed {diff} to {:?}", new.markdown);
                     current_sum -= diff;
                     *substr = new;
                 }
                 None => {
-                    println!(
-                        "no more to remove: {current_sum} for {max}, {items_max}: {substrs:?}"
-                    );
-
                     continue 'item_max;
                 }
             }
-        }
-
-        println!("achived {current_sum}");
-        for (original, item) in &substrs {
-            println!("- {} to {}", original.len(), item.len());
         }
 
         return substrs.into_iter().map(|(_, a)| a).collect();
@@ -539,6 +525,35 @@ mod tests {
                 },
                 SubstrAttempt {
                     markdown: "what ",
+                    start_of_token: None,
+                }
+            ]
+        )
+    }
+
+    #[test]
+    pub fn substr_markdown_many_unaffected_large_limit() {
+        let text = vec![
+            "hello _world_",
+            "this **is some** text",
+            "what <https://example.com>",
+        ];
+
+        let result = substr_markdown_many(text.into_iter(), 10_000);
+
+        assert_eq!(
+            result,
+            vec![
+                SubstrAttempt {
+                    markdown: "hello _world_",
+                    start_of_token: None,
+                },
+                SubstrAttempt {
+                    markdown: "this **is some** text",
+                    start_of_token: None,
+                },
+                SubstrAttempt {
+                    markdown: "what <https://example.com>",
                     start_of_token: None,
                 }
             ]

@@ -45,6 +45,7 @@ migrations!(
     2 => migration01::ResolvedAt,
     3 => migration02::StickyStoreId,
     4 => migration03::StatusLiveThread,
+    5 => migration04::StaffReplyComment,
 );
 
 trait Migration {

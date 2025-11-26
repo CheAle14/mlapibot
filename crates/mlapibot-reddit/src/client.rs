@@ -226,7 +226,8 @@ impl<'a> RedditClient<'a> {
             CommentCode,
             InboxCommands,
             PostVagueTitle,
-            CdnLinks
+            CdnLinks,
+            CommentStaffReplies
         )
     }
 
