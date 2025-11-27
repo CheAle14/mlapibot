@@ -584,10 +584,6 @@ impl<'a> RedditClient<'a> {
                         comment.link_title(),
                         comment.link_author()
                     );
-                    if let Some(webhook) = &mut self.webhook {
-                        let message = create_moderator_downvoted_comment(&comment);
-                        webhook.send(&message)?;
-                    }
                 }
             }
         }
