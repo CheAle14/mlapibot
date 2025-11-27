@@ -205,7 +205,7 @@
         "age restricted servers are blocked on the ios platform per app store guidelines",
         "if you're over 18 you can join on the desktop app or website"
       ],
-      "report": true,
+      "remove": true,
       "template": "ageRestricted"
     },
     {
