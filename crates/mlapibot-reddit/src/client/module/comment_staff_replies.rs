@@ -117,6 +117,7 @@ impl CommentStaffReplies {
 
                 if reply.can_mod_post() {
                     reply.distinguish(roux::models::Distinguish::Moderator, true)?;
+                    reply.lock()?;
                 }
             }
         }
