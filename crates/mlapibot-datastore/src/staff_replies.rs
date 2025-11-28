@@ -18,16 +18,14 @@ impl StaffReply {
     }
 
     pub fn is_outdated(&self, now: DateTimeUtc) -> bool {
-        let since_created = now.signed_duration_since(self.created_at).abs();
+        let between_create_and_update = self
+            .last_updated
+            .signed_duration_since(self.created_at)
+            .abs();
+
         let since_updated = now.signed_duration_since(self.last_updated).abs();
 
-        // e.g.:
-        // if made 5 minutes ago, check if last update was 5 minutes ago
-        // if made 30 minutes ago, check if last update was 30 minutes ago
-        // this causes linearly increasing gaps between updates, since most
-        // comments are likely edited shortly after they are made, but rarely
-        // after that.
-        since_updated < since_created
+        between_create_and_update <= since_updated
     }
 }
 
@@ -46,6 +44,20 @@ impl super::MlapiDb {
     ) -> rusqlite::Result<()> {
         self.conn.execute("INSERT INTO StaffReplies (CommentId, PostId, AuthorName, Content) VALUES (?1, ?2, ?3, ?4)",
             (comment_id, post_id, author_name, content))?;
+
+        Ok(())
+    }
+
+    pub fn update_staff_reply(&self, reply: &StaffReply) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE StaffReplies SET AuthorName=?1, Content=?2, LastUpdated=?3 WHERE CommentId=?4",
+            (
+                &reply.author_name,
+                &reply.content,
+                reply.last_updated,
+                &reply.comment_id,
+            ),
+        )?;
 
         Ok(())
     }

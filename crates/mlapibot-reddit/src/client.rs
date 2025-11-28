@@ -9,7 +9,7 @@ use anyhow::{Context, bail};
 use mlapibot_common::Cached;
 use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
 use roux::{
-    api::Distinguished,
+    api::{Distinguished, ThingFullname},
     client::{OAuthClient, RedditClient as RouxRedditClient},
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
@@ -23,7 +23,8 @@ use super::{RouxClient, Submission};
 
 use crate::{
     client::module::{
-        InboxAction, InboxMsg, Module, PostAction, SplitSubMask, post_flairs::PostFlairCache,
+        InboxAction, InboxMsg, Module, PostAction, SplitSubMask,
+        comment_staff_replies::visit_comments, post_flairs::PostFlairCache,
     },
     config::{RedditCredentials, SubredditsConfig},
     exts::SubmissionExt,

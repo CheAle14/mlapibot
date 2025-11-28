@@ -1,8 +1,14 @@
+use std::collections::{HashMap, VecDeque};
+
 use anyhow::Context;
-use chrono::{SubsecRound, Utc};
+use chrono::{DateTime, Utc};
 use mlapibot_datastore::staff_replies::StaffReply;
 use mlapibot_markdown::substr::substr_markdown_many;
-use roux::api::ThingFullname;
+use roux::{
+    api::{ArticleCommentData, ArticleCommentOrMoreComments, ArticleReplies, ThingFullname},
+    client::{AuthedClient, RedditClient},
+    models::{ArticleCommentOrMore, Listing},
+};
 
 use crate::client::{ModuleRedditClient, module::impl_mask_subreddits};
 
@@ -87,19 +93,115 @@ fn layout_reply(
     output_text
 }
 
+pub fn visit_comments<V, E>(
+    listing: &Listing<ArticleCommentOrMore<AuthedClient>>,
+    mut visitor: V,
+) -> Result<(), E>
+where
+    V: FnMut(&ArticleCommentData) -> Result<(), E>,
+{
+    let mut queue = VecDeque::new();
+
+    for comment in &listing.children {
+        match comment {
+            ArticleCommentOrMore::Comment(comment) => {
+                visitor(comment.raw_data())?;
+
+                if let ArticleReplies::Replies(replies) = comment.replies() {
+                    for comment in &replies.data.children {
+                        queue.push_back(comment);
+                    }
+                }
+            }
+            ArticleCommentOrMore::More(..) => {}
+        }
+    }
+
+    while let Some(maybe_reply) = queue.pop_back() {
+        match maybe_reply {
+            ArticleCommentOrMoreComments::Comment(comment) => {
+                visitor(comment)?;
+
+                if let ArticleReplies::Replies(replies) = &comment.replies {
+                    for comment in &replies.data.children {
+                        queue.push_back(comment);
+                    }
+                }
+            }
+            ArticleCommentOrMoreComments::More(..) => {}
+        }
+    }
+
+    Ok(())
+}
+
 impl CommentStaffReplies {
+    fn fetch_reply_updates(
+        &self,
+        client: &mut ModuleRedditClient,
+        subreddit: &str,
+        post_id: &str,
+        replies: &mut [StaffReply],
+        now: DateTime<Utc>,
+    ) -> anyhow::Result<()> {
+        // Best case scenario is that the post doesn't have too many comments, so
+        // we can just fetch the entire post's comments and then look for the
+        // staff replies we know about and update our record.
+        //
+        // Any left over we can fetch one-by-one.
+
+        let mut reply_map = HashMap::new();
+        for reply in replies {
+            reply_map.insert(reply.comment_id.clone(), reply);
+        }
+
+        let post_comments = client.client.article_comments(
+            subreddit,
+            &ThingFullname::from_submission_id(post_id),
+            None,
+            Some(1000),
+        )?;
+
+        visit_comments::<_, anyhow::Error>(&post_comments, |comment| {
+            if let Some(staff_reply) = reply_map.remove(&comment.common.id) {
+                staff_reply.content = comment.common.body.to_owned();
+                staff_reply.last_updated = now;
+
+                if staff_reply.author_name != comment.common.author {
+                    staff_reply.author_name = comment.common.author.clone();
+                }
+
+                client
+                    .db
+                    .update_staff_reply(&staff_reply)
+                    .context("update staff reply")?;
+            }
+
+            Ok(())
+        })?;
+
+        for (_, unseen) in reply_map {
+            // we don't care about unseen ones that we don't think are outdated.
+            if unseen.is_outdated(now) {
+                println!("TODO: fetch individual comment {unseen:?}");
+            }
+        }
+
+        Ok(())
+    }
+
     fn update_or_make_staff_reply_comment(
         &self,
         client: &mut ModuleRedditClient,
         subreddit: &str,
         post_id: &str,
     ) -> anyhow::Result<()> {
-        let all_replies = client.db.get_staff_replies_in(post_id)?;
+        let mut all_replies = client.db.get_staff_replies_in(post_id)?;
         let now = Utc::now();
-        let any_outdated = all_replies.iter().any(|v| v.is_outdated(now));
 
-        if any_outdated {
-            println!("TODO: update outdated staff replies for {post_id}.");
+        if all_replies.iter().any(|v| v.is_outdated(now)) {
+            self.fetch_reply_updates(client, subreddit, post_id, &mut all_replies, now)
+                .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
         }
 
         let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500);
