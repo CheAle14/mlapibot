@@ -9,8 +9,9 @@ use anyhow::{Context, bail};
 use mlapibot_common::Cached;
 use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
 use roux::{
-    api::Distinguished,
+    api::{Distinguished, ThingFullname},
     client::{OAuthClient, RedditClient as RouxRedditClient},
+    models::SubmissionLinkInfo,
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
 use tera::Tera;
@@ -268,7 +269,7 @@ impl<'a> RedditClient<'a> {
 
             for action in actions {
                 match action {
-                    InboxAction::Redo(post) => {
+                    InboxAction::RedoSub(post) => {
                         let Some(idx) = self
                             .subreddits
                             .iter_mut()
@@ -280,6 +281,30 @@ impl<'a> RedditClient<'a> {
                         let subreddit = &mut self.subreddits[idx];
 
                         view.run_post(&mut self.modules, subreddit, idx, post, false)?;
+                    }
+                    InboxAction::RedoMsg(sub, msg) => {
+                        let Some(idx) = self
+                            .subreddits
+                            .iter_mut()
+                            .position(|s| s.name() == sub.subreddit())
+                        else {
+                            continue;
+                        };
+
+                        for reg in &mut self.modules {
+                            if !reg.module.wants().comments() || !reg.submask.comments.is_set(idx) {
+                                continue;
+                            }
+
+                            reg.module.run_comment(&mut view, &msg).with_context(|| {
+                                format!(
+                                    "redo run-comment /r/{}/{}/{}",
+                                    sub.subreddit(),
+                                    sub.id(),
+                                    msg.id()
+                                )
+                            })?;
+                        }
                     }
                 }
             }

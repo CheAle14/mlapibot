@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
     client::RedditClient,
+    models::SubmissionLinkInfo,
 };
 
 use crate::{
@@ -209,15 +210,49 @@ impl<'client> ModuleRedditClient<'client> {
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
-        let submission = match self.client.get_submission_by_link(message.body) {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!(
-                    "Failed to parse or fetch post to redo: {:?} {e:?}",
-                    message.body
-                );
-                message.reply("Failed to parse or fetch which submission you meant.")?;
-                return Ok(None);
+        let Ok(link) = SubmissionLinkInfo::parse(message.body) else {
+            message.reply("Unrecognised link. Must be a full link to a submission or comment.")?;
+            return Ok(None);
+        };
+
+        let (submission, comment) = match link.comment_id {
+            None => {
+                let submission = match self.client.get_submission_by_info(&link) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to parse or fetch post to redo: {:?} {e:?}",
+                            message.body
+                        );
+                        message.reply("Failed to parse or fetch which submission you meant.")?;
+                        return Ok(None);
+                    }
+                };
+
+                (submission, None)
+            }
+            Some(comment_id) => {
+                match self.client.article_and_comments(
+                    link.subreddit,
+                    link.post_id,
+                    comment_id,
+                    None,
+                    None,
+                ) {
+                    Ok((sub, comments)) => {
+                        let comment = comments.into_iter().next().expect("direct link to comment");
+                        let comment = comment.into_latest(&sub);
+                        (sub, Some(comment))
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to parse or fetch comment to redo: {:?} {e:?}",
+                            message.body
+                        );
+                        message.reply("Failed to parse or fetch which comment you meant.")?;
+                        return Ok(None);
+                    }
+                }
             }
         };
 
@@ -234,7 +269,10 @@ impl<'client> ModuleRedditClient<'client> {
             return Ok(None);
         }
 
-        return Ok(Some(InboxAction::Redo(submission)));
+        match comment {
+            Some(comment) => Ok(Some(InboxAction::RedoMsg(submission, comment))),
+            None => Ok(Some(InboxAction::RedoSub(submission))),
+        }
     }
 
     fn try_sticky_status_post(

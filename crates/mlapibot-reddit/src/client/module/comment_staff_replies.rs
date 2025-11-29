@@ -244,7 +244,7 @@ impl super::Module for CommentStaffReplies {
     }
 
     fn wants(&self) -> super::ModuleWants {
-        super::ModuleWants::COMMENTS | super::ModuleWants::TIMER
+        super::ModuleWants::COMMENTS
     }
 
     impl_mask_subreddits!(comments_staff_reply => comments);

@@ -8,7 +8,7 @@ use roux::{
 };
 
 use crate::{
-    RedditMessage, Submission,
+    Comment, RedditMessage, RouxClient, Submission,
     client::ModuleRedditClient,
     config::{SubredditConfig, SubredditsConfig},
     subreddit::Subreddit,
@@ -229,7 +229,8 @@ impl std::ops::BitOrAssign for SplitSubMask {
 }
 
 pub enum InboxAction {
-    Redo(Submission),
+    RedoSub(Submission),
+    RedoMsg(Submission, LatestComment<RouxClient>),
 }
 
 macro_rules! impl_mask_subreddits {
