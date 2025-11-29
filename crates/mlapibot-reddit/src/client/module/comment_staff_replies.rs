@@ -1,4 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    time::Duration,
+};
 
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -241,7 +244,7 @@ impl super::Module for CommentStaffReplies {
     }
 
     fn wants(&self) -> super::ModuleWants {
-        super::ModuleWants::COMMENTS
+        super::ModuleWants::COMMENTS | super::ModuleWants::TIMER
     }
 
     impl_mask_subreddits!(comments_staff_reply => comments);
@@ -261,18 +264,21 @@ impl super::Module for CommentStaffReplies {
 
         for title_filter in &config.ignore_post_title_contains {
             if comment.link_title().contains(title_filter) {
+                println!("comment in a thread with rejected title: {title_filter:?}");
                 return Ok(());
             }
         }
 
-        if comment
-            .author_flair_template_id()
-            .is_none_or(|flair_id| flair_id != config.staff_flair_id)
-        {
+        if !config.is_staff(
+            comment.author_flair_template_id(),
+            comment.author_flair_css_class(),
+        ) {
             println!(
-                "comment author not staff flaired: {:?}",
-                comment.author_flair_template_id()
+                "comment author not staff flaired: template_id = {:?}; css_class = {:?}",
+                comment.author_flair_template_id(),
+                comment.author_flair_css_class()
             );
+
             return Ok(());
         }
 
@@ -288,6 +294,15 @@ impl super::Module for CommentStaffReplies {
             .with_context(|| format!("make reply comment {post_id} (due to {comment_id})"))?;
 
         Ok(())
+    }
+
+    fn run_timer<'client>(
+        &mut self,
+        client: &mut ModuleRedditClient<'client>,
+        subreddits: &mut [crate::subreddit::Subreddit],
+    ) -> anyhow::Result<std::time::Duration> {
+        println!("Timer!");
+        Ok(Duration::from_secs(5))
     }
 }
 

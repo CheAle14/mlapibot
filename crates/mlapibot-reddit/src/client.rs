@@ -9,7 +9,7 @@ use anyhow::{Context, bail};
 use mlapibot_common::Cached;
 use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
 use roux::{
-    api::{Distinguished, ThingFullname},
+    api::Distinguished,
     client::{OAuthClient, RedditClient as RouxRedditClient},
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
@@ -23,17 +23,15 @@ use super::{RouxClient, Submission};
 
 use crate::{
     client::module::{
-        InboxAction, InboxMsg, Module, PostAction, SplitSubMask,
-        comment_staff_replies::visit_comments, post_flairs::PostFlairCache,
+        InboxAction, InboxMsg, PostAction, RegisteredModule, SplitSubMask,
+        post_flairs::PostFlairCache,
     },
     config::{RedditCredentials, SubredditsConfig},
     exts::SubmissionExt,
     ratelimiter::Ratelimiter,
     status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
     subreddit::Subreddit,
-    webhook::{
-        create_deleted_downvoted_comment, create_inbox_message, create_moderator_downvoted_comment,
-    },
+    webhook::{create_deleted_downvoted_comment, create_inbox_message},
 };
 
 pub mod module;
@@ -59,7 +57,7 @@ pub struct RedditClient<'a> {
     cached_status_components: StatusComponentCache,
     debug: bool,
 
-    modules: Vec<(SplitSubMask, Box<dyn module::Module>)>,
+    modules: Vec<RegisteredModule>,
     // the subreddit posts/comments wanted by *any* module.
     subreddits_mask: SplitSubMask,
 }
@@ -199,39 +197,6 @@ impl<'a> RedditClient<'a> {
         })
     }
 
-    fn build_modules(
-        config: &SubredditsConfig,
-        subreddits: &[Subreddit],
-    ) -> (SplitSubMask, Vec<(SplitSubMask, Box<dyn module::Module>)>) {
-        macro_rules! modules {
-            ($($name:ident),* $(,)?) => {{
-                let mut sub_mask = SplitSubMask::new();
-                let mut modules = Vec::new();
-
-                $(
-                    let mdl = <module::$name as module::Module>::new();
-                    let mask = module::Module::mask_subreddits(&mdl, config, subreddits);
-
-                    sub_mask |= mask;
-
-                    modules.push((mask, Box::new(mdl) as Box<dyn module::Module>));
-                )*
-
-                (sub_mask, modules)
-            }};
-        }
-
-        modules!(
-            PostScams,
-            PostFlairs,
-            CommentCode,
-            InboxCommands,
-            PostVagueTitle,
-            CdnLinks,
-            CommentStaffReplies
-        )
-    }
-
     fn _send_warnings(
         webhook: Option<&mut WebhookClient>,
         warnings: Vec<ContextWarning>,
@@ -283,14 +248,15 @@ impl<'a> RedditClient<'a> {
 
             let mut actions = Vec::new();
 
-            for (_submask, module) in &mut self.modules {
-                if !module.wants().inbox() {
+            for registration in &mut self.modules {
+                if !registration.module.wants().inbox() {
                     continue;
                 }
 
-                let name = module.name();
+                let name = registration.module.name();
 
-                let action = module
+                let action = registration
+                    .module
                     .run_inbox(&mut view, &mut self.subreddits, &msg)
                     .with_context(|| format!("{name}.run_inbox"))?;
 
@@ -388,12 +354,14 @@ impl<'a> RedditClient<'a> {
                 self.db
                     .set_seen(subreddit.name().as_str(), comment.name().full())?;
 
-                for (modmask, module) in &mut self.modules {
-                    if module.wants().comments() && modmask.comments.is_set(idx) {
-                        let name = module.name();
-                        module.run_comment(&mut view, &comment).with_context(|| {
-                            format!("{name}.run_comment({})", comment.name().full())
-                        })?;
+                for reg in &mut self.modules {
+                    if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
+                        let name = reg.module.name();
+                        reg.module
+                            .run_comment(&mut view, &comment)
+                            .with_context(|| {
+                                format!("{name}.run_comment({})", comment.name().full())
+                            })?;
                     }
                 }
             }
@@ -611,6 +579,35 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
+    fn check_module_timers(&mut self) -> anyhow::Result<Duration> {
+        let now = Instant::now();
+
+        let mut earliest_next = Duration::MAX;
+
+        for reg in &mut self.modules {
+            if !reg.module.wants().timer() {
+                continue;
+            }
+
+            if reg.next_timer > now {
+                continue;
+            }
+
+            let mut view = make_view!(self);
+
+            let after = reg
+                .module
+                .run_timer(&mut view, &mut self.subreddits)
+                .with_context(|| format!("run_timer {}", reg.module.name()))?;
+
+            if after < earliest_next {
+                earliest_next = after;
+            }
+        }
+
+        Ok(earliest_next)
+    }
+
     pub fn run(&mut self) -> anyhow::Result<()> {
         let (tx, rx) = mpsc::channel();
 
@@ -623,7 +620,7 @@ impl<'a> RedditClient<'a> {
         let wants = self
             .modules
             .iter()
-            .map(|(_mask, m)| m.wants())
+            .map(|reg| reg.module.wants())
             .reduce(|acc, e| acc | e)
             .unwrap_or_default();
 
@@ -642,6 +639,11 @@ impl<'a> RedditClient<'a> {
         if wants.comments() {
             println!("enabling comments.");
             ratelimiter.push("check_sub_comments", Self::check_sub_comments);
+        }
+
+        if wants.timer() {
+            println!("enabling timer.");
+            ratelimiter.push("check_module_timers", Self::check_module_timers);
         }
 
         ratelimiter.push("check_own_comments", Self::check_own_comments);
@@ -702,7 +704,7 @@ impl<'client> ModuleRedditClient<'client> {
 
     fn run_post(
         &mut self,
-        modules: &mut [(SplitSubMask, Box<dyn Module>)],
+        modules: &mut [RegisteredModule],
         subreddit: &mut Subreddit,
         idx: usize,
         post: Submission,
@@ -712,14 +714,15 @@ impl<'client> ModuleRedditClient<'client> {
 
         let mut action = PostAction::Ignore;
 
-        for (submask, module) in modules {
-            if module.wants().posts() && submask.posts.is_set(idx) {
-                let name = module.name();
+        for reg in modules {
+            if reg.module.wants().posts() && reg.submask.posts.is_set(idx) {
+                let name = reg.module.name();
 
-                let mod_act = module
+                let mod_act = reg
+                    .module
                     .run_post(self, subreddit, config, &post, has_seen)
                     .with_context(|| format!("{name}.run_post({})", post.name().full()))?
-                    .with_module(module.name());
+                    .with_module(reg.module.name());
 
                 action = action.join(mod_act);
             }

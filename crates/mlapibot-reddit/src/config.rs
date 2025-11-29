@@ -78,9 +78,18 @@ pub struct SubredditStatusConfig {
 pub struct SubredditStaffReplyConfig {
     /// Any user with this flair template ID is considered staff.
     pub staff_flair_id: String,
+    /// If set, any user with this flair css class is also considered staff.
+    pub staff_css_class: Option<String>,
     /// Any staff replies under a post with any of these texts in the title are ignored.
     #[serde(default)]
     pub ignore_post_title_contains: Vec<String>,
+}
+
+impl SubredditStaffReplyConfig {
+    pub fn is_staff(&self, template_id: Option<&str>, css_class: Option<&str>) -> bool {
+        template_id.is_some_and(|id| id == self.staff_flair_id)
+            || self.staff_css_class.as_ref().map(|v| v.as_str()) == css_class
+    }
 }
 
 fn default_comment_threshold() -> u64 {

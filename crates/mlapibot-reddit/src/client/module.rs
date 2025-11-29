@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use mlapibot_datastore::MlapiDb;
 use mlapibot_webhook::WebhookClient;
 use roux::{
@@ -68,15 +70,70 @@ pub trait Module {
     ) -> anyhow::Result<Option<InboxAction>> {
         Ok(None)
     }
+
+    fn run_timer<'client>(
+        &mut self,
+        client: &mut ModuleRedditClient<'client>,
+        subreddits: &mut [Subreddit],
+    ) -> anyhow::Result<Duration> {
+        Ok(Duration::MAX)
+    }
+}
+
+pub struct RegisteredModule {
+    pub submask: SplitSubMask,
+    pub module: Box<dyn Module>,
+    pub next_timer: Instant,
+}
+
+impl<'a> super::RedditClient<'a> {
+    pub(super) fn build_modules(
+        config: &SubredditsConfig,
+        subreddits: &[Subreddit],
+    ) -> (SplitSubMask, Vec<RegisteredModule>) {
+        macro_rules! modules {
+            ($($name:ident),* $(,)?) => {{
+                let mut sub_mask = SplitSubMask::new();
+                let mut modules = Vec::new();
+                let now = Instant::now();
+
+                $(
+                    let mdl = <$name as Module>::new();
+                    let mask = Module::mask_subreddits(&mdl, config, subreddits);
+
+                    sub_mask |= mask;
+
+                    modules.push(RegisteredModule {
+                        submask: mask,
+                        module: Box::new(mdl) as Box<dyn Module>,
+                        next_timer: now,
+                    });
+                )*
+
+                (sub_mask, modules)
+            }};
+        }
+
+        modules!(
+            PostScams,
+            PostFlairs,
+            CommentCode,
+            InboxCommands,
+            PostVagueTitle,
+            CdnLinks,
+            CommentStaffReplies
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ModuleWants(u8);
 
 impl ModuleWants {
-    pub const POSTS: ModuleWants = ModuleWants(0b001);
-    pub const COMMENTS: ModuleWants = ModuleWants(0b010);
-    pub const INBOX: ModuleWants = ModuleWants(0b100);
+    pub const POSTS: ModuleWants = ModuleWants(0b0001);
+    pub const COMMENTS: ModuleWants = ModuleWants(0b0010);
+    pub const INBOX: ModuleWants = ModuleWants(0b0100);
+    pub const TIMER: ModuleWants = ModuleWants(0b1000);
 
     pub fn has(&self, wants: ModuleWants) -> bool {
         (*self & wants).0 != 0
@@ -92,6 +149,10 @@ impl ModuleWants {
 
     pub fn inbox(&self) -> bool {
         self.has(ModuleWants::INBOX)
+    }
+
+    pub fn timer(&self) -> bool {
+        self.has(ModuleWants::TIMER)
     }
 }
 
@@ -173,7 +234,7 @@ pub enum InboxAction {
 
 macro_rules! impl_mask_subreddits {
     (
-        $flag:ident => $wants:ident
+        $flag:ident => $($wants:ident),*
     ) => {
         fn mask_subreddits(
             &self,
@@ -187,7 +248,9 @@ macro_rules! impl_mask_subreddits {
                     .map(|c| super::AsBool::as_bool(&c.$flag))
                     .unwrap_or_default()
                 {
-                    sum.$wants.set(idx);
+                    $(
+                        sum.$wants.set(idx);
+                    )*
                 }
             }
 
