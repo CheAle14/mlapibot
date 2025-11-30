@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use mlapibot_datastore::staff_replies::StaffReply;
-use mlapibot_markdown::substr::substr_markdown_many;
+use mlapibot_markdown::substr::{LayoutPlan, SubstrAttempt, substr_markdown_many};
 use roux::{
     api::{ArticleCommentData, ArticleCommentOrMoreComments, ArticleReplies, ThingFullname},
     client::{AuthedClient, RedditClient},
@@ -21,12 +21,11 @@ fn num_digits(n: usize) -> usize {
     n.checked_ilog10().unwrap_or(0) as usize + 1
 }
 
-fn layout_reply(
+fn construct_layout_plan(
     all_replies: &[StaffReply],
     subreddit: &str,
     post_id: &str,
-    max_len: usize,
-) -> String {
+) -> Result<LayoutPlan, std::fmt::Error> {
     use std::fmt::Write;
 
     // Output is roughly:
@@ -44,56 +43,99 @@ fn layout_reply(
     //     > {content1}
     //     > {content2}
 
-    // Fortunately, the {link} is relatively constant:
+    // Fortunately, we can use a shortened version for {link}:
     // /r/{SUBREDDIT}/comments/{POST_ID}/-/{COMMENT_ID}/
 
-    let link_base_len =
-        "/r/".len() + subreddit.len() + "/comments/".len() + post_id.len() + "/-/".len();
+    let mut plan = LayoutPlan::new();
 
-    let len: usize = 41 // "There are..." to "...thread:"
-        + num_digits(all_replies.len()) // {N}
-        + all_replies.iter().map(|v|
-            10 // "By" text, syntax characters, some newlines
-            +
-            v.author_name.len()
-            +
-            (link_base_len + v.comment_id.len())
-            +
-            (1 * v.num_newlines()) // adding ">" to each line to ensure quoted
-        ).sum::<usize>();
-
-    let reply_texts = substr_markdown_many(
-        all_replies.iter().map(|r| r.content.as_str()),
-        max_len.checked_sub(len).unwrap_or(1000),
-    );
-
-    let mut output_text = format!(
-        "There are {N} staff replies in this thread:\n",
-        N = all_replies.len()
-    );
-
-    for (reply, substr) in all_replies.iter().zip(reply_texts) {
-        let _ = writeln!(
-            output_text,
-            "\n[By {username}](/r/{subreddit}/comments/{post_id}/-/{comment_id}):",
-            username = reply.author_name,
-            comment_id = reply.comment_id,
-        );
-
-        for line in substr.text().lines() {
-            output_text.push_str("\n>");
-            output_text.push_str(line);
-        }
-
-        if substr.text().len() != reply.content.len() {
-            // we cut it down
-            output_text.push_str(" [...]");
-        }
-
-        output_text.push_str("\n\n---")
+    if all_replies.len() == 1 {
+        writeln!(plan, "There is 1 staff reply in this thread:")?;
+    } else {
+        writeln!(
+            plan,
+            "There are {} staff replies in this thread:",
+            all_replies.len()
+        )?;
     }
 
-    output_text
+    for reply in all_replies {
+        plan.argument(|arg| {
+            writeln!(
+                arg,
+                "\n[By {username}](/r/{subreddit}/comments/{post_id}/-/{comment_id}):\n",
+                username = reply.author_name,
+                comment_id = reply.comment_id
+            )?;
+
+            write!(arg, "> ")?;
+            arg.placeholder();
+
+            writeln!(arg, "\n\n---")
+        })?;
+    }
+
+    Ok(plan)
+}
+
+#[derive(Debug, thiserror::Error)]
+enum LayoutReplyError {
+    #[error("template size {0} is beyond max_len")]
+    TemplateTooLarge(usize),
+}
+
+/// Returns an error if it is not possible to fit the items in `max_len`.
+fn layout_reply(
+    all_replies: &[StaffReply],
+    subreddit: &str,
+    post_id: &str,
+    max_len: usize,
+) -> Result<String, LayoutReplyError> {
+    let plan = construct_layout_plan(all_replies, subreddit, post_id)
+        .expect("write into string should suceed");
+
+    if plan.len() > max_len {
+        return Err(LayoutReplyError::TemplateTooLarge(plan.len()));
+    }
+
+    let diff = max_len - plan.len();
+
+    let reply_texts = substr_markdown_many(all_replies.iter().map(|r| r.content.as_str()), diff);
+
+    struct Item<'a> {
+        reply: &'a StaffReply,
+        substr: &'a SubstrAttempt<'a>,
+    }
+
+    impl<'a> std::fmt::Display for Item<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let mut first = true;
+            for line in self.substr.text().lines() {
+                if first {
+                    first = false;
+                    f.write_str(line)?;
+                } else {
+                    f.write_str("\n")?;
+                    // Technically, this means the layout plan is wrong by two characters for every line
+                    // However, we provide a buffer of ~500 characters between the actual max comment length
+                    // so this should be fine.
+                    write!(f, "> {line}")?;
+                }
+            }
+
+            if self.reply.content.len() != self.substr.text().len() {
+                f.write_str(" [..]")?;
+            }
+
+            Ok(())
+        }
+    }
+
+    let items = all_replies
+        .iter()
+        .zip(&reply_texts)
+        .map(|(reply, substr)| Item { reply, substr });
+
+    Ok(plan.execute(items))
 }
 
 pub fn visit_comments<V, E>(
@@ -207,7 +249,8 @@ impl CommentStaffReplies {
                 .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
         }
 
-        let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500);
+        let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500)
+            .with_context(|| format!("staff reply /r/{subreddit}/{post_id}"))?;
 
         match client.db.get_staff_reply_thread(post_id)? {
             Some(existing) => {
@@ -310,20 +353,43 @@ impl super::Module for CommentStaffReplies {
 mod tests {
     use mlapibot_datastore::staff_replies::StaffReply;
 
+    static SUBREDDIT: &str = "subreddit1";
+    static POST_ID: &str = "post123";
+
+    fn test_replies() -> Vec<StaffReply> {
+        vec![
+            StaffReply {
+                comment_id: String::from("comment0"),
+                post_id: POST_ID.to_owned(),
+                author_name: String::from("user0"),
+                content: "1234567890".repeat(10),
+                ..Default::default()
+            },
+            StaffReply {
+                comment_id: String::from("comment1"),
+                post_id: POST_ID.to_owned(),
+                author_name: String::from("user1"),
+                content: String::from("_Old_  \n**New**"),
+                ..Default::default()
+            },
+        ]
+    }
+
+    #[test]
+    pub fn constructs_staff_reply_layout_plan() {
+        static EXPECTED: &str = include_str!("expected_plan.test.txt");
+
+        let comments = test_replies();
+        let plan = super::construct_layout_plan(&comments, SUBREDDIT, POST_ID).unwrap();
+        assert_eq!(plan.template_string(), EXPECTED);
+    }
+
     #[test]
     pub fn lays_out_staff_reply_comment() {
-        static EXPECTED: &str = include_str!("expected_reply.txt");
+        static EXPECTED: &str = include_str!("expected_reply.test.txt");
 
-        let post_id = String::from("post123");
-        let comments = vec![StaffReply {
-            comment_id: String::from("comment0"),
-            post_id: post_id.clone(),
-            author_name: String::from("user0"),
-            content: "1234567890".repeat(10),
-            ..Default::default()
-        }];
-
-        let output = super::layout_reply(&comments, "subreddit1", &post_id, 114);
+        let comments = test_replies();
+        let output = super::layout_reply(&comments, SUBREDDIT, POST_ID, 203).unwrap();
         assert_eq!(output, EXPECTED);
     }
 }

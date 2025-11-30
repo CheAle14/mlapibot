@@ -24,7 +24,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 tera = { workspace = true }
-
+thiserror = { workspace = true }
 
 base64ct = { version = "1.6.0", features = ["alloc"] }
 roux = { git = "https://github.com/CheAle14/roux.git", features = [

@@ -1,8 +1,9 @@
 /target
+/.vs
 *.png
 *.json
 *.txt
 *.db
 
 !tests/**/*.png
-/.vs
+!*.test.txt

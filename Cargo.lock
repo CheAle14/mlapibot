@@ -1383,6 +1383,7 @@ dependencies = [
  "systemd_socket",
  "tempfile",
  "tera",
+ "thiserror 2.0.12",
  "tiny_http",
 ]
 

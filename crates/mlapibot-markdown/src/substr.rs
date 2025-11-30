@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use linkify::{Link, LinkKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -283,6 +285,135 @@ pub fn substr_markdown_many<'md>(
     }
 
     panic!("unable to perform *any* reduction?? even empty strings should satisfy!");
+}
+
+/// Allows constructing a plan to layout multiple markdown-formatted strings
+/// that may need to be cut down in size.
+///
+/// # Example
+///
+/// ```
+/// use std::fmt::Write;
+/// use mlapibot_markdown::substr::LayoutPlan;
+///
+/// # fn main() -> std::fmt::Result {
+///
+/// let strings = vec!["Some **markdown** text", "Another _text_ here"];
+/// let mut plan = LayoutPlan::new();
+/// // Add prefix to template
+/// writeln!(plan, "Hello world")?;
+///
+/// for md in &strings {
+///     plan.argument(|arg| {
+///         // Each argument can have its own templated text too
+///         write!(arg, "> ")?;
+///         // Note where the argument's size-varying text should be
+///         arg.placeholder();
+///         write!(arg, "\n")
+///     })?;
+/// }
+///
+/// writeln!(plan, "\n---\nA suffix here")?;
+///
+/// // Finally, inserts the items into the template at their placeholder positions
+/// assert_eq!(plan.execute(strings), r#"Hello world
+/// > Some **markdown** text
+/// > Another _text_ here
+///
+/// ---
+/// A suffix here
+/// "#);
+///
+/// // If the text is too large, we could shorten some of the strings and retry.
+///
+/// # Ok(())
+/// # }
+/// ```
+///
+pub struct LayoutPlan {
+    template: String,
+    args: Vec<usize>,
+}
+
+pub struct LayoutArgPlan<'plan> {
+    plan: &'plan mut LayoutPlan,
+}
+
+impl LayoutPlan {
+    pub fn new() -> Self {
+        Self {
+            template: String::new(),
+            args: Vec::new(),
+        }
+    }
+
+    pub fn argument<F>(&mut self, callback: F) -> std::fmt::Result
+    where
+        F: FnOnce(&mut LayoutArgPlan<'_>) -> std::fmt::Result,
+    {
+        let mut arg = LayoutArgPlan { plan: self };
+        callback(&mut arg)
+    }
+
+    pub fn len(&self) -> usize {
+        self.template.len()
+    }
+
+    pub fn template_string(&self) -> &str {
+        &self.template
+    }
+
+    pub fn execute<I, T>(&self, items: I) -> String
+    where
+        I: IntoIterator<Item = T>,
+        T: std::fmt::Display,
+    {
+        let mut output = self.template.clone();
+        let mut offset = 0;
+
+        for (idx, item) in self.args.iter().copied().zip(items) {
+            let item = item.to_string();
+            output.insert_str(idx + offset, &item);
+            offset += item.len();
+        }
+
+        output
+    }
+}
+
+impl<'plan> LayoutArgPlan<'plan> {
+    pub fn placeholder(&mut self) {
+        let idx = self.plan.template.len();
+        self.plan.args.push(idx);
+    }
+}
+
+impl std::fmt::Write for LayoutPlan {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.template.write_str(s)
+    }
+
+    fn write_char(&mut self, c: char) -> std::fmt::Result {
+        self.template.write_char(c)
+    }
+
+    fn write_fmt(&mut self, args: std::fmt::Arguments<'_>) -> std::fmt::Result {
+        self.template.write_fmt(args)
+    }
+}
+
+impl<'plan> std::fmt::Write for LayoutArgPlan<'plan> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.plan.template.write_str(s)
+    }
+
+    fn write_char(&mut self, c: char) -> std::fmt::Result {
+        self.plan.template.write_char(c)
+    }
+
+    fn write_fmt(&mut self, args: std::fmt::Arguments<'_>) -> std::fmt::Result {
+        self.plan.template.write_fmt(args)
+    }
 }
 
 #[cfg(test)]
