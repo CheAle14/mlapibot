@@ -1,6 +1,4 @@
-use std::marker::PhantomData;
-
-use linkify::{Link, LinkKind};
+use linkify::LinkKind;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubstrAttempt<'md> {
@@ -11,8 +9,11 @@ pub struct SubstrAttempt<'md> {
 }
 
 impl<'md> SubstrAttempt<'md> {
-    pub fn text(&self) -> &'md str {
-        self.markdown
+    fn new(markdown: &'md str) -> Self {
+        Self {
+            markdown,
+            start_of_token: None,
+        }
     }
 
     fn token(markdown: &'md str, start_of_token: usize) -> Self {
@@ -20,6 +21,10 @@ impl<'md> SubstrAttempt<'md> {
             markdown,
             start_of_token: Some(start_of_token),
         }
+    }
+
+    pub fn text(&self) -> &'md str {
+        self.markdown
     }
 
     pub fn len(&self) -> usize {
@@ -221,6 +226,14 @@ pub fn substr_markdown<'md>(markdown: &'md str, max: usize) -> SubstrAttempt<'md
     }
 }
 
+#[derive(Debug)]
+struct SubstrInput<'a> {
+    order: usize,
+    original: &'a str,
+    allowance: usize,
+    attempt: SubstrAttempt<'a>,
+}
+
 /// Attempts to shorten each of the items in the iterator until their total length is below max.
 ///
 /// The returned vec contains each item provided by the `items` iterator in the same order.
@@ -228,31 +241,69 @@ pub fn substr_markdown_many<'md>(
     items: impl Iterator<Item = &'md str>,
     max: usize,
 ) -> Vec<SubstrAttempt<'md>> {
-    let mut substrs: Vec<_> = items
-        .map(|markdown| {
-            (
-                markdown,
-                SubstrAttempt {
-                    markdown,
-                    start_of_token: None,
-                },
-            )
+    // The basic algorithm is to evenly divide the `max` across all items,
+    // which this calls an "allowance".
+    //
+    // For every item that is already smaller than the max, the unneeded
+    // difference is taken from that item's allowance and pooled.
+    //
+    // Starting at the shortest item that is larger than max, the extra
+    // pooled allowance is then used to attempt to extend that item completely.
+    // Any leftover is then rolled over to the next shortest item.
+    //
+    // After all allowance has been allocated, if the total sum length is still over
+    // the max then items which can have a markdown element removed (e.g. `hello *world*`, the `*world*` part)
+    // are considered. The item whose removable length (e.g. len("*world*") == 7) is closest
+    // to the amount needed to bring the current sum below max is truncated accordingly.
+    // This repeats until the current sum is below max, or there are no more able to be removed.
+    //
+    // If the sum is still not below max, the amount allocated to each item is reduced by one
+    // and the process repeats again. This should always succeed at length zero, since that is an
+    // empty string.
+    let mut substrs: Vec<SubstrInput> = items
+        .enumerate()
+        .map(|(order, markdown)| SubstrInput {
+            order,
+            original: markdown,
+            allowance: usize::MAX,
+            attempt: SubstrAttempt::new(markdown),
         })
         .collect();
 
+    substrs.sort_unstable_by_key(|a| a.original.len());
+
     'item_max: for items_max in (0..(max.div_ceil(substrs.len()))).rev() {
-        let mut current_sum = 0;
-        for sub in &mut substrs {
-            sub.1 = substr_markdown(sub.0, items_max);
-            current_sum += sub.1.markdown.len();
+        let total_items_max = items_max * substrs.len();
+        let remainder = max - total_items_max;
+
+        let point = substrs.partition_point(|a| a.original.len() <= items_max);
+        let (keep_as_is, need_to_reduce) = unsafe { substrs.split_at_mut_unchecked(point) };
+
+        let mut extra_allowance = remainder;
+
+        for item in keep_as_is {
+            item.allowance = item.original.len();
+            item.attempt = SubstrAttempt::new(item.original);
+            extra_allowance += items_max - item.original.len();
         }
+
+        for too_big in need_to_reduce {
+            too_big.attempt = substr_markdown(too_big.original, items_max + extra_allowance);
+            too_big.allowance = (items_max + extra_allowance).min(too_big.attempt.len());
+
+            if let Some(allowance_used) = items_max.checked_sub(too_big.allowance) {
+                extra_allowance -= allowance_used;
+            }
+        }
+
+        let mut current_sum = substrs.iter().map(|a| a.allowance).sum::<usize>();
 
         while current_sum > max {
             let global_distance = current_sum - max;
 
             let mut closest_to_distance: Option<(usize, &mut SubstrAttempt)> = None;
             for substr in &mut substrs {
-                let Some(removable) = substr.1.removalable_len() else {
+                let Some(removable) = substr.attempt.removalable_len() else {
                     continue;
                 };
 
@@ -260,11 +311,11 @@ pub fn substr_markdown_many<'md>(
 
                 match closest_to_distance {
                     Some((r, _)) => {
-                        if distance_to_global > r {
-                            closest_to_distance = Some((distance_to_global, &mut substr.1));
+                        if distance_to_global < r {
+                            closest_to_distance = Some((distance_to_global, &mut substr.attempt));
                         }
                     }
-                    None => closest_to_distance = Some((distance_to_global, &mut substr.1)),
+                    None => closest_to_distance = Some((distance_to_global, &mut substr.attempt)),
                 }
             }
 
@@ -281,7 +332,8 @@ pub fn substr_markdown_many<'md>(
             }
         }
 
-        return substrs.into_iter().map(|(_, a)| a).collect();
+        substrs.sort_unstable_by_key(|a| a.order);
+        return substrs.into_iter().map(|a| a.attempt).collect();
     }
 
     panic!("unable to perform *any* reduction?? even empty strings should satisfy!");
@@ -632,6 +684,26 @@ mod tests {
     }
 
     #[test]
+    pub fn substr_markdown_short_gives_extra_to_long() {
+        let text = vec![
+            "short0",
+            "short1",
+            "short2",
+            "short3",
+            "short4",
+            "a very long piece of text that would otherwise be truncated",
+        ];
+
+        let total = text.iter().map(|v| v.len()).sum::<usize>();
+
+        let result = super::substr_markdown_many(text.iter().copied(), total);
+
+        for (item, substr) in text.iter().copied().zip(result) {
+            assert_eq!(substr.markdown, item);
+        }
+    }
+
+    #[test]
     pub fn substr_markdown_many_trims() {
         let text = vec![
             "hello _world_",
@@ -649,12 +721,12 @@ mod tests {
                     start_of_token: None,
                 },
                 SubstrAttempt {
-                    markdown: "this ",
-                    start_of_token: None,
+                    markdown: "this **is some**",
+                    start_of_token: Some(5),
                 },
                 SubstrAttempt {
-                    markdown: "what ",
-                    start_of_token: None,
+                    markdown: "what <https://example.com>",
+                    start_of_token: Some(5),
                 }
             ]
         )
