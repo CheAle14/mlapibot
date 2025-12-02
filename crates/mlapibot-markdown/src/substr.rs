@@ -272,8 +272,9 @@ pub fn substr_markdown_many<'md>(
 
     substrs.sort_unstable_by_key(|a| a.original.len());
 
-    'item_max: for items_max in (0..(max.div_ceil(substrs.len()))).rev() {
+    'item_max: for items_max in (0..=(max / substrs.len())).rev() {
         let total_items_max = items_max * substrs.len();
+
         let remainder = max - total_items_max;
 
         let point = substrs.partition_point(|a| a.original.len() <= items_max);
@@ -291,12 +292,12 @@ pub fn substr_markdown_many<'md>(
             too_big.attempt = substr_markdown(too_big.original, items_max + extra_allowance);
             too_big.allowance = (items_max + extra_allowance).min(too_big.attempt.len());
 
-            if let Some(allowance_used) = items_max.checked_sub(too_big.allowance) {
+            if let Some(allowance_used) = too_big.allowance.checked_sub(items_max) {
                 extra_allowance -= allowance_used;
             }
         }
 
-        let mut current_sum = substrs.iter().map(|a| a.allowance).sum::<usize>();
+        let mut current_sum = substrs.iter().map(|a| a.attempt.len()).sum::<usize>();
 
         while current_sum > max {
             let global_distance = current_sum - max;
@@ -711,7 +712,7 @@ mod tests {
             "what <https://example.com>",
         ];
 
-        let result = substr_markdown_many(text.into_iter(), 21);
+        let result = substr_markdown_many(text.into_iter(), 27);
 
         assert_eq!(
             result,
@@ -725,8 +726,8 @@ mod tests {
                     start_of_token: Some(5),
                 },
                 SubstrAttempt {
-                    markdown: "what <https://example.com>",
-                    start_of_token: Some(5),
+                    markdown: "what ",
+                    start_of_token: None,
                 }
             ]
         )
@@ -757,6 +758,27 @@ mod tests {
                     markdown: "what <https://example.com>",
                     start_of_token: None,
                 }
+            ]
+        )
+    }
+
+    #[test]
+    pub fn substrs_markdown_fix_panic_triggered() {
+        let text = vec!["1234567890".repeat(10), String::from("_Old_  \n**New**")];
+
+        let result = substr_markdown_many(text.iter().map(|v| v.as_str()), 30);
+
+        assert_eq!(
+            result,
+            vec![
+                SubstrAttempt {
+                    markdown: "123456789012345",
+                    start_of_token: None,
+                },
+                SubstrAttempt {
+                    markdown: "_Old_  \n**New**",
+                    start_of_token: None,
+                },
             ]
         )
     }
