@@ -1,12 +1,12 @@
 There are 2 staff replies in this thread:
 
-[By user0](/r/subreddit1/comments/post123/-/comment0):
+[By user0](/r/subreddit1/comments/post123/-/comment0?context=9):
 
 > 123456789012345 [..]
 
 ---
 
-[By user1](/r/subreddit1/comments/post123/-/comment1):
+[By user1](/r/subreddit1/comments/post123/-/comment1?context=9):
 
 > _Old_  
 > **New**

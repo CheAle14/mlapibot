@@ -62,7 +62,7 @@ fn construct_layout_plan(
         plan.argument(|arg| {
             writeln!(
                 arg,
-                "\n[By {username}](/r/{subreddit}/comments/{post_id}/-/{comment_id}):\n",
+                "\n[By {username}](/r/{subreddit}/comments/{post_id}/-/{comment_id}?context=9):\n",
                 username = reply.author_name,
                 comment_id = reply.comment_id
             )?;
@@ -389,7 +389,7 @@ mod tests {
         static EXPECTED: &str = include_str!("expected_reply.test.txt");
 
         let comments = test_replies();
-        let output = super::layout_reply(&comments, SUBREDDIT, POST_ID, 203).unwrap();
+        let output = super::layout_reply(&comments, SUBREDDIT, POST_ID, 222).unwrap();
         assert_eq!(output, EXPECTED);
     }
 }
