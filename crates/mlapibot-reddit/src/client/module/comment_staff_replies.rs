@@ -305,6 +305,19 @@ impl super::Module for CommentStaffReplies {
             return Ok(());
         };
 
+        if let Some(live) = client.db.get_staff_reply_thread(comment.link_id().id())? {
+            // Normally we ignore our own comments, so the only way this could've triggered
+            // is if someone used the `redo` command and gave our comment as the link.
+            println!(
+                "Refreshing staff reply {}/{}",
+                comment.subreddit_name_prefixed(),
+                live.post_id
+            );
+            self.update_or_make_staff_reply_comment(client, comment.subreddit(), &live.post_id)
+                .context("redo reply")?;
+            return Ok(());
+        }
+
         for title_filter in &config.ignore_post_title_contains {
             if comment.link_title().contains(title_filter) {
                 println!("comment in a thread with rejected title: {title_filter:?}");
