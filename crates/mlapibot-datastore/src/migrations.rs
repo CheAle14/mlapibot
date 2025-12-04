@@ -46,6 +46,7 @@ migrations!(
     3 => migration02::StickyStoreId,
     4 => migration03::StatusLiveThread,
     5 => migration04::StaffReplyComment,
+    6 => migration05::StaffReplyStoreSubreddit,
 );
 
 trait Migration {

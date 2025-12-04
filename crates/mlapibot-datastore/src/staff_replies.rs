@@ -17,21 +17,26 @@ impl StaffReply {
         self.content.chars().filter(|c| *c == '\n').count()
     }
 
-    pub fn is_outdated(&self, now: DateTimeUtc) -> bool {
+    pub fn get_next_update(&self) -> DateTimeUtc {
         let between_create_and_update = self
             .last_updated
             .signed_duration_since(self.created_at)
             .abs();
 
-        let since_updated = now.signed_duration_since(self.last_updated).abs();
+        self.last_updated + between_create_and_update
+    }
 
-        between_create_and_update <= since_updated
+    pub fn is_outdated(&self, now: DateTimeUtc) -> bool {
+        self.get_next_update() <= now
     }
 }
 
+#[derive(Debug)]
 pub struct StaffReplyThread {
+    pub subreddit: String,
     pub post_id: String,
     pub our_comment_id: String,
+    pub created_at: DateTimeUtc,
 }
 
 impl super::MlapiDb {
@@ -92,12 +97,14 @@ impl super::MlapiDb {
 
     pub fn insert_staff_reply_thread(
         &self,
+        subreddit: &str,
         post_id: &str,
         our_comment_id: &str,
+        created_at: DateTimeUtc,
     ) -> rusqlite::Result<()> {
         self.conn.execute(
-            "INSERT INTO StaffReplyThreads (PostId, OurCommentId) VALUES (?1, ?2)",
-            (post_id, our_comment_id),
+            "INSERT INTO StaffReplyThreads (Subreddit, PostId, OurCommentId, CreatedAt) VALUES (?1, ?2, ?3, ?4)",
+            (subreddit, post_id, our_comment_id, created_at),
         )?;
 
         Ok(())
@@ -109,18 +116,49 @@ impl super::MlapiDb {
     ) -> rusqlite::Result<Option<StaffReplyThread>> {
         self.conn
             .query_row(
-                "SELECT PostId, OurCommentId FROM StaffReplyThreads WHERE PostId=?1",
+                "SELECT Subreddit, PostId, OurCommentId, CreatedAt FROM StaffReplyThreads WHERE PostId=?1",
                 (post_id,),
                 |row| {
-                    let post_id = row.get(0)?;
-                    let our_comment_id = row.get(1)?;
+                    let subreddit = row.get(0)?;
+                    let post_id = row.get(1)?;
+                    let our_comment_id = row.get(2)?;
+                    let created_at = row.get(3)?;
 
                     Ok(StaffReplyThread {
+                        subreddit,
                         post_id,
                         our_comment_id,
+                        created_at,
                     })
                 },
             )
             .optional()
+    }
+
+    pub fn get_staff_reply_threads_in(
+        &self,
+        subreddit: &str,
+        after: DateTimeUtc,
+    ) -> rusqlite::Result<Vec<StaffReplyThread>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT Subreddit, PostId, OurCommentId, CreatedAt
+            FROM StaffReplyThreads
+            WHERE Subreddit=?1 AND CreatedAt >= ?2
+            ",
+        )?;
+
+        stmt.query_collect((subreddit, after), |row| {
+            let subreddit = row.get(0)?;
+            let post_id = row.get(1)?;
+            let our_comment_id = row.get(2)?;
+            let created_at = row.get(3)?;
+
+            Ok(StaffReplyThread {
+                subreddit,
+                post_id,
+                our_comment_id,
+                created_at,
+            })
+        })
     }
 }

@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use mlapibot_datastore::staff_replies::StaffReply;
 use mlapibot_markdown::substr::{LayoutPlan, SubstrAttempt, substr_markdown_many};
 use roux::{
@@ -15,7 +15,9 @@ use roux::{
 
 use crate::client::{ModuleRedditClient, module::impl_mask_subreddits};
 
-pub struct CommentStaffReplies;
+pub struct CommentStaffReplies {
+    next_update: DateTime<Utc>,
+}
 
 fn num_digits(n: usize) -> usize {
     n.checked_ilog10().unwrap_or(0) as usize + 1
@@ -204,7 +206,7 @@ impl CommentStaffReplies {
             subreddit,
             &ThingFullname::from_submission_id(post_id),
             None,
-            Some(1000),
+            Some(1500),
         )?;
 
         visit_comments::<_, anyhow::Error>(&post_comments, |comment| {
@@ -235,8 +237,21 @@ impl CommentStaffReplies {
         Ok(())
     }
 
+    fn get_next_update(replies: &[StaffReply]) -> DateTime<Utc> {
+        let mut earliest_next_update = None::<DateTime<Utc>>;
+
+        for reply in replies {
+            let next = reply.get_next_update();
+            if earliest_next_update.is_none_or(|other| next < other) {
+                earliest_next_update = Some(next);
+            }
+        }
+
+        earliest_next_update.unwrap_or_else(|| Utc::now())
+    }
+
     fn update_or_make_staff_reply_comment(
-        &self,
+        &mut self,
         client: &mut ModuleRedditClient,
         subreddit: &str,
         post_id: &str,
@@ -247,6 +262,12 @@ impl CommentStaffReplies {
         if all_replies.iter().any(|v| v.is_outdated(now)) {
             self.fetch_reply_updates(client, subreddit, post_id, &mut all_replies, now)
                 .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
+        }
+
+        if self.next_update <= now {
+            self.next_update = Self::get_next_update(&all_replies);
+        } else {
+            self.next_update = std::cmp::min(self.next_update, Self::get_next_update(&all_replies));
         }
 
         let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500)
@@ -261,7 +282,9 @@ impl CommentStaffReplies {
                 let fullname = ThingFullname::from_submission_id(post_id);
                 let reply = client.client.comment(&reply_text, &fullname)?;
 
-                client.db.insert_staff_reply_thread(post_id, reply.id())?;
+                client
+                    .db
+                    .insert_staff_reply_thread(subreddit, post_id, reply.id(), now)?;
 
                 if reply.can_mod_post() {
                     reply.distinguish(roux::models::Distinguish::Moderator, true)?;
@@ -279,7 +302,9 @@ impl super::Module for CommentStaffReplies {
     where
         Self: Sized,
     {
-        Self
+        Self {
+            next_update: Utc::now(),
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -287,7 +312,7 @@ impl super::Module for CommentStaffReplies {
     }
 
     fn wants(&self) -> super::ModuleWants {
-        super::ModuleWants::COMMENTS
+        super::ModuleWants::COMMENTS | super::ModuleWants::TIMER
     }
 
     impl_mask_subreddits!(comments_staff_reply => comments);
@@ -357,8 +382,35 @@ impl super::Module for CommentStaffReplies {
         client: &mut ModuleRedditClient<'client>,
         subreddits: &mut [crate::subreddit::Subreddit],
     ) -> anyhow::Result<std::time::Duration> {
-        println!("Timer!");
-        Ok(Duration::from_secs(5))
+        let now = Utc::now();
+
+        if now < self.next_update {
+            return Ok(Duration::from_mins(5));
+        }
+
+        let after = Utc::now() + TimeDelta::days(-7);
+
+        for subreddit in subreddits {
+            let threads = client
+                .db
+                .get_staff_reply_threads_in(subreddit.name().as_str(), after)?;
+
+            for thread in threads {
+                self.update_or_make_staff_reply_comment(client, &thread.subreddit, &thread.post_id)
+                    .with_context(|| {
+                        format!(
+                            "run_timer refresh /r/{}/{}",
+                            thread.subreddit, thread.post_id
+                        )
+                    })?;
+            }
+        }
+
+        let delta = (self.next_update - Utc::now()).to_std().unwrap_or_default();
+
+        println!("Next update {:?}, delta: {:?}", self.next_update, delta);
+
+        Ok(std::cmp::min(delta, Duration::from_mins(5)))
     }
 }
 
