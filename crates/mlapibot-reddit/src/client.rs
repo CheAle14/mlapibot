@@ -672,7 +672,7 @@ impl<'a> RedditClient<'a> {
         }
 
         ratelimiter.push("check_own_comments", Self::check_own_comments);
-        // ratelimiter.push("check_status", Self::check_status);
+        ratelimiter.push("check_status", Self::check_status);
 
         loop {
             while let Ok(event) = rx.try_recv() {
