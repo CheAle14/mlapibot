@@ -385,7 +385,7 @@ impl super::Module for CommentStaffReplies {
         let now = Utc::now();
 
         if now < self.next_update {
-            return Ok(Duration::from_mins(5));
+            return Ok(Duration::from_secs(5 * 60));
         }
 
         let after = Utc::now() + TimeDelta::days(-7);
@@ -410,7 +410,7 @@ impl super::Module for CommentStaffReplies {
 
         println!("Next update {:?}, delta: {:?}", self.next_update, delta);
 
-        Ok(std::cmp::min(delta, Duration::from_mins(5)))
+        Ok(std::cmp::min(delta, Duration::from_secs(5 * 60)))
     }
 }
 
