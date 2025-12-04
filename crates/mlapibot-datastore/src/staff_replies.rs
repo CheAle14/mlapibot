@@ -39,6 +39,11 @@ pub struct StaffReplyThread {
     pub created_at: DateTimeUtc,
 }
 
+pub enum FindBy {
+    PostId,
+    OurCommentId,
+}
+
 impl super::MlapiDb {
     pub fn insert_staff_reply(
         &self,
@@ -112,26 +117,32 @@ impl super::MlapiDb {
 
     pub fn get_staff_reply_thread(
         &self,
-        post_id: &str,
+        find_by: FindBy,
+        id: &str,
     ) -> rusqlite::Result<Option<StaffReplyThread>> {
-        self.conn
-            .query_row(
-                "SELECT Subreddit, PostId, OurCommentId, CreatedAt FROM StaffReplyThreads WHERE PostId=?1",
-                (post_id,),
-                |row| {
-                    let subreddit = row.get(0)?;
-                    let post_id = row.get(1)?;
-                    let our_comment_id = row.get(2)?;
-                    let created_at = row.get(3)?;
+        let query = match find_by {
+            FindBy::PostId => {
+                "SELECT Subreddit, PostId, OurCommentId, CreatedAt FROM StaffReplyThreads WHERE PostId=?1"
+            }
+            FindBy::OurCommentId => {
+                "SELECT Subreddit, PostId, OurCommentId, CreatedAt FROM StaffReplyThreads WHERE OurCommentId=?1"
+            }
+        };
 
-                    Ok(StaffReplyThread {
-                        subreddit,
-                        post_id,
-                        our_comment_id,
-                        created_at,
-                    })
-                },
-            )
+        self.conn
+            .query_row(query, (id,), |row| {
+                let subreddit = row.get(0)?;
+                let post_id = row.get(1)?;
+                let our_comment_id = row.get(2)?;
+                let created_at = row.get(3)?;
+
+                Ok(StaffReplyThread {
+                    subreddit,
+                    post_id,
+                    our_comment_id,
+                    created_at,
+                })
+            })
             .optional()
     }
 

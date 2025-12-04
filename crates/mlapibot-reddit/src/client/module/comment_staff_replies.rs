@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use mlapibot_datastore::staff_replies::StaffReply;
+use mlapibot_datastore::staff_replies::{FindBy, StaffReply};
 use mlapibot_markdown::substr::{LayoutPlan, SubstrAttempt, substr_markdown_many};
 use roux::{
     api::{ArticleCommentData, ArticleCommentOrMoreComments, ArticleReplies, ThingFullname},
@@ -273,7 +273,7 @@ impl CommentStaffReplies {
         let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500)
             .with_context(|| format!("staff reply /r/{subreddit}/{post_id}"))?;
 
-        match client.db.get_staff_reply_thread(post_id)? {
+        match client.db.get_staff_reply_thread(FindBy::PostId, post_id)? {
             Some(existing) => {
                 let fullname = ThingFullname::from_comment_id(&existing.our_comment_id);
                 client.client.edit(&reply_text, &fullname)?;
@@ -330,7 +330,10 @@ impl super::Module for CommentStaffReplies {
             return Ok(());
         };
 
-        if let Some(live) = client.db.get_staff_reply_thread(comment.link_id().id())? {
+        if let Some(live) = client
+            .db
+            .get_staff_reply_thread(FindBy::OurCommentId, comment.id())?
+        {
             // Normally we ignore our own comments, so the only way this could've triggered
             // is if someone used the `redo` command and gave our comment as the link.
             println!(
