@@ -12,9 +12,14 @@
     {
       "name": "checkpointRedirect",
       "ocr": [
-        "checkpoint unavailable",
+        "checkpoint",
         "privacy settings enabled that limit personalization",
-        "you can still enjoy a reward to celebrate the year"
+        "you can still enjoy a reward to celebrate the year",
+        "you were in the",
+        "messages sent this year",
+        "games this year",
+        "hours in voice",
+        "friends you spent the most time with this year"
       ],
       "template": "checkpoint",
       "remove": true,
