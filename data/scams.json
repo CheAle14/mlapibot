@@ -10,6 +10,16 @@
       "type": "colour"
     },
     {
+      "name": "checkpointRedirect",
+      "ocr": [
+        "checkpoint unavailable",
+        "you can still enjoy a reward to celebrate the year"
+      ],
+      "template": "checkpoint",
+      "remove": true,
+      "ignore_self_posts": false
+    },
+    {
       "name": "emailFreeNitro",
       "ocr": [
         "we'd like to directly apologize for the recent issues regarding your discord account which resulted in a temporary ban",
