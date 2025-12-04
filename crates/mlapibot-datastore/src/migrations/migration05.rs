@@ -12,4 +12,8 @@ impl super::Migration for StaffReplyStoreSubreddit {
         "#,
         )
     }
+
+    fn requires_manual_fixup(&self) -> Option<&'static str> {
+        Some("Subreddit names must be identified and filled in")
+    }
 }

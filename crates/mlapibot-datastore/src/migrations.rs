@@ -18,7 +18,9 @@ macro_rules! migrations {
                 if version < $idx {
                     println!("[db] applying {}::{} ({version})", stringify!($mod), stringify!($struct));
 
-                    match $mod::$struct.apply(db) {
+                    let migration = $mod::$struct;
+
+                    match migration.apply(db) {
                         Ok(()) => {
                             version = $idx;
                             db.set_migration_version(version)?;
@@ -27,6 +29,10 @@ macro_rules! migrations {
                             eprintln!("Failed to apply migration {} :: {}", $idx, stringify!($struct));
                             return Err(err);
                         }
+                    }
+
+                    if let Some(fixup) = migration.requires_manual_fixup() {
+                        panic!("Halted migration as {} requires manual fixup: {fixup}", stringify!($struct));
                     }
                 }
             )*
@@ -51,4 +57,8 @@ migrations!(
 
 trait Migration {
     fn apply(&self, db: &mut MlapiDb) -> rusqlite::Result<()>;
+
+    fn requires_manual_fixup(&self) -> Option<&'static str> {
+        None
+    }
 }
