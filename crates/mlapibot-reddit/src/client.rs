@@ -524,23 +524,29 @@ impl<'a> RedditClient<'a> {
             }
         }
 
-        for id in unseen {
-            println!("Did not see incident {id}, fetching");
+        if is_summary {
+            // Webhook only sends updated incident, so any others
+            // are expected to be missing. The summary should include
+            // all active incidents. Anything missing has
+            // likely been resolved, so fetch it to check.
+            for id in unseen {
+                println!("Did not see incident {id}, fetching");
 
-            let incident = self
-                .status
-                .get_incident(&id)
-                .with_context(|| format!("get incident {id}"))?;
+                let incident = self
+                    .status
+                    .get_incident(&id)
+                    .with_context(|| format!("get incident {id}"))?;
 
-            let live_thread = self
-                .db
-                .get_live_incident(&id)?
-                .expect("we just got this ID from the database");
+                let live_thread = self
+                    .db
+                    .get_live_incident(&id)?
+                    .expect("we just got this ID from the database");
 
-            incidents_with_live.push(IncidentWithLive {
-                incident: BoO::Owned(incident),
-                live_thread,
-            });
+                incidents_with_live.push(IncidentWithLive {
+                    incident: BoO::Owned(incident),
+                    live_thread,
+                });
+            }
         }
 
         for incident in &incidents_with_live {
