@@ -54,6 +54,7 @@ migrations!(
     5 => migration04::StaffReplyComment,
     6 => migration05::StaffReplyStoreSubreddit,
     7 => migration06::StaffReplyHash,
+    8 => migration07::StaffReplyPrefix
 );
 
 trait Migration {

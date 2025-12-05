@@ -30,6 +30,7 @@ fn construct_layout_plan(
     all_replies: &[StaffReply],
     subreddit: &str,
     post_id: &str,
+    suffix: Option<&str>,
 ) -> Result<LayoutPlan, std::fmt::Error> {
     use std::fmt::Write;
 
@@ -79,6 +80,10 @@ fn construct_layout_plan(
         })?;
     }
 
+    if let Some(suffix) = suffix {
+        writeln!(plan, "\n\n{suffix}")?;
+    }
+
     Ok(plan)
 }
 
@@ -93,9 +98,10 @@ fn layout_reply(
     all_replies: &[StaffReply],
     subreddit: &str,
     post_id: &str,
+    suffix: Option<&str>,
     max_len: usize,
 ) -> Result<String, LayoutReplyError> {
-    let plan = construct_layout_plan(all_replies, subreddit, post_id)
+    let plan = construct_layout_plan(all_replies, subreddit, post_id, suffix)
         .expect("write into string should suceed");
 
     if plan.len() > max_len {
@@ -273,13 +279,19 @@ impl CommentStaffReplies {
             self.next_update = std::cmp::min(self.next_update, Self::get_next_update(&all_replies));
         }
 
-        let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500)
-            .with_context(|| format!("staff reply /r/{subreddit}/{post_id}"))?;
-
-        let reply_hash = Sha256Hasher::oneshot(&reply_text);
-
         match client.db.get_staff_reply_thread(FindBy::PostId, post_id)? {
             Some(existing) => {
+                let reply_text = layout_reply(
+                    &all_replies,
+                    subreddit,
+                    post_id,
+                    existing.suffix.as_ref().map(|v| v.as_str()),
+                    9500,
+                )
+                .with_context(|| format!("staff reply /r/{subreddit}/{post_id}"))?;
+
+                let reply_hash = Sha256Hasher::oneshot(&reply_text);
+
                 if reply_hash != existing.hash {
                     let fullname = ThingFullname::from_comment_id(&existing.our_comment_id);
                     client.client.edit(&reply_text, &fullname)?;
@@ -290,6 +302,10 @@ impl CommentStaffReplies {
                 }
             }
             None => {
+                let reply_text = layout_reply(&all_replies, subreddit, post_id, None, 9500)
+                    .with_context(|| format!("staff reply /r/{subreddit}/{post_id}"))?;
+                let reply_hash = Sha256Hasher::oneshot(&reply_text);
+
                 let fullname = ThingFullname::from_submission_id(post_id);
                 let reply = client.client.comment(&reply_text, &fullname)?;
 
@@ -463,7 +479,7 @@ mod tests {
         static EXPECTED: &str = include_str!("expected_plan.test.txt");
 
         let comments = test_replies();
-        let plan = super::construct_layout_plan(&comments, SUBREDDIT, POST_ID).unwrap();
+        let plan = super::construct_layout_plan(&comments, SUBREDDIT, POST_ID, None).unwrap();
         assert_eq!(plan.template_string(), EXPECTED);
     }
 
@@ -472,7 +488,7 @@ mod tests {
         static EXPECTED: &str = include_str!("expected_reply.test.txt");
 
         let comments = test_replies();
-        let output = super::layout_reply(&comments, SUBREDDIT, POST_ID, 222).unwrap();
+        let output = super::layout_reply(&comments, SUBREDDIT, POST_ID, None, 222).unwrap();
         assert_eq!(output, EXPECTED);
     }
 }

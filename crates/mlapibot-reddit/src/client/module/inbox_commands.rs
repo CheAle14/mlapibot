@@ -1,13 +1,13 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, ops::Sub};
 
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
-    client::RedditClient,
-    models::SubmissionLinkInfo,
+    client::{AuthedClient, RedditClient},
+    models::{LatestComment, SubmissionLinkInfo},
 };
 
 use crate::{
-    QuickStopError,
+    QuickStopError, Submission,
     client::{
         ModuleRedditClient,
         module::{InboxAction, InboxMsg, Module},
@@ -53,6 +53,8 @@ impl Module for InboxCommands {
             client.try_sticky_status_post(subreddits, &item)?;
         } else if item.subject.trim().eq_ignore_ascii_case("stop") {
             client.try_stop_bot(subreddits, &item)?;
+        } else if item.subject == "suffix" {
+            return client.run_staff_reply_suffix(subreddits, &item);
         } else if item.author == "" {
             if let Some(subreddit) = item.subject.strip_prefix("invitation to moderate /r/") {
                 let sub = client.client.subreddit(subreddit);
@@ -66,7 +68,127 @@ impl Module for InboxCommands {
     }
 }
 
+struct LinkData<'a> {
+    submission: Submission,
+    comment: Option<LatestComment<AuthedClient>>,
+    subreddit: &'a mut Subreddit,
+}
+
 impl<'client> ModuleRedditClient<'client> {
+    fn parse_link<'msg, 'sub>(
+        &mut self,
+        subreddits: &'sub mut [Subreddit],
+        message: &InboxMsg<'msg>,
+    ) -> anyhow::Result<Option<(LinkData<'sub>, &'msg str)>> {
+        let (first_line, rest) = match message.body.split_once('\n') {
+            Some((fl, rest)) => (fl.trim_end(), rest),
+            None => (message.body, ""),
+        };
+
+        let Ok(link) = SubmissionLinkInfo::parse(first_line) else {
+            message.reply("Unrecognised link. Must be a full link to a submission or comment.")?;
+            return Ok(None);
+        };
+
+        let (submission, comment) = match link.comment_id {
+            None => {
+                let submission = match self.client.get_submission_by_info(&link) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to parse or fetch post to redo: {:?} {e:?}",
+                            message.body
+                        );
+                        message.reply("Failed to parse or fetch which submission you meant.")?;
+                        return Ok(None);
+                    }
+                };
+
+                (submission, None)
+            }
+            Some(comment_id) => {
+                match self.client.article_and_comments(
+                    link.subreddit,
+                    link.post_id,
+                    comment_id,
+                    None,
+                    None,
+                ) {
+                    Ok((sub, comments)) => {
+                        let comment = comments.into_iter().next().expect("direct link to comment");
+                        let comment = comment.into_latest(&sub);
+                        (sub, Some(comment))
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "Failed to parse or fetch comment to redo: {:?} {e:?}",
+                            message.body
+                        );
+                        message.reply("Failed to parse or fetch which comment you meant.")?;
+                        return Ok(None);
+                    }
+                }
+            }
+        };
+
+        let Some(subreddit) = subreddits
+            .iter_mut()
+            .find(|s| s.name() == submission.subreddit())
+        else {
+            message.reply("That subreddit is not managed by this bot.")?;
+            return Ok(None);
+        };
+
+        if !subreddit.is_moderator(message.author)? {
+            message.reply("You are not a moderator of that subreddit!")?;
+            return Ok(None);
+        }
+
+        Ok(Some((
+            LinkData {
+                submission,
+                comment,
+                subreddit,
+            },
+            rest,
+        )))
+    }
+
+    fn run_staff_reply_suffix(
+        &mut self,
+        subreddits: &mut [Subreddit],
+        message: &InboxMsg<'_>,
+    ) -> anyhow::Result<Option<InboxAction>> {
+        let Some((link, suffix)) = self.parse_link(subreddits, message)? else {
+            return Ok(None);
+        };
+
+        let Some(comment) = link.comment else {
+            message.reply("You must provide a link to the bot's comment.")?;
+            return Ok(None);
+        };
+
+        let suffix = if suffix.trim().is_empty() {
+            None
+        } else {
+            Some(suffix.trim())
+        };
+
+        if let Err(err) = self
+            .db
+            .update_staff_reply_thread_suffix(&link.submission.id(), suffix)
+        {
+            eprintln!("failed to set staff reply thread prefix: {err}");
+            message.reply("Failed to set suffix, probably not a staff reply thread comment")?;
+            return Ok(None);
+        }
+
+        message.reply("✔ Suffix set. The message should be edited soon.")?;
+
+        // Trigger the staff reply module to edit the message.
+        Ok(Some(InboxAction::RedoMsg(link.submission, comment)))
+    }
+
     fn run_inbox_test(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
         let mut warnings = Vec::new();
         let ctx = mlapibot_analysis::Context::new_body(message.body, &mut warnings)?;
@@ -112,6 +234,14 @@ impl<'client> ModuleRedditClient<'client> {
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<()> {
         for sub in subreddits {
+            if !self
+                .subreddits_config
+                .get(sub.name())
+                .is_some_and(|c| c.mods_can_stop)
+            {
+                continue;
+            }
+
             if sub.is_moderator(message.author)? {
                 let _ = message.reply("Stopping...");
 
@@ -210,68 +340,13 @@ impl<'client> ModuleRedditClient<'client> {
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
-        let Ok(link) = SubmissionLinkInfo::parse(message.body) else {
-            message.reply("Unrecognised link. Must be a full link to a submission or comment.")?;
+        let Some((link, _)) = self.parse_link(subreddits, message)? else {
             return Ok(None);
         };
 
-        let (submission, comment) = match link.comment_id {
-            None => {
-                let submission = match self.client.get_submission_by_info(&link) {
-                    Ok(t) => t,
-                    Err(e) => {
-                        eprintln!(
-                            "Failed to parse or fetch post to redo: {:?} {e:?}",
-                            message.body
-                        );
-                        message.reply("Failed to parse or fetch which submission you meant.")?;
-                        return Ok(None);
-                    }
-                };
-
-                (submission, None)
-            }
-            Some(comment_id) => {
-                match self.client.article_and_comments(
-                    link.subreddit,
-                    link.post_id,
-                    comment_id,
-                    None,
-                    None,
-                ) {
-                    Ok((sub, comments)) => {
-                        let comment = comments.into_iter().next().expect("direct link to comment");
-                        let comment = comment.into_latest(&sub);
-                        (sub, Some(comment))
-                    }
-                    Err(e) => {
-                        eprintln!(
-                            "Failed to parse or fetch comment to redo: {:?} {e:?}",
-                            message.body
-                        );
-                        message.reply("Failed to parse or fetch which comment you meant.")?;
-                        return Ok(None);
-                    }
-                }
-            }
-        };
-
-        let Some(subreddit) = subreddits
-            .iter_mut()
-            .find(|s| s.name() == submission.subreddit())
-        else {
-            message.reply("That subreddit is not managed by this bot.")?;
-            return Ok(None);
-        };
-
-        if !subreddit.is_moderator(message.author)? {
-            message.reply("You are not a moderator of that subreddit!")?;
-            return Ok(None);
-        }
-
-        match comment {
-            Some(comment) => Ok(Some(InboxAction::RedoMsg(submission, comment))),
-            None => Ok(Some(InboxAction::RedoSub(submission))),
+        match link.comment {
+            Some(comment) => Ok(Some(InboxAction::RedoMsg(link.submission, comment))),
+            None => Ok(Some(InboxAction::RedoSub(link.submission))),
         }
     }
 
@@ -280,37 +355,16 @@ impl<'client> ModuleRedditClient<'client> {
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<()> {
-        let submission = match self.client.get_submission_by_link(message.body) {
-            Ok(t) => t,
-            Err(e) => {
-                eprintln!(
-                    "Failed to parse or fetch post to redo: {:?} {e:?}",
-                    message.body
-                );
-                message.reply("Failed to parse or fetch which submission you meant.")?;
-                return Ok(());
-            }
+        let Some((link, _)) = self.parse_link(subreddits, message)? else {
+            return Ok(());
         };
 
-        if submission.stickied() {
+        if link.submission.stickied() {
             message.reply("Submission is already stickied. You can simply un-sticky it if you want to remove it.")?;
             return Ok(());
         }
 
-        let Some(subreddit) = subreddits
-            .iter_mut()
-            .find(|s| s.name() == submission.subreddit())
-        else {
-            message.reply("That subreddit is not managed by this bot.")?;
-            return Ok(());
-        };
-
-        if !subreddit.is_moderator(message.author)? {
-            message.reply("You are not a moderator of that subreddit!")?;
-            return Ok(());
-        }
-
-        let Some(config) = self.subreddits_config.get_status(subreddit.name()) else {
+        let Some(config) = self.subreddits_config.get_status(link.subreddit.name()) else {
             message.reply("That subreddit is not configured for automatic status posts.")?;
             return Ok(());
         };
@@ -320,12 +374,16 @@ impl<'client> ModuleRedditClient<'client> {
             return Ok(());
         };
 
-        let Some(_exists) = self.db.get_incident_from_post(submission.name().full())? else {
+        let Some(_exists) = self
+            .db
+            .get_incident_from_post(link.submission.name().full())?
+        else {
             message.reply("That submission was not submitted by this bot for status tracking.")?;
             return Ok(());
         };
 
-        subreddit.sticky_incident_post(self.db, sticky, &submission)?;
+        link.subreddit
+            .sticky_incident_post(self.db, sticky, &link.submission)?;
 
         message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.")?;
 

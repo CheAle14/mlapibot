@@ -47,6 +47,9 @@ pub struct SubredditConfig {
     pub flairs: SubredditFlairConfig,
 
     #[serde(default)]
+    pub mods_can_stop: bool,
+
+    #[serde(default)]
     pub comments_code: bool,
     #[serde(default)]
     pub comments_cdn: bool,
