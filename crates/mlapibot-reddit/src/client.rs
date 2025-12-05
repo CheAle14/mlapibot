@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     path::PathBuf,
     sync::mpsc::{self, RecvTimeoutError},
@@ -9,9 +10,8 @@ use anyhow::{Context, bail};
 use mlapibot_common::Cached;
 use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
 use roux::{
-    api::{Distinguished, ThingFullname},
+    api::Distinguished,
     client::{OAuthClient, RedditClient as RouxRedditClient},
-    models::SubmissionLinkInfo,
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
 use tera::Tera;
@@ -32,6 +32,7 @@ use crate::{
     ratelimiter::Ratelimiter,
     status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
     subreddit::Subreddit,
+    utils::BoO,
     webhook::{create_deleted_downvoted_comment, create_inbox_message},
 };
 
@@ -439,10 +440,13 @@ impl<'a> RedditClient<'a> {
                 .update_live_thread(&incident.live_thread.fullname, &text)?;
         }
 
-        self.db
-            .update_live_incident(&incident.incident.id, current_timestamp)?;
+        self.db.update_live_incident(
+            &incident.incident.id,
+            current_timestamp,
+            incident.incident.resolved_at.map(|_| current_timestamp),
+        )?;
 
-        if incident.incident.resolved_at.is_some() {
+        if incident.incident.resolved_at.is_some() && incident.live_thread.resolved_at.is_none() {
             self.client
                 .close_live_thread(&incident.live_thread.fullname)?;
         }
@@ -459,7 +463,10 @@ impl<'a> RedditClient<'a> {
 
         let components = self.cached_status_components.data(&self.status)?;
 
+        let mut unseen = self.db.get_unresolved_live_incidents()?;
+
         for incident in incidents {
+            unseen.remove(&incident.id);
             match self.db.get_live_incident(&incident.id)? {
                 None => {
                     let any_would_post = self.subreddits.iter().any(|s| {
@@ -501,19 +508,39 @@ impl<'a> RedditClient<'a> {
                     }
 
                     incidents_with_live.push(IncidentWithLive {
-                        incident,
+                        incident: BoO::Borrow(incident),
                         live_thread: LiveIncidentPost {
                             incident_id: incident.id.clone(),
                             fullname: live_thread_id,
                             updated_at: None,
+                            resolved_at: None,
                         },
                     })
                 }
                 Some(live_thread) => incidents_with_live.push(IncidentWithLive {
-                    incident,
+                    incident: BoO::Borrow(incident),
                     live_thread,
                 }),
             }
+        }
+
+        for id in unseen {
+            println!("Did not see incident {id}, fetching");
+
+            let incident = self
+                .status
+                .get_incident(&id)
+                .with_context(|| format!("get incident {id}"))?;
+
+            let live_thread = self
+                .db
+                .get_live_incident(&id)?
+                .expect("we just got this ID from the database");
+
+            incidents_with_live.push(IncidentWithLive {
+                incident: BoO::Owned(incident),
+                live_thread,
+            });
         }
 
         for incident in &incidents_with_live {

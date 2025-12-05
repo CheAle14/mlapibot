@@ -7,6 +7,8 @@ CREATE TABLE LiveIncidentPosts (
     PRIMARY KEY (incident_id)
 );*/
 
+use std::collections::HashSet;
+
 use chrono::NaiveDateTime;
 use rusqlite::OptionalExtension;
 
@@ -16,6 +18,7 @@ pub struct LiveIncidentPost {
     pub incident_id: String,
     pub fullname: String,
     pub updated_at: Option<DateTimeUtc>,
+    pub resolved_at: Option<DateTimeUtc>,
 }
 
 impl LiveIncidentPost {
@@ -23,22 +26,37 @@ impl LiveIncidentPost {
         let incident_id = row.get(0)?;
         let fullname = row.get(1)?;
         let updated_at = row.get(2)?;
+        let resolved_at = row.get(3)?;
 
         Ok(Self {
             incident_id,
             fullname,
             updated_at,
+            resolved_at,
         })
     }
 }
 
 impl MlapiDb {
+    pub fn get_unresolved_live_incidents(&self) -> rusqlite::Result<HashSet<String>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT IncidentId FROM LiveIncidentPosts WHERE ResolvedAt IS NULL")?;
+
+        let mut ids = HashSet::new();
+        for id in stmt.query_map((), |r| r.get(0))? {
+            ids.insert(id?);
+        }
+
+        Ok(ids)
+    }
+
     pub fn get_live_incident(
         &self,
         incident_id: &str,
     ) -> rusqlite::Result<Option<LiveIncidentPost>> {
         let mut stmt = self.conn.prepare(
-            "SELECT IncidentId, Fullname, UpdatedAt FROM LiveIncidentPosts WHERE IncidentId=?1",
+            "SELECT IncidentId, Fullname, UpdatedAt, ResolvedAt FROM LiveIncidentPosts WHERE IncidentId=?1",
         )?;
 
         stmt.query_row((incident_id,), LiveIncidentPost::from_row)
@@ -63,10 +81,11 @@ impl MlapiDb {
         &self,
         incident_id: &str,
         updated_at: DateTimeUtc,
+        resolved_at: Option<DateTimeUtc>,
     ) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE LiveIncidentPosts SET UpdatedAt=?2 WHERE IncidentId=?1",
-            (incident_id, updated_at),
+            "UPDATE LiveIncidentPosts SET UpdatedAt=?2, ResolvedAt=?3 WHERE IncidentId=?1",
+            (incident_id, updated_at, resolved_at),
         )?;
 
         Ok(())

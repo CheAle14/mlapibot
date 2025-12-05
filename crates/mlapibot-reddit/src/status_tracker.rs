@@ -1,26 +1,22 @@
 use std::{collections::HashMap, io::Read, str::FromStr, sync::mpsc::Sender};
 
 use anyhow::Context;
-use chrono::{DateTime, FixedOffset, Utc};
 use mlapibot_datastore::live_incident_posts::LiveIncidentPost;
 use roux::builders::submission::SubmissionSubmitBuilder;
-use statuspage::{
-    component::Component,
-    incident::{AffectedComponent, Incident, IncidentStatus, IncidentUpdate},
-};
+use statuspage::{component::Component, incident::Incident};
 use tiny_http::Response;
 
-use crate::utils::clamp;
+use crate::utils::{BoO, clamp};
 
 pub struct IncidentWithLive<'a> {
-    pub incident: &'a Incident,
+    pub incident: BoO<'a, Incident>,
     pub live_thread: LiveIncidentPost,
 }
 
 impl<'a> IncidentWithLive<'a> {
     pub fn to_builder(&self) -> SubmissionSubmitBuilder {
         SubmissionSubmitBuilder::link(
-            get_title(self.incident, 256).expect("String write should be infalliable"),
+            get_title(&self.incident, 256).expect("String write should be infalliable"),
             format!("https://www.reddit.com/live/{}/", self.live_thread.fullname),
             false,
         )
