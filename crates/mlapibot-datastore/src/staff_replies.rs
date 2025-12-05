@@ -37,6 +37,7 @@ pub struct StaffReplyThread {
     pub post_id: String,
     pub our_comment_id: String,
     pub created_at: DateTimeUtc,
+    pub hash: String,
 }
 
 pub enum FindBy {
@@ -67,6 +68,15 @@ impl super::MlapiDb {
                 reply.last_updated,
                 &reply.comment_id,
             ),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn update_staff_reply_thread(&self, post_id: &str, hash: &str) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE StaffReplyThreads SET Hash=?2 WHERE PostId=?1",
+            (post_id, hash),
         )?;
 
         Ok(())
@@ -106,10 +116,11 @@ impl super::MlapiDb {
         post_id: &str,
         our_comment_id: &str,
         created_at: DateTimeUtc,
+        hash: &str,
     ) -> rusqlite::Result<()> {
         self.conn.execute(
-            "INSERT INTO StaffReplyThreads (Subreddit, PostId, OurCommentId, CreatedAt) VALUES (?1, ?2, ?3, ?4)",
-            (subreddit, post_id, our_comment_id, created_at),
+            "INSERT INTO StaffReplyThreads (Subreddit, PostId, OurCommentId, CreatedAt, Hash) VALUES (?1, ?2, ?3, ?4, ?5)",
+            (subreddit, post_id, our_comment_id, created_at, hash),
         )?;
 
         Ok(())
@@ -122,10 +133,10 @@ impl super::MlapiDb {
     ) -> rusqlite::Result<Option<StaffReplyThread>> {
         let query = match find_by {
             FindBy::PostId => {
-                "SELECT Subreddit, PostId, OurCommentId, CreatedAt FROM StaffReplyThreads WHERE PostId=?1"
+                "SELECT Subreddit, PostId, OurCommentId, CreatedAt, Hash FROM StaffReplyThreads WHERE PostId=?1"
             }
             FindBy::OurCommentId => {
-                "SELECT Subreddit, PostId, OurCommentId, CreatedAt FROM StaffReplyThreads WHERE OurCommentId=?1"
+                "SELECT Subreddit, PostId, OurCommentId, CreatedAt, Hash FROM StaffReplyThreads WHERE OurCommentId=?1"
             }
         };
 
@@ -135,12 +146,14 @@ impl super::MlapiDb {
                 let post_id = row.get(1)?;
                 let our_comment_id = row.get(2)?;
                 let created_at = row.get(3)?;
+                let hash = row.get(4)?;
 
                 Ok(StaffReplyThread {
                     subreddit,
                     post_id,
                     our_comment_id,
                     created_at,
+                    hash,
                 })
             })
             .optional()
@@ -152,7 +165,7 @@ impl super::MlapiDb {
         after: DateTimeUtc,
     ) -> rusqlite::Result<Vec<StaffReplyThread>> {
         let mut stmt = self.conn.prepare(
-            "SELECT Subreddit, PostId, OurCommentId, CreatedAt
+            "SELECT Subreddit, PostId, OurCommentId, CreatedAt, Hash
             FROM StaffReplyThreads
             WHERE Subreddit=?1 AND CreatedAt >= ?2
             ",
@@ -163,12 +176,14 @@ impl super::MlapiDb {
             let post_id = row.get(1)?;
             let our_comment_id = row.get(2)?;
             let created_at = row.get(3)?;
+            let hash = row.get(4)?;
 
             Ok(StaffReplyThread {
                 subreddit,
                 post_id,
                 our_comment_id,
                 created_at,
+                hash,
             })
         })
     }

@@ -13,7 +13,10 @@ use roux::{
     models::{ArticleCommentOrMore, Listing},
 };
 
-use crate::client::{ModuleRedditClient, module::impl_mask_subreddits};
+use crate::{
+    client::{ModuleRedditClient, module::impl_mask_subreddits},
+    utils::Sha256Hasher,
+};
 
 pub struct CommentStaffReplies {
     next_update: DateTime<Utc>,
@@ -273,18 +276,30 @@ impl CommentStaffReplies {
         let reply_text = layout_reply(&all_replies, subreddit, post_id, 9500)
             .with_context(|| format!("staff reply /r/{subreddit}/{post_id}"))?;
 
+        let reply_hash = Sha256Hasher::oneshot(&reply_text);
+
         match client.db.get_staff_reply_thread(FindBy::PostId, post_id)? {
             Some(existing) => {
-                let fullname = ThingFullname::from_comment_id(&existing.our_comment_id);
-                client.client.edit(&reply_text, &fullname)?;
+                if reply_hash != existing.hash {
+                    let fullname = ThingFullname::from_comment_id(&existing.our_comment_id);
+                    client.client.edit(&reply_text, &fullname)?;
+
+                    client
+                        .db
+                        .update_staff_reply_thread(&existing.post_id, &reply_hash)?;
+                }
             }
             None => {
                 let fullname = ThingFullname::from_submission_id(post_id);
                 let reply = client.client.comment(&reply_text, &fullname)?;
 
-                client
-                    .db
-                    .insert_staff_reply_thread(subreddit, post_id, reply.id(), now)?;
+                client.db.insert_staff_reply_thread(
+                    subreddit,
+                    post_id,
+                    reply.id(),
+                    now,
+                    &reply_hash,
+                )?;
 
                 if reply.can_mod_post() {
                     reply.distinguish(roux::models::Distinguish::Moderator, true)?;
