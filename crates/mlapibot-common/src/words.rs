@@ -244,6 +244,7 @@ static STOP_WORDS: &[&str] = &[
     "just",
     "know",
     "me",
+    "might",
     "more",
     "most",
     "my",
@@ -288,6 +289,7 @@ static STOP_WORDS: &[&str] = &[
     "some",
     "someone",
     "struggle",
+    "stupid",
     "such",
     "t",
     "technical",
@@ -401,6 +403,7 @@ mod tests {
             "I need help and your opinion",
             "I don't know what to say",
             "I got an issue",
+            "This might be a stupid question"
         );
     }
 
