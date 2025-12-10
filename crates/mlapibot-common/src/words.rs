@@ -153,6 +153,7 @@ static STOP_WORDS: &[&str] = &[
     "against",
     "all",
     "am",
+    "amazing",
     "an",
     "and",
     "answer",
@@ -165,6 +166,7 @@ static STOP_WORDS: &[&str] = &[
     "are",
     "as",
     "at",
+    "awesome",
     "be",
     "because",
     "been",
@@ -173,6 +175,7 @@ static STOP_WORDS: &[&str] = &[
     "below",
     "between",
     "both",
+    "brilliant",
     "bro",
     "brother",
     "but",
@@ -199,6 +202,7 @@ static STOP_WORDS: &[&str] = &[
     "exist",
     "expect",
     "false",
+    "fantastic",
     "feature",
     "few",
     "fix",
@@ -208,6 +212,7 @@ static STOP_WORDS: &[&str] = &[
     "genuine",
     "get",
     "got",
+    "great",
     "guy",
     "guys",
     "had",
@@ -216,6 +221,7 @@ static STOP_WORDS: &[&str] = &[
     "happening",
     "happens",
     "has",
+    "hate",
     "have",
     "having",
     "he",
@@ -243,6 +249,7 @@ static STOP_WORDS: &[&str] = &[
     "itself",
     "just",
     "know",
+    "love",
     "me",
     "might",
     "more",
@@ -333,6 +340,7 @@ static STOP_WORDS: &[&str] = &[
     "why",
     "will",
     "with",
+    "wonderful",
     "work",
     "working",
     "worried",
@@ -354,7 +362,7 @@ mod tests {
         vec.sort();
         vec.dedup();
         if vec != STOP_WORDS {
-            panic!("{vec:#?}");
+            panic!("{vec:#?};");
         }
     }
 
@@ -403,7 +411,8 @@ mod tests {
             "I need help and your opinion",
             "I don't know what to say",
             "I got an issue",
-            "This might be a stupid question"
+            "This might be a stupid question",
+            "Awesome. Love that."
         );
     }
 
