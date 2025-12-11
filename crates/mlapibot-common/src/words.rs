@@ -178,6 +178,8 @@ static STOP_WORDS: &[&str] = &[
     "brilliant",
     "bro",
     "brother",
+    "bug",
+    "bugged",
     "but",
     "by",
     "can",
@@ -412,7 +414,8 @@ mod tests {
             "I don't know what to say",
             "I got an issue",
             "This might be a stupid question",
-            "Awesome. Love that."
+            "Awesome. Love that.",
+            "discord bugged"
         );
     }
 
