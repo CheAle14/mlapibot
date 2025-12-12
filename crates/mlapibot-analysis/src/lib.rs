@@ -15,14 +15,23 @@ use analzyer::Analyzer;
 use mlapibot_common::Detection;
 
 pub fn load_scams() -> serde_json::Result<Vec<Analyzer>> {
-    static FILE: &str = include_str!("../../../data/scams.json");
+    let mut path = std::path::PathBuf::from(env!("CARGO_MANIFEST_PATH"));
+    path.pop();
+    path.pop();
+    path.pop();
+    path.push("data/scams.json");
+
+    let file = match std::fs::File::open(&path) {
+        Ok(file) => file,
+        Err(err) => panic!("cannot open {path:?}: {err}"),
+    };
 
     #[derive(serde::Deserialize)]
     struct SaveFile {
         pub scams: Vec<Analyzer>,
     }
 
-    let scams: SaveFile = serde_json::from_str(FILE)?;
+    let scams: SaveFile = serde_json::from_reader(file)?;
     Ok(scams.scams)
 }
 
