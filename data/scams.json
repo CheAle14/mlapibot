@@ -279,6 +279,7 @@
         "you may appeal by contacting the designated discord support staff",
         "official discord support",
         "discord official support",
+        "discord technical support assistance",
         {
           "children": ["illegal", "investigation", "case"],
           "type": "ordered"
@@ -447,6 +448,18 @@
             "your",
             ["account", "profile"],
             ["mistake", "accident"]
+          ],
+          "type": "ordered"
+        },
+        {
+          "children": ["reported", "you", "instead", "hacker"],
+          "type": "ordered"
+        },
+        {
+          "children": [
+            ["you", "your account"],
+            ["could", "might", "will"],
+            ["restricted", "banned", "disabled"]
           ],
           "type": "ordered"
         },
