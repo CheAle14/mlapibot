@@ -2,7 +2,7 @@ use mlapibot_common::DetectedItem;
 
 use super::{Matcher, MatcherKind};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct AnyMatcher(pub Vec<MatcherKind>);
 
 impl Matcher for AnyMatcher {

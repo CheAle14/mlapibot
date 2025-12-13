@@ -2,7 +2,7 @@ use mlapibot_common::{DetectedItem, Words};
 
 use super::Matcher;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ExactMatcher(Words);
 
 impl ExactMatcher {

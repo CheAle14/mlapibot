@@ -1,13 +1,50 @@
 use mlapibot_common::{Detection, Words};
 use serde::Deserialize;
 
-use crate::matcher::{Matcher, MatcherKind};
+use crate::matcher::{AnyMatcher, Matcher, MatcherKind};
+
+#[derive(Deserialize)]
+struct StrAnalyzerRepr {
+    ocr: Option<MatcherKind>,
+    title: Option<MatcherKind>,
+    body: Option<MatcherKind>,
+    #[serde(rename = "title+body")]
+    title_or_body: Option<MatcherKind>,
+}
 
 #[derive(Debug, Deserialize)]
+#[serde(from = "StrAnalyzerRepr")]
 pub struct StrAnalzyer {
     pub ocr: Option<MatcherKind>,
     pub title: Option<MatcherKind>,
     pub body: Option<MatcherKind>,
+}
+
+fn extend(first: &mut Option<MatcherKind>, extend_with: Option<MatcherKind>) {
+    if first.is_none() {
+        *first = extend_with;
+    } else if let Some(with) = extend_with {
+        let first = first.as_mut().unwrap();
+        let replaced = std::mem::replace(first, MatcherKind::None);
+        let any = MatcherKind::Any(AnyMatcher(vec![replaced, with]));
+        *first = any;
+    }
+}
+
+impl From<StrAnalyzerRepr> for StrAnalzyer {
+    fn from(value: StrAnalyzerRepr) -> Self {
+        let StrAnalyzerRepr {
+            ocr,
+            mut title,
+            mut body,
+            title_or_body,
+        } = value;
+
+        extend(&mut title, title_or_body.clone());
+        extend(&mut body, title_or_body);
+
+        Self { ocr, title, body }
+    }
 }
 
 impl StrAnalzyer {

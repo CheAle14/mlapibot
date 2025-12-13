@@ -12,13 +12,14 @@ pub use ordered::*;
 pub use phrase::*;
 use serde::{Deserialize, de::Visitor};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum MatcherKind {
     Phrase(PhraseMatcher),
     Ordered(OrderedMatcher),
     All(AllMatcher),
     Any(AnyMatcher),
     Exact(ExactMatcher),
+    None,
 }
 
 struct MatcherKindVisitor;
@@ -160,6 +161,7 @@ impl Matcher for MatcherKind {
             MatcherKind::Any(v) => v.matches(words, debug),
             MatcherKind::All(v) => v.matches(words, debug),
             MatcherKind::Exact(v) => v.matches(words, debug),
+            MatcherKind::None => Vec::new(),
         }
     }
 }
@@ -210,7 +212,7 @@ mod tests {
     #[test]
     pub fn deserialize_recursive() {
         const JSON: &str = r#"{
-            "type":"ordered", 
+            "type":"ordered",
             "children":[
                 [
                     "hello world", "another one"

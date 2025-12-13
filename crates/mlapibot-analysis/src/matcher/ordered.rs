@@ -4,7 +4,7 @@ use mlapibot_common::DetectedItem;
 
 use super::{Matcher, MatcherKind};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct OrderedMatcher(pub Vec<MatcherKind>);
 
 fn recursive_matches(
@@ -127,8 +127,8 @@ mod tests {
             MatcherKind::Phrase(PhraseMatcher::new("compromised")),
         ]);
 
-        let text = Words::new("apparently discords official email servers have been compromised and hackers are using it to sendout phishing links in officiallooking emails if you get an email from discord claiming your account has been disabled due to violating the tos but it still works when you log in do not click any of the links in the email copied from another server if you received an email from discordcom saying your account is disabled for a tos violation but the account is still functional do not click links in the email even though the email is considered valid by your email client 
-the above email is a phishing attack anyall of the links in this will redirect to a session token stealer instantly compromising your discord account somehow discords email service has been compromised allowing the attacker to send authentic emails from discordcom the links in this email redirect to a separate compromised page on a subdomain on discordcom this allows javascript on the compromised page to obtain your discord session token from browser local storage and send it elsewhere this applies even if you normally use discord desktop discord web is used for server invite links to work outside of 
+        let text = Words::new("apparently discords official email servers have been compromised and hackers are using it to sendout phishing links in officiallooking emails if you get an email from discord claiming your account has been disabled due to violating the tos but it still works when you log in do not click any of the links in the email copied from another server if you received an email from discordcom saying your account is disabled for a tos violation but the account is still functional do not click links in the email even though the email is considered valid by your email client
+the above email is a phishing attack anyall of the links in this will redirect to a session token stealer instantly compromising your discord account somehow discords email service has been compromised allowing the attacker to send authentic emails from discordcom the links in this email redirect to a separate compromised page on a subdomain on discordcom this allows javascript on the compromised page to obtain your discord session token from browser local storage and send it elsewhere this applies even if you normally use discord desktop discord web is used for server invite links to work outside of
 desktop yes this means that official discord emails cannot be trusted right now if you receive an email from discordcom always contact support instead of clicking links in the email");
 
         // expected: "discords email service has been compromised"

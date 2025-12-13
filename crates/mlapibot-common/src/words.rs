@@ -1,12 +1,12 @@
 use std::{borrow::Cow, collections::HashSet};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct WordDef {
     pub start: u32,
     pub len: u32,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Words {
     phrase: String,
     words: Vec<WordDef>,

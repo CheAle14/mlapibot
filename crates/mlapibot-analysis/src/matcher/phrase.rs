@@ -3,7 +3,7 @@ use ord_many::max_many;
 
 use super::Matcher;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PhraseMatcher(pub Words);
 
 impl PhraseMatcher {
