@@ -498,6 +498,25 @@
       ]
     },
     {
+      "name": "cryptoScam",
+      "template": "cryptoScam",
+      "remove": true,
+      "ocr": [
+        {
+          "type": "exact",
+          "phrase": "kaicenat"
+        },
+        {
+          "type": "ordered",
+          "children": ["announce", "launch", "crypto"]
+        },
+        {
+          "type": "ordered",
+          "children": ["deleted", "after", "publication"]
+        }
+      ]
+    },
+    {
       "name": "externalApp",
       "ocr": ["message could not be loaded"],
       "template": "externalApp"
