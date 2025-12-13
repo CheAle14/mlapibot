@@ -517,6 +517,16 @@
       ]
     },
     {
+      "name": "micAlwaysOn",
+      "ocr": "audio video discord",
+      "template": "micAlwaysOn",
+      "remove": true,
+      "title+body": {
+        "type": "ordered",
+        "children": [["mic", "microphone"], "always", "on"]
+      }
+    },
+    {
       "name": "externalApp",
       "ocr": ["message could not be loaded"],
       "template": "externalApp"
