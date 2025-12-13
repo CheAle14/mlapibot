@@ -422,6 +422,8 @@ impl super::Module for CommentStaffReplies {
             return Ok(Duration::from_secs(5 * 60));
         }
 
+        let was_next_update = self.next_update;
+
         let after = Utc::now() + TimeDelta::days(-7);
 
         for subreddit in subreddits {
@@ -440,11 +442,16 @@ impl super::Module for CommentStaffReplies {
             }
         }
 
-        let delta = (self.next_update - Utc::now()).to_std().unwrap_or_default();
+        let mut delta = (self.next_update - Utc::now()).to_std().unwrap_or_default();
+
+        if self.next_update == was_next_update {
+            // next update wasn't changed, so force a delay.
+            delta = Duration::from_secs(60);
+        }
 
         println!("Next update {:?}, delta: {:?}", self.next_update, delta);
 
-        Ok(std::cmp::min(delta, Duration::from_secs(5 * 60)))
+        Ok(delta.clamp(Duration::from_secs(1), Duration::from_secs(5 * 60)))
     }
 }
 
