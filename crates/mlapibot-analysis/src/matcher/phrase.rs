@@ -1,22 +1,25 @@
 use mlapibot_common::{DetectedItem, Words};
 use ord_many::max_many;
+use serde::Deserialize;
 
 use super::Matcher;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct PhraseMatcher(pub Words);
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+pub struct PhraseMatcher {
+    pub children: Words,
+}
 
 impl PhraseMatcher {
     pub fn new(text: impl Into<String>) -> Self {
         let text = text.into();
         let words = Words::new(text);
-        Self(words)
+        Self { children: words }
     }
 }
 
 impl Matcher for PhraseMatcher {
     fn matches(&self, haystack: &[&str], debug: bool) -> Vec<DetectedItem> {
-        let words = self.0.as_words();
+        let words = self.children.as_words();
 
         if words.len() == 1 {
             let word = words[0];
@@ -57,7 +60,7 @@ impl Matcher for PhraseMatcher {
         }
 
         if debug {
-            println!("  Looking for {:?}", self.0.full_text())
+            println!("  Looking for {:?}", self.children.full_text())
         }
 
         let alignment = needleman_wunsch(&words, haystack);
@@ -395,7 +398,9 @@ mod tests {
         let phrase = "the quick brown fox jumps over the lazy dog";
         let analyzer = StrAnalzyer {
             ocr: None,
-            title: Some(MatcherKind::Phrase(PhraseMatcher(Words::new(phrase)))),
+            title: Some(MatcherKind::Phrase(PhraseMatcher {
+                children: Words::new(phrase),
+            })),
             body: None,
         };
 
@@ -418,7 +423,9 @@ mod tests {
         let phrase = "message could not be loaded";
         let analyzer = StrAnalzyer {
             ocr: None,
-            title: Some(MatcherKind::Phrase(PhraseMatcher(Words::new(phrase)))),
+            title: Some(MatcherKind::Phrase(PhraseMatcher {
+                children: Words::new(phrase),
+            })),
             body: None,
         };
 

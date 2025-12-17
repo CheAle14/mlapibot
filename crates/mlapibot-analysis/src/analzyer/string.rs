@@ -26,7 +26,7 @@ fn extend(first: &mut Option<MatcherKind>, extend_with: Option<MatcherKind>) {
     } else if let Some(with) = extend_with {
         let first = first.as_mut().unwrap();
         let replaced = std::mem::replace(first, MatcherKind::None);
-        let any = MatcherKind::Any(AnyMatcher(vec![replaced, with]));
+        let any = MatcherKind::Any(AnyMatcher::new(vec![replaced, with]));
         *first = any;
     }
 }

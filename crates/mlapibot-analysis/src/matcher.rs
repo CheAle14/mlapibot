@@ -12,6 +12,7 @@ pub use ordered::*;
 pub use phrase::*;
 use serde::{Deserialize, de::Visitor};
 
+// Note: Any new variants must be added to the deserialize visitor impl
 #[derive(Debug, PartialEq, Clone)]
 pub enum MatcherKind {
     Phrase(PhraseMatcher),
@@ -19,6 +20,7 @@ pub enum MatcherKind {
     All(AllMatcher),
     Any(AnyMatcher),
     Exact(ExactMatcher),
+    // Dummy value for mem-replace
     None,
 }
 
@@ -59,53 +61,32 @@ impl<'de> Visitor<'de> for MatcherKindVisitor {
             kinds.push(next);
         }
 
-        Ok(MatcherKind::Any(AnyMatcher(kinds)))
+        Ok(MatcherKind::Any(AnyMatcher::new(kinds)))
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::MapAccess<'de>,
     {
-        use serde::de::Error;
-
-        let mut tag = None;
-        let mut children = None;
-        let mut phrase = None;
-
-        while let Some(key) = map.next_key::<String>()? {
-            match key.as_str() {
-                "type" => tag = Some(map.next_value::<String>()?),
-                "children" => children = Some(map.next_value::<Vec<MatcherKind>>()?),
-                "phrase" => phrase = Some(map.next_value::<String>()?),
-                other => {
-                    return Err(A::Error::unknown_field(
-                        other,
-                        &["type", "children", "phrase"],
-                    ));
-                }
-            }
+        #[derive(Deserialize)]
+        #[serde(tag = "type", rename_all = "lowercase")]
+        pub enum InnerMatcherKind {
+            Phrase(PhraseMatcher),
+            Ordered(OrderedMatcher),
+            All(AllMatcher),
+            Any(AnyMatcher),
+            Exact(ExactMatcher),
         }
 
-        let tag = tag.expect("'type' field set");
+        let deser = serde::de::value::MapAccessDeserializer::new(map);
 
-        match tag.as_str() {
-            "ordered" => Ok(MatcherKind::Ordered(OrderedMatcher(
-                children.expect("'children' set for ordered"),
-            ))),
-            "any" => Ok(MatcherKind::Any(AnyMatcher(
-                children.expect("'children' set for any"),
-            ))),
-            "all" => Ok(MatcherKind::All(AllMatcher(
-                children.expect("'children' set for all"),
-            ))),
-            "exact" => Ok(MatcherKind::Exact(ExactMatcher::new(
-                phrase.expect("'phrase' set for exact"),
-            ))),
-            s => Err(A::Error::unknown_variant(
-                s,
-                &["ordered", "any", "all", "exact"],
-            )),
-        }
+        InnerMatcherKind::deserialize(deser).map(|v| match v {
+            InnerMatcherKind::Phrase(m) => MatcherKind::Phrase(m),
+            InnerMatcherKind::Ordered(m) => MatcherKind::Ordered(m),
+            InnerMatcherKind::All(m) => MatcherKind::All(m),
+            InnerMatcherKind::Any(m) => MatcherKind::Any(m),
+            InnerMatcherKind::Exact(m) => MatcherKind::Exact(m),
+        })
     }
 }
 
@@ -168,6 +149,8 @@ impl Matcher for MatcherKind {
 
 #[cfg(test)]
 mod tests {
+    use serde::Deserialize;
+
     use crate::matcher::{AnyMatcher, MatcherKind, OrderedMatcher, PhraseMatcher};
 
     #[test]
@@ -188,7 +171,7 @@ mod tests {
         let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
         assert_eq!(
             parsed,
-            MatcherKind::Any(AnyMatcher(vec![
+            MatcherKind::Any(AnyMatcher::new(vec![
                 MatcherKind::Phrase(PhraseMatcher::new("hello world")),
                 MatcherKind::Phrase(PhraseMatcher::new("another one"))
             ]))
@@ -202,7 +185,7 @@ mod tests {
         let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
         assert_eq!(
             parsed,
-            MatcherKind::Ordered(OrderedMatcher(vec![
+            MatcherKind::Ordered(OrderedMatcher::new(vec![
                 MatcherKind::Phrase(PhraseMatcher::new("hello world")),
                 MatcherKind::Phrase(PhraseMatcher::new("another one"))
             ]))
@@ -232,12 +215,12 @@ mod tests {
         let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
         assert_eq!(
             parsed,
-            MatcherKind::Ordered(OrderedMatcher(vec![
-                MatcherKind::Any(AnyMatcher(vec![
+            MatcherKind::Ordered(OrderedMatcher::new(vec![
+                MatcherKind::Any(AnyMatcher::new(vec![
                     MatcherKind::Phrase(PhraseMatcher::new("hello world")),
                     MatcherKind::Phrase(PhraseMatcher::new("another one"))
                 ])),
-                MatcherKind::Ordered(OrderedMatcher(vec![
+                MatcherKind::Ordered(OrderedMatcher::new(vec![
                     MatcherKind::Phrase(PhraseMatcher::new("other")),
                     MatcherKind::Phrase(PhraseMatcher::new("text")),
                     MatcherKind::Phrase(PhraseMatcher::new("goes")),

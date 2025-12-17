@@ -6,7 +6,8 @@ struct WordDef {
     pub len: u32,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, serde::Deserialize)]
+#[serde(from = "String")]
 pub struct Words {
     phrase: String,
     words: Vec<WordDef>,
@@ -132,6 +133,12 @@ impl Words {
                 false
             }
         });
+    }
+}
+
+impl From<String> for Words {
+    fn from(value: String) -> Self {
+        Self::new(value)
     }
 }
 

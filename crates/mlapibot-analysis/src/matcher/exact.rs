@@ -1,21 +1,24 @@
 use mlapibot_common::{DetectedItem, Words};
+use serde::Deserialize;
 
 use super::Matcher;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct ExactMatcher(Words);
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+pub struct ExactMatcher {
+    phrase: Words,
+}
 
 impl ExactMatcher {
     pub fn new(words: impl Into<String>) -> Self {
         let words = Words::new(words);
-        Self(words)
+        Self { phrase: words }
     }
 }
 
 impl Matcher for ExactMatcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
-        let check_words = self.0.as_words();
-        for (start_idx, window) in words.windows(self.0.len()).enumerate() {
+        let check_words = self.phrase.as_words();
+        for (start_idx, window) in words.windows(self.phrase.len()).enumerate() {
             if (&check_words) == window {
                 if debug {
                     println!("Exact match at {start_idx}");

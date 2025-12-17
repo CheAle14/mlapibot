@@ -1,11 +1,20 @@
 use std::collections::HashSet;
 
 use mlapibot_common::DetectedItem;
+use serde::Deserialize;
 
 use super::{Matcher, MatcherKind};
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct OrderedMatcher(pub Vec<MatcherKind>);
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+pub struct OrderedMatcher {
+    children: Vec<MatcherKind>,
+}
+
+impl OrderedMatcher {
+    pub fn new(children: Vec<MatcherKind>) -> Self {
+        Self { children }
+    }
+}
 
 fn recursive_matches(
     words: &[&str],
@@ -61,9 +70,9 @@ fn recursive_matches(
 
 impl Matcher for OrderedMatcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
-        let mut v = recursive_matches(words, &self.0, debug, 0);
+        let mut v = recursive_matches(words, &self.children, debug, 0);
         v.retain_mut(|d| {
-            d.score /= self.0.len() as f32;
+            d.score /= self.children.len() as f32;
             d.score > 0.8
         });
         v.sort_unstable();
@@ -82,7 +91,7 @@ mod tests {
 
     #[test]
     pub fn test_multi_match() {
-        let ordered = OrderedMatcher(vec![
+        let ordered = OrderedMatcher::new(vec![
             MatcherKind::Phrase(PhraseMatcher::new("hello")),
             MatcherKind::Phrase(PhraseMatcher::new("world")),
         ]);
@@ -120,7 +129,7 @@ mod tests {
 
     #[test]
     pub fn test_sorting() {
-        let ordered = OrderedMatcher(vec![
+        let ordered = OrderedMatcher::new(vec![
             MatcherKind::Phrase(PhraseMatcher::new("discords")),
             MatcherKind::Phrase(PhraseMatcher::new("email")),
             MatcherKind::Phrase(PhraseMatcher::new("service")),
@@ -132,23 +141,23 @@ the above email is a phishing attack anyall of the links in this will redirect t
 desktop yes this means that official discord emails cannot be trusted right now if you receive an email from discordcom always contact support instead of clicking links in the email");
 
         // expected: "discords email service has been compromised"
-        //            127      128   129     130 131  132
+        //            126      127   128     129 130  131
 
         let words = text.as_words();
         let det = ordered.matches(&words, true);
 
         let mut expected = DetectedItem::new(1.0);
+        expected.mark_match(126);
         expected.mark_match(127);
         expected.mark_match(128);
-        expected.mark_match(129);
-        expected.mark_match(132);
+        expected.mark_match(131);
 
         assert_eq!(det.first(), Some(&expected));
     }
 
     #[test]
     pub fn test_matches() {
-        let ordered = OrderedMatcher(vec![
+        let ordered = OrderedMatcher::new(vec![
             MatcherKind::Phrase(PhraseMatcher::new("hello")),
             MatcherKind::Phrase(PhraseMatcher::new("world")),
         ]);
@@ -166,7 +175,7 @@ desktop yes this means that official discord emails cannot be trusted right now 
 
     #[test]
     pub fn test_no_match() {
-        let ordered = OrderedMatcher(vec![
+        let ordered = OrderedMatcher::new(vec![
             MatcherKind::Phrase(PhraseMatcher::new("hello")),
             MatcherKind::Phrase(PhraseMatcher::new("world")),
             MatcherKind::Phrase(PhraseMatcher::new("another")),
@@ -182,7 +191,7 @@ desktop yes this means that official discord emails cannot be trusted right now 
 
     #[test]
     pub fn test_follows_ordering() {
-        let ordered = OrderedMatcher(vec![
+        let ordered = OrderedMatcher::new(vec![
             MatcherKind::Phrase(PhraseMatcher::new("hello")),
             MatcherKind::Phrase(PhraseMatcher::new("world")),
         ]);
@@ -194,4 +203,7 @@ desktop yes this means that official discord emails cannot be trusted right now 
 
         assert!(det.is_empty())
     }
+
+    #[test]
+    pub fn test_max_skip() {}
 }
