@@ -518,13 +518,36 @@
     },
     {
       "name": "micAlwaysOn",
-      "ocr": "audio video discord",
+      "ocr": {
+        "type": "ordered",
+        "children": ["audio", "video", "discord"]
+      },
       "template": "micAlwaysOn",
       "remove": true,
-      "title+body": {
-        "type": "ordered",
-        "children": [["mic", "microphone"], "always", "on"]
-      }
+      "title+body": [
+        {
+          "type": "ordered",
+          "children": [["mic", "microphone"], "always", "on"]
+        },
+        {
+          "type": "ordered",
+          "children": ["discord", "using", ["mic", "microphone"]]
+        }
+      ]
+    },
+    {
+      "name": "ask to join server",
+      "title+body": [
+        {
+          "type": "ordered",
+          "children": [
+            ["looking for", "anyone have"],
+            ["servers", "server"],
+            ["join", "suggest", "suggestions"]
+          ]
+        }
+      ],
+      "report": true
     },
     {
       "name": "externalApp",
