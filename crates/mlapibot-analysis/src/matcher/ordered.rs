@@ -8,17 +8,31 @@ use super::{Matcher, MatcherKind};
 #[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct OrderedMatcher {
     children: Vec<MatcherKind>,
+    /// The maximum number of words permitted between each consecutive item.
+    #[serde(default)]
+    max_steps: Option<usize>,
 }
 
 impl OrderedMatcher {
     pub fn new(children: Vec<MatcherKind>) -> Self {
-        Self { children }
+        Self {
+            children,
+            max_steps: None,
+        }
+    }
+
+    pub fn new_with_steps(children: Vec<MatcherKind>, max_steps: usize) -> Self {
+        Self {
+            children,
+            max_steps: Some(max_steps),
+        }
     }
 }
 
 fn recursive_matches(
     words: &[&str],
     matchers: &[MatcherKind],
+    max_steps: usize,
     debug: bool,
     depth: usize,
 ) -> Vec<DetectedItem> {
@@ -42,15 +56,28 @@ fn recursive_matches(
         absolute_min = absolute_min.min(min);
     }
 
-    let next = recursive_matches(&words[absolute_min..], &matchers[1..], debug, depth + 1);
+    let next = recursive_matches(
+        &words[absolute_min..],
+        &matchers[1..],
+        max_steps,
+        debug,
+        depth + 1,
+    );
 
     let mut outcome = HashSet::new();
     for next in next {
-        let (min, _) = next.min_max_word_indexes();
+        let (next_min, _) = next.min_max_word_indexes();
+        let next_min = next_min + absolute_min;
+
         for this in &result {
             let (this_min, _) = this.min_max_word_indexes();
 
-            if (min + absolute_min) < this_min {
+            if next_min < this_min {
+                continue;
+            }
+
+            let step = next_min - this_min;
+            if step > max_steps {
                 continue;
             }
 
@@ -70,7 +97,17 @@ fn recursive_matches(
 
 impl Matcher for OrderedMatcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
-        let mut v = recursive_matches(words, &self.children, debug, 0);
+        let max_steps = match self.max_steps {
+            // `max_steps` is in words, but we need to adjust for the difference
+            // between indexes. For example, looking for 'hello ... world' in the
+            // phrase "around hello and world" would give indexes 1 and 3,
+            // which is a difference (i.e. step) of 2. But only 1 word is
+            // actually separating them. So `max_steps` is off-by-one.
+            Some(v) => v + 1,
+            None => usize::MAX,
+        };
+
+        let mut v = recursive_matches(words, &self.children, max_steps, debug, 0);
         v.retain_mut(|d| {
             d.score /= self.children.len() as f32;
             d.score > 0.8
@@ -205,5 +242,50 @@ desktop yes this means that official discord emails cannot be trusted right now 
     }
 
     #[test]
-    pub fn test_max_skip() {}
+    pub fn test_max_skip() {
+        let ordered = OrderedMatcher::new_with_steps(
+            vec![
+                MatcherKind::Phrase(PhraseMatcher::new("hello")),
+                MatcherKind::Phrase(PhraseMatcher::new("world")),
+            ],
+            1,
+        );
+
+        let text = Words::new("hello and world");
+        let words = text.as_words();
+        let det = ordered.matches(&words, true);
+        assert_eq!(
+            det.first().unwrap().markdown_string(&words),
+            "**hello** and **world**"
+        );
+
+        let text = Words::new("hello and more world");
+        let words = text.as_words();
+        let det = ordered.matches(&words, true);
+        assert!(det.is_empty());
+    }
+
+    #[test]
+    pub fn test_zero_max_skip() {
+        let ordered = OrderedMatcher::new_with_steps(
+            vec![
+                MatcherKind::Phrase(PhraseMatcher::new("hello")),
+                MatcherKind::Phrase(PhraseMatcher::new("world")),
+            ],
+            0,
+        );
+
+        let text = Words::new("hello world");
+        let words = text.as_words();
+        let det = ordered.matches(&words, true);
+        assert_eq!(
+            det.first().unwrap().markdown_string(&words),
+            "**hello** **world**"
+        );
+
+        let text = Words::new("hello and world");
+        let words = text.as_words();
+        let det = ordered.matches(&words, true);
+        assert!(det.is_empty());
+    }
 }

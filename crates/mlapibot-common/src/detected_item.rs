@@ -40,6 +40,12 @@ impl DetectedItem {
             .or_insert_with(|| DetectedWord { matched: true });
     }
 
+    pub fn markdown_string(&self, text: &[impl AsRef<str>]) -> String {
+        let mut s = String::new();
+        let _ = self.write_markdown(text, &mut s);
+        s
+    }
+
     pub fn write_markdown<W: std::fmt::Write>(
         &self,
         text: &[impl AsRef<str>],

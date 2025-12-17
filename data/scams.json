@@ -520,6 +520,7 @@
       "name": "micAlwaysOn",
       "ocr": {
         "type": "ordered",
+        "max_steps": 1,
         "children": ["audio", "video", "discord"]
       },
       "template": "micAlwaysOn",
@@ -527,10 +528,12 @@
       "title+body": [
         {
           "type": "ordered",
+          "max_steps": 1,
           "children": [["mic", "microphone"], "always", "on"]
         },
         {
           "type": "ordered",
+          "max_steps": 1,
           "children": ["discord", "using", ["mic", "microphone"]]
         }
       ]
