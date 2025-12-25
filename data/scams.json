@@ -540,9 +540,11 @@
     },
     {
       "name": "ask to join server",
+      "template": null,
       "title+body": [
         {
           "type": "ordered",
+          "max_steps": 4,
           "children": [
             ["looking for", "anyone have"],
             ["servers", "server"],
