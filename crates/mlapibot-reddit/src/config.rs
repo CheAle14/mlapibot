@@ -1,18 +1,21 @@
-use std::collections::HashMap;
+use std::{borrow::Borrow, collections::HashMap, hash::Hash};
 
 use roux::api::FlairId;
 use serde::Deserialize;
 
-use mlapibot_common::LowercaseString;
+use mlapibot_common::{LowercaseHashMap, LowercaseString};
 use statuspage::incident::IncidentImpact;
 
 use crate::client::module::post_flairs::SubredditFlairConfig;
 
 #[derive(Debug, Deserialize)]
-pub struct SubredditsConfig(HashMap<LowercaseString, SubredditConfig>);
+pub struct SubredditsConfig(LowercaseHashMap<SubredditConfig>);
 
 impl SubredditsConfig {
-    pub fn get(&self, subreddit: &LowercaseString) -> Option<&SubredditConfig> {
+    pub fn get<Q>(&self, subreddit: &Q) -> Option<&SubredditConfig>
+    where
+        Q: Borrow<str> + ?Sized,
+    {
         self.0.get(subreddit)
     }
 
@@ -28,7 +31,7 @@ impl SubredditsConfig {
         self.0.len()
     }
 
-    pub fn keys(&self) -> std::collections::hash_map::Keys<LowercaseString, SubredditConfig> {
+    pub fn keys(&self) -> impl Iterator<Item = &LowercaseString> {
         self.0.keys()
     }
 }
@@ -55,6 +58,8 @@ pub struct SubredditConfig {
     pub comments_cdn: bool,
     #[serde(default)]
     pub comments_staff_reply: Option<SubredditStaffReplyConfig>,
+    #[serde(default)]
+    pub comments_complex: Vec<SubredditComplexCommentConfig>,
     #[serde(default)]
     pub related_titles: bool,
 }
@@ -93,6 +98,15 @@ impl SubredditStaffReplyConfig {
         template_id.is_some_and(|id| id == self.staff_flair_id)
             || self.staff_css_class.as_ref().map(|v| v.as_str()) == css_class
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubredditComplexCommentConfig {
+    pub link_title: Vec<String>,
+    pub comment: Vec<String>,
+    #[serde(default)]
+    pub ignore_flairs: Vec<String>,
+    pub reason_id: String,
 }
 
 fn default_comment_threshold() -> u64 {

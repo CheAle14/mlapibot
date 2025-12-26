@@ -353,7 +353,7 @@ impl super::Module for CommentStaffReplies {
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
-        let Some(config) = client.subreddits_config.get(&comment.subreddit().into()) else {
+        let Some(config) = client.subreddits_config.get(comment.subreddit()) else {
             return Ok(());
         };
 

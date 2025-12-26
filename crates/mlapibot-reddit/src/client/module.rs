@@ -8,7 +8,7 @@ use roux::{
 };
 
 use crate::{
-    Comment, RedditMessage, RouxClient, Submission,
+    RedditMessage, RouxClient, Submission,
     client::ModuleRedditClient,
     config::{SubredditConfig, SubredditsConfig},
     subreddit::Subreddit,
@@ -17,6 +17,7 @@ use crate::{
 
 pub mod comment_cdn_links;
 pub mod comment_code;
+pub mod comment_complex;
 pub mod comment_staff_replies;
 pub mod inbox_commands;
 pub mod post_flairs;
@@ -25,12 +26,14 @@ pub mod post_vague_title;
 
 pub use comment_cdn_links::CdnLinks;
 pub use comment_code::CommentCode;
+pub use comment_complex::CommentComplex;
 pub use comment_staff_replies::CommentStaffReplies;
 pub use inbox_commands::InboxCommands;
 pub use post_flairs::PostFlairs;
 pub use post_scams::PostScams;
 pub use post_vague_title::PostVagueTitle;
 
+#[expect(unused_variables)]
 pub trait Module {
     fn new() -> Self
     where
@@ -121,7 +124,8 @@ impl<'a> super::RedditClient<'a> {
             InboxCommands,
             PostVagueTitle,
             CdnLinks,
-            CommentStaffReplies
+            CommentStaffReplies,
+            CommentComplex
         )
     }
 }
@@ -339,7 +343,7 @@ pub enum PostAction {
 }
 
 impl PostAction {
-    pub fn with_module(mut self, name: &str) -> PostAction {
+    pub fn with_module(self, name: &str) -> PostAction {
         match self {
             PostAction::Ignore => PostAction::Ignore,
             PostAction::Action(mut data) => {
