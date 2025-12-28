@@ -134,6 +134,10 @@ impl Words {
             }
         });
     }
+
+    pub fn contains(&self, word: &str) -> bool {
+        self.iter_words().any(|v| v == word)
+    }
 }
 
 impl From<String> for Words {

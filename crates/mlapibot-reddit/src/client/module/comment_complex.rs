@@ -1,3 +1,4 @@
+use mlapibot_common::Words;
 use roux::{client::RemoveReason, util::error::RouxErrorKind};
 
 pub struct CommentComplex;
@@ -40,15 +41,13 @@ impl super::Module for CommentComplex {
                 continue;
             }
 
-            if !complex
-                .link_title
-                .iter()
-                .any(|v| comment.link_title().contains(v))
-            {
+            let title_words = Words::new(comment.link_title());
+            if !complex.link_title.iter().any(|v| title_words.contains(v)) {
                 continue;
             }
 
-            if !complex.comment.iter().any(|v| comment.body().contains(v)) {
+            let comment_words = Words::new(comment.body());
+            if !complex.comment.iter().any(|v| comment_words.contains(v)) {
                 continue;
             }
 
