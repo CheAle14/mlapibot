@@ -140,6 +140,14 @@
         {
           "children": ["you've", "been", "gifted", "roblox", "giftcard"],
           "type": "ordered"
+        },
+        {
+          "children": ["santa", "accept nitro"],
+          "type": "ordered"
+        },
+        {
+          "children": ["santa", "youve", "been", "gifted", "nitro"],
+          "type": "ordered"
         }
       ],
       "remove": true
