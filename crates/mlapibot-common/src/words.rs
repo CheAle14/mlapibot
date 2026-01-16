@@ -308,6 +308,7 @@ static STOP_WORDS: &[&str] = &[
     "so",
     "some",
     "someone",
+    "something",
     "struggle",
     "stupid",
     "such",
@@ -426,7 +427,9 @@ mod tests {
             "I got an issue",
             "This might be a stupid question",
             "Awesome. Love that.",
-            "discord bugged"
+            "discord bugged",
+            "Please someone help me",
+            "Can someone help me out with something."
         );
     }
 
