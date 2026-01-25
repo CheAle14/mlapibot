@@ -93,8 +93,23 @@ impl MlapiDb {
     pub fn get_incident_posts_waiting_unsticky(
         &self,
     ) -> rusqlite::Result<Vec<ResolvedIncidentPost>> {
+        // Since only the live incident post really tracks the resolved at,
+        // each subreddit's resolved_at is no longer set.
+        // Rather than also set it at the same time, it is easier to just
+        // defer to the live incident table instead.
+        // This means `IncidentPosts.ResolvedAt` effectively refers to
+        // when the post was unstickied (or null, if it never was).
         let mut stmt = self.conn.prepare(
-            "SELECT PostFullname, StickyState, ResolvedAt, PriorStickyFullname FROM IncidentPosts WHERE ResolvedAt IS NOT NULL AND StickyState==1",
+            "SELECT
+                ic.PostFullname,
+                ic.StickyState,
+                ic.PriorStickyFullname,
+                live.ResolvedAt
+            FROM IncidentPosts ic
+            INNER JOIN
+                LiveIncidentPosts live ON live.IncidentId = ic.IncidentId
+            WHERE
+                live.ResolvedAt IS NOT NULL AND ic.StickyState == 1;",
         )?;
 
         let mut v = Vec::new();

@@ -42,16 +42,16 @@ pub struct ResolvedIncidentPost {
 impl ResolvedIncidentPost {
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         let post_fullname = row.get(0)?;
-        let sticky_state = StickyState::from_row(row, 1, 3)?;
+        let sticky_state = StickyState::from_row(row, 1, 2)?;
 
         // since we set it as a DateTime<Utc>, sqlite seems to give it us back
         // in this same format.
-        let resolved_at: DateTime<Utc> = row.get(2)?;
+        let resolved_at: DateTime<Utc> = row.get(3)?;
 
         Ok(Self {
             post_fullname,
             sticky_state,
-            resolved_at: resolved_at,
+            resolved_at,
         })
     }
 }
