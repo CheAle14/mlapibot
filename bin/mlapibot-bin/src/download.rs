@@ -13,13 +13,15 @@ pub struct DownloadArgs {
 }
 
 impl DownloadArgs {
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<()> {
         let url = Url::parse(&self.link)
             .expect("input is a valid URL")
             .fix()
             .expect("is https");
 
-        let downloaded = mlapibot_analysis::download_file(&url)?.expect("can download");
+        let downloaded = mlapibot_analysis::download_file(&url)
+            .await?
+            .expect("can download");
 
         let mut dir = match &self.test {
             Some(dir) => {

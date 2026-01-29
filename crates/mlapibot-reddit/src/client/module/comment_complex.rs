@@ -3,6 +3,7 @@ use roux::{client::RemoveReason, util::error::RouxErrorKind};
 
 pub struct CommentComplex;
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for CommentComplex {
     fn new() -> Self
     where
@@ -21,7 +22,7 @@ impl super::Module for CommentComplex {
 
     super::impl_mask_subreddits!(comments_complex => comments);
 
-    fn run_comment<'client>(
+    async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
@@ -51,7 +52,9 @@ impl super::Module for CommentComplex {
                 continue;
             }
 
-            comment.remove_with_reason(false, RemoveReason::ReasonId(&complex.reason_id))?;
+            comment
+                .remove_with_reason(false, RemoveReason::ReasonId(&complex.reason_id))
+                .await?;
         }
 
         Ok(())

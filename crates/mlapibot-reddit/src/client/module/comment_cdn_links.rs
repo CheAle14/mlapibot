@@ -1,5 +1,5 @@
 use anyhow::Context;
-use mlapibot_analysis::Url;
+use mlapibot_analysis::{Url, download_file};
 use mlapibot_imgur::image::ImageBuilder;
 
 pub struct CdnLinks;
@@ -22,6 +22,7 @@ impl CdnLinks {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for CdnLinks {
     fn new() -> Self
     where
@@ -40,7 +41,7 @@ impl super::Module for CdnLinks {
 
     super::impl_mask_subreddits!(comments_cdn => comments);
 
-    fn run_comment<'client>(
+    async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
@@ -51,7 +52,7 @@ impl super::Module for CdnLinks {
             return Ok(());
         }
 
-        let http = reqwest::blocking::Client::new();
+        let http = reqwest::Client::new();
 
         let mut uploaded = Vec::new();
 
@@ -68,9 +69,10 @@ impl super::Module for CdnLinks {
                     continue;
                 }
 
-                let mut response = http
+                let response = http
                     .get(link.as_str())
                     .send()
+                    .await
                     .with_context(|| format!("sending {}", link.as_str()))?
                     .error_for_status()
                     .with_context(|| format!("status {}", link.as_str()))?;
@@ -78,9 +80,14 @@ impl super::Module for CdnLinks {
                 let mut temp = tempfile::NamedTempFile::with_suffix(extension)
                     .with_context(|| format!("tempfile {}", link.as_str()))?;
 
-                response.copy_to(&mut temp)?;
+                let bytes = response.bytes().await?;
+                let mut bytes: &[u8] = &*bytes;
 
-                let link = imgur.upload_image(ImageBuilder::builder(temp.path()))?;
+                std::io::copy(&mut bytes, &mut temp)?;
+
+                let link = imgur
+                    .upload_image(ImageBuilder::builder(temp.path()))
+                    .await?;
                 uploaded.push(link);
             }
         }
@@ -105,10 +112,10 @@ impl super::Module for CdnLinks {
             )
         };
 
-        let reply = comment.reply(&text)?;
+        let reply = comment.reply(&text).await?;
 
         if reply.can_mod_post() {
-            reply.lock()?;
+            reply.lock().await?;
         }
 
         Ok(())

@@ -6,9 +6,9 @@ use error::ImgurError;
 use image::{Image, ImageBuilder};
 use mlapibot_ocr::image::OcrImage;
 use reqwest::{
-    Method,
-    blocking::{RequestBuilder, multipart},
+    Method, RequestBuilder,
     header::{HeaderMap, HeaderValue},
+    multipart,
 };
 use serde::Deserialize;
 
@@ -17,7 +17,7 @@ pub mod error;
 pub mod image;
 
 pub struct ImgurClient {
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
 }
 
 #[derive(Deserialize, Debug)]
@@ -37,7 +37,7 @@ impl ImgurClient {
                 .map_err(ImgurError::InvalidHeaderValue)?,
         );
 
-        let client = reqwest::blocking::ClientBuilder::new()
+        let client = reqwest::ClientBuilder::new()
             .default_headers(headers)
             .build()
             .map_err(ImgurError::Init)?;
@@ -73,45 +73,27 @@ impl ImgurClient {
         self.request(Method::DELETE, endpoint)
     }
 
-    // 8jbQ8JO0goORG13
-
-    pub fn create_album(&mut self, album: AlbumBuilder) -> crate::error::Result<Album> {
-        use std::io::Write;
-
-        let mut response = self
+    pub async fn create_album(&mut self, album: AlbumBuilder) -> crate::error::Result<Album> {
+        let response = self
             .post("/album")
             .json(&album)
             .send()
+            .await
             .map_err(ImgurError::SendRequest)?;
-
-        if let Err(error) = response.error_for_status_ref() {
-            if let Ok(f) = std::fs::File::create("imgur-error.txt") {
-                let mut writer = BufWriter::new(f);
-
-                for (key, value) in response.headers() {
-                    let _ = write!(writer, "{key}: ");
-                    let _ = writer.write_all(value.as_bytes());
-                    let _ = writeln!(writer, "");
-                }
-
-                let _ = writeln!(writer, "\n\n");
-
-                let _ = response.copy_to(&mut writer);
-            }
-
-            return Err(ImgurError::BadResponse(error));
-        }
 
         response
             .json::<BasicResponse<Album>>()
+            .await
             .map(|r| r.data)
             .map_err(ImgurError::ResponseJson)
     }
 
-    pub fn upload_image(&mut self, image: ImageBuilder) -> crate::error::Result<Image> {
-        let form_image = multipart::Part::file(image.path).map_err(ImgurError::UploadReadImage)?;
+    pub async fn upload_image(&mut self, image: ImageBuilder<'_>) -> crate::error::Result<Image> {
+        let form_image = multipart::Part::file(image.path)
+            .await
+            .map_err(ImgurError::UploadReadImage)?;
 
-        let form = reqwest::blocking::multipart::Form::new()
+        let form = reqwest::multipart::Form::new()
             .part("image", form_image)
             .text("type", "image");
 
@@ -131,10 +113,11 @@ impl ImgurClient {
             .post("/image")
             .multipart(form)
             .send()
+            .await
             .map_err(ImgurError::SendRequest)?;
 
-        let str = response.text().map_err(ImgurError::ResponseText)?;
-        let _ = std::fs::write("imgur_out.json", &str);
+        let str = response.text().await.map_err(ImgurError::ResponseText)?;
+        // let _ = std::fs::write("imgur_out.json", &str);
 
         serde_json::from_str::<BasicResponse<Image>>(&str)
             .map(|r| r.data)
@@ -156,7 +139,7 @@ impl ImgurClient {
     //     Ok(())
     // }
 
-    pub fn update_album(
+    pub async fn update_album(
         &mut self,
         deletehash: &str,
         album: AlbumBuilder,
@@ -166,6 +149,7 @@ impl ImgurClient {
         self.put(&url)
             .json(&album)
             .send()
+            .await
             .map_err(ImgurError::SendRequest)?
             .error_for_status()
             .map_err(ImgurError::BadResponse)?;
@@ -173,11 +157,12 @@ impl ImgurClient {
         Ok(())
     }
 
-    pub fn delete_album(&mut self, album: Album) -> crate::error::Result<()> {
+    pub async fn delete_album(&mut self, album: Album) -> crate::error::Result<()> {
         let endpoint = format!("/album/{}", album.delete_hash);
 
         self.delete(&endpoint)
             .send()
+            .await
             .map_err(ImgurError::SendRequest)?
             .error_for_status()
             .map_err(ImgurError::BadResponse)?;
@@ -186,7 +171,7 @@ impl ImgurClient {
     }
 }
 
-pub fn upload_images<'images>(
+pub async fn upload_images<'images>(
     client: &mut ImgurClient,
     images: impl Iterator<Item = &'images OcrImage>,
     get_trigger_words_image: impl Fn(usize) -> Option<DynamicImage>,
@@ -210,8 +195,10 @@ pub fn upload_images<'images>(
             "The image's words as they were seen by the bot's OCR. No scams were detected in this image."
         };
 
-        let uploaded =
-            client.upload_image(ImageBuilder::builder(tempfile.path()).description(description))?;
+        let uploaded = client
+            .upload_image(ImageBuilder::builder(tempfile.path()).description(description))
+            .await?;
+
         album_images.push(uploaded);
 
         if let Some(trigger) = trigger {
@@ -227,19 +214,23 @@ pub fn upload_images<'images>(
             let uploaded = client
                 .upload_image(ImageBuilder::builder(tempfile.path()).description(
                 "The words making up the phrase triggering the response is bounded in red boxes.",
-            ))?;
+            )).await?;
             album_images.push(uploaded);
         }
     }
 
-    let album = client.create_album(AlbumBuilder::builder().title("/u/mlapibot OCR"))?;
+    let album = client
+        .create_album(AlbumBuilder::builder().title("/u/mlapibot OCR"))
+        .await?;
 
-    client.update_album(
-        &album.delete_hash,
-        AlbumBuilder::builder()
-            .cover(album_images.first().unwrap().id.as_str())
-            .delete_hashes(album_images.iter().map(|x| x.delete_hash.as_str())),
-    )?;
+    client
+        .update_album(
+            &album.delete_hash,
+            AlbumBuilder::builder()
+                .cover(album_images.first().unwrap().id.as_str())
+                .delete_hashes(album_images.iter().map(|x| x.delete_hash.as_str())),
+        )
+        .await?;
 
     Ok(album)
 }

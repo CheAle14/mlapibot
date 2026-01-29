@@ -44,10 +44,14 @@ pub fn extract_image_links(text: &str) -> Vec<Url> {
     all
 }
 
-pub fn download_file(url: &Url) -> crate::error::Result<Option<ImageSource>> {
+pub async fn download_file(url: &Url) -> crate::error::Result<Option<ImageSource>> {
     let text = url.as_str();
     println!("Downloading image from {text}");
-    let mut resp = reqwest::blocking::get(text).map_err(AnalysisError::DownloadNetErr)?;
+
+    let mut resp = reqwest::get(text)
+        .await
+        .map_err(AnalysisError::DownloadNetErr)?;
+
     let len = resp.content_length().unwrap_or_default();
     println!("Image is {len} bytes");
 
@@ -64,8 +68,10 @@ pub fn download_file(url: &Url) -> crate::error::Result<Option<ImageSource>> {
         .tempfile()
         .map_err(AnalysisError::DownloadFileErr)?;
 
-    resp.copy_to(&mut file)
-        .map_err(AnalysisError::DownloadNetErr)?;
+    let bytes = resp.bytes().await.map_err(AnalysisError::DownloadNetErr)?;
+    let mut slice: &[u8] = &*bytes;
+
+    std::io::copy(&mut slice, &mut file).map_err(AnalysisError::DownloadFileErr)?;
 
     Ok(Some(ImageSource::DeleteOnDropFile(file)))
 }

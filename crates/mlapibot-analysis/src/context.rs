@@ -17,7 +17,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(
+    pub async fn new(
         urls: impl Iterator<Item = Url> + ExactSizeIterator,
         title: Option<String>,
         body: Option<String>,
@@ -25,7 +25,7 @@ impl Context {
     ) -> crate::error::Result<Self> {
         let mut images = Vec::with_capacity(urls.len());
         for url in urls {
-            match download_file(&url) {
+            match download_file(&url).await {
                 Ok(Some(image)) => match OcrImage::new(image) {
                     Ok(image) => images.push(image),
                     Err(error) => warnings.push(ContextWarning(url, AnalysisError::OCR(error))),
@@ -53,25 +53,28 @@ impl Context {
         })
     }
 
-    pub fn new_link(link: &str, warnings: &mut Vec<ContextWarning>) -> crate::error::Result<Self> {
+    pub async fn new_link(
+        link: &str,
+        warnings: &mut Vec<ContextWarning>,
+    ) -> crate::error::Result<Self> {
         let Ok(Some(url)) = Url::parse(link).map(|u| u.fix()) else {
             return Err(AnalysisError::Url(link.to_string()));
         };
 
-        Self::new(std::iter::once(url), None, None, warnings)
+        Self::new(std::iter::once(url), None, None, warnings).await
     }
 
-    pub fn new_body(
+    pub async fn new_body(
         body: impl Into<String>,
         warnings: &mut Vec<ContextWarning>,
     ) -> crate::error::Result<Self> {
         let text: String = body.into();
         let links = extract_image_links(&text);
 
-        Self::new(links.into_iter(), None, Some(text), warnings)
+        Self::new(links.into_iter(), None, Some(text), warnings).await
     }
 
-    pub fn new_submission(
+    pub async fn new_submission(
         urls: impl Iterator<Item = Url> + ExactSizeIterator,
         title: impl Into<String>,
         body: impl Into<String>,
@@ -87,6 +90,7 @@ impl Context {
             Some(body),
             warnings,
         )
+        .await
     }
 }
 

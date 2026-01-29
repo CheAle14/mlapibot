@@ -1,22 +1,22 @@
-use std::time::{Duration, Instant};
+use std::{
+    pin::Pin,
+    time::{Duration, Instant},
+};
 
 use crate::QuickStopError;
 
-use super::task::RateTask;
+pub type RateTask<Ctx> =
+    for<'a> fn(&'a mut Ctx) -> Pin<Box<dyn Future<Output = anyhow::Result<Duration>> + 'a>>;
 
 pub struct RateJob<Ctx> {
-    task: Box<dyn RateTask<Ctx>>,
+    task: RateTask<Ctx>,
     name: &'static str,
     next: Instant,
     failures: u32,
 }
 
 impl<Ctx> RateJob<Ctx> {
-    pub fn new<T>(name: &'static str, task: T) -> Self
-    where
-        T: RateTask<Ctx> + 'static,
-    {
-        let task = Box::new(task);
+    pub fn new(name: &'static str, task: RateTask<Ctx>) -> Self {
         Self {
             task,
             name,
@@ -57,8 +57,10 @@ impl<Ctx> RateJob<Ctx> {
             .unwrap_or_else(|| Instant::now());
     }
 
-    pub fn run(&mut self, ctx: &mut Ctx) -> Result<Instant, QuickStopError> {
-        match self.task.run(ctx) {
+    pub async fn run(&mut self, ctx: &mut Ctx) -> Result<Instant, QuickStopError> {
+        let output = (self.task)(ctx);
+
+        match output.await {
             Ok(dur) => {
                 self.mark_success();
                 self.set_next_time(dur)

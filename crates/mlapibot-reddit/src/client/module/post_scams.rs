@@ -10,6 +10,7 @@ use crate::{
 
 pub struct PostScams;
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for PostScams {
     fn new() -> Self
     where
@@ -28,7 +29,7 @@ impl super::Module for PostScams {
 
     super::impl_mask_subreddits!(scams => posts);
 
-    fn run_post<'client>(
+    async fn run_post<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
@@ -48,14 +49,16 @@ impl super::Module for PostScams {
             post.title(),
             post.selftext(),
             &mut warnings,
-        )?;
+        )
+        .await?;
 
         if warnings.len() > 0 {
             RedditClient::_send_warnings(
                 client.webhook.as_mut(),
                 warnings,
                 format!("Warnings with post {:?}, {:?}", post.id(), post.permalink()),
-            )?;
+            )
+            .await?;
         }
 
         let result = match mlapibot_analysis::get_best_analysis(&ctx, client.analzyers) {
@@ -64,7 +67,7 @@ impl super::Module for PostScams {
                 eprintln!("Error whilst analyising {}: {err:?}", post.id());
                 if let Some(webhook) = client.webhook {
                     let msg = create_error_processing_post(&post);
-                    webhook.send(&msg)?;
+                    webhook.send(&msg).await?;
                 }
                 return Ok(PostAction::Ignore);
             }
@@ -88,7 +91,8 @@ impl super::Module for PostScams {
                         .unwrap_or_else(|| &modconf.default_removal_reason);
 
                     let reason = subreddit
-                        .get_removal_reason(reason_id)?
+                        .get_removal_reason(reason_id)
+                        .await?
                         .map(|r| r.message.as_str())
                         .unwrap_or("<error: removal reason not found>");
 

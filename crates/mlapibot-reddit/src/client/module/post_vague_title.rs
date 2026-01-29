@@ -6,6 +6,7 @@ use crate::client::module::{ActionData, PostAction};
 
 pub struct PostVagueTitle;
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for PostVagueTitle {
     fn new() -> Self
     where
@@ -24,7 +25,7 @@ impl super::Module for PostVagueTitle {
 
     super::impl_mask_subreddits!(related_titles => posts);
 
-    fn run_post<'client>(
+    async fn run_post<'client>(
         &mut self,
         _client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
@@ -67,7 +68,8 @@ impl super::Module for PostVagueTitle {
             .unwrap_or_else(|| &modconf.default_removal_reason);
 
         let reason = subreddit
-            .get_removal_reason(reason_id)?
+            .get_removal_reason(reason_id)
+            .await?
             .map(|r| r.message.as_str())
             .unwrap_or("<error: removal reason not found>");
 

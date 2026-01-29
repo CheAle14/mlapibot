@@ -34,6 +34,7 @@ pub use post_scams::PostScams;
 pub use post_vague_title::PostVagueTitle;
 
 #[expect(unused_variables)]
+#[async_trait::async_trait(?Send)]
 pub trait Module {
     fn new() -> Self
     where
@@ -46,7 +47,7 @@ pub trait Module {
         SplitSubMask::new()
     }
 
-    fn run_post<'client>(
+    async fn run_post<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
@@ -57,7 +58,7 @@ pub trait Module {
         Ok(PostAction::Ignore)
     }
 
-    fn run_comment<'client>(
+    async fn run_comment<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         comment: &LatestComment<AuthedClient>,
@@ -65,7 +66,7 @@ pub trait Module {
         Ok(())
     }
 
-    fn run_inbox<'client>(
+    async fn run_inbox<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddits: &mut [Subreddit],
@@ -74,7 +75,7 @@ pub trait Module {
         Ok(None)
     }
 
-    fn run_timer<'client>(
+    async fn run_timer<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddits: &mut [Subreddit],
@@ -327,11 +328,11 @@ impl<'a> InboxMsg<'a> {
         )
     }
 
-    fn reply(
+    async fn reply(
         &self,
         content: &str,
     ) -> Result<roux::models::Message<roux::client::AuthedClient>, roux::util::RouxError> {
-        self.inner.reply(content)
+        self.inner.reply(content).await
     }
 }
 
@@ -441,7 +442,7 @@ impl ActionData {
         }
     }
 
-    pub fn execute(
+    pub async fn execute(
         self,
         is_debug: bool,
         webhook: Option<&mut WebhookClient>,
@@ -449,9 +450,9 @@ impl ActionData {
         post: &Submission,
     ) -> anyhow::Result<()> {
         let reply_fullname = if let Some(reply) = self.reply {
-            let comment = post.comment(&reply.text)?;
+            let comment = post.comment(&reply.text).await?;
             if reply.distinguish != Distinguish::None {
-                comment.distinguish(reply.distinguish, true)?;
+                comment.distinguish(reply.distinguish, true).await?;
             }
 
             Some(comment.name().full().to_string())
@@ -464,14 +465,15 @@ impl ActionData {
             ModAct::Report => {
                 if let Some(name) = self.analyser.as_ref() {
                     post.report(&format!("Appears to be a common repost ({name})"))
+                        .await
                 } else {
-                    post.report("Appears to be a common report")
+                    post.report("Appears to be a common report").await
                 }?;
 
                 (true, false)
             }
             ModAct::Remove => {
-                post.remove(false)?;
+                post.remove(false).await?;
                 (false, true)
             }
         };
@@ -494,7 +496,7 @@ impl ActionData {
                 self.analyser.as_ref().map(|c| c.as_str()),
                 is_debug,
             );
-            webhook.send(&msg)?;
+            webhook.send(&msg).await?;
         }
 
         Ok(())

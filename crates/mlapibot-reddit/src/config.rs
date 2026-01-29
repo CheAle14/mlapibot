@@ -150,6 +150,13 @@ impl<'de> serde::Deserialize<'de> for PostFlairSetting {
                 })
             }
 
+            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                self.visit_string(v.to_owned())
+            }
+
             fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
             where
                 A: serde::de::MapAccess<'de>,
@@ -157,13 +164,13 @@ impl<'de> serde::Deserialize<'de> for PostFlairSetting {
                 let mut template = None;
                 let mut text = None;
 
-                while let Some((k, v)) = map.next_entry::<&str, String>()? {
-                    match k {
+                while let Some((k, v)) = map.next_entry::<String, String>()? {
+                    match k.as_str() {
                         "template_id" | "template" => template = Some(v),
                         "text" => text = Some(v),
                         _ => {
                             return Err(serde::de::Error::unknown_field(
-                                k,
+                                &k,
                                 &["template_id", "text"],
                             ));
                         }

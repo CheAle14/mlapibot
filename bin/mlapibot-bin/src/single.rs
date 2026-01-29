@@ -23,7 +23,7 @@ pub struct SingleArgs {
 }
 
 impl SingleArgs {
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self) -> anyhow::Result<()> {
         let analyzers = mlapibot_analysis::load_scams()?;
 
         let mut warnings = Vec::new();
@@ -33,7 +33,8 @@ impl SingleArgs {
                 None,
                 None,
                 &mut warnings,
-            )?
+            )
+            .await?
         } else {
             Context::new_path(PathBuf::from(&self.link_or_file))?
         };

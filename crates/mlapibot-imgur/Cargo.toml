@@ -8,7 +8,7 @@ mlapibot-ocr = { path = "../mlapibot-ocr" }
 
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 image = { workspace = true }

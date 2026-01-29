@@ -92,7 +92,7 @@ macro_rules! make_view {
 impl<'a> RedditClient<'a> {
     const USER_AGENT: &'static str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
 
-    pub fn new(
+    pub async fn new(
         analzyers: &'a [Analyzer],
         data_dir: PathBuf,
         database_path: PathBuf,
@@ -120,7 +120,7 @@ impl<'a> RedditClient<'a> {
         .username(&credentials.username)
         .password(&credentials.password);
 
-        let client = OAuthClient::new(config)?.login()?;
+        let client = OAuthClient::new(config)?.login().await?;
 
         let webhook = credentials
             .webhook_url
@@ -149,15 +149,18 @@ impl<'a> RedditClient<'a> {
         let subreddits = subreddits?;
 
         let cached_status_components = Cached::new(Duration::from_secs(600), &status, |client| {
-            let mut map = HashMap::new();
-            let vec = client.get_components()?;
+            Box::pin(async {
+                let mut map = HashMap::new();
+                let vec = client.get_components().await?;
 
-            for item in vec {
-                map.insert(item.id.clone(), item);
-            }
+                for item in vec {
+                    map.insert(item.id.clone(), item);
+                }
 
-            Ok(map)
-        })?;
+                Ok(map)
+            })
+        })
+        .await?;
 
         println!(
             "Logged in as /u/{}; monitoring {} with {} total known subreddits in {}",
@@ -198,7 +201,7 @@ impl<'a> RedditClient<'a> {
         })
     }
 
-    fn _send_warnings(
+    async fn _send_warnings(
         webhook: Option<&mut WebhookClient>,
         warnings: Vec<ContextWarning>,
         context: impl Into<String>,
@@ -206,23 +209,23 @@ impl<'a> RedditClient<'a> {
         if warnings.len() > 0 {
             if let Some(webhook) = webhook {
                 let message = create_multiple_error_message(context, warnings);
-                webhook.send(&message)?;
+                webhook.send(&message).await?;
             }
         }
 
         Ok(())
     }
 
-    fn send_warnings(
+    async fn send_warnings(
         &mut self,
         warnings: Vec<ContextWarning>,
         context: impl Into<String>,
     ) -> anyhow::Result<()> {
-        Self::_send_warnings(self.webhook.as_mut(), warnings, context)
+        Self::_send_warnings(self.webhook.as_mut(), warnings, context).await
     }
 
-    fn check_inbox(&mut self) -> anyhow::Result<Duration> {
-        let inbox = self.client.unread()?;
+    async fn check_inbox(&mut self) -> anyhow::Result<Duration> {
+        let inbox = self.client.unread().await?;
         for item in inbox {
             let (msg, dev_only) = InboxMsg::new(&item);
 
@@ -232,7 +235,7 @@ impl<'a> RedditClient<'a> {
 
             println!("Saw inbox {:?} from /u/{}", msg.subject, msg.author,);
 
-            item.mark_read()?;
+            item.mark_read().await?;
 
             if msg.author == "AutoModerator" {
                 continue;
@@ -241,7 +244,7 @@ impl<'a> RedditClient<'a> {
             if self.last_status != StatusIndicator::Critical {
                 if let Some(webhook) = &mut self.webhook {
                     let inbox = create_inbox_message(&item);
-                    webhook.send(&inbox)?;
+                    webhook.send(&inbox).await?;
                 }
             }
 
@@ -259,6 +262,7 @@ impl<'a> RedditClient<'a> {
                 let action = registration
                     .module
                     .run_inbox(&mut view, &mut self.subreddits, &msg)
+                    .await
                     .with_context(|| format!("{name}.run_inbox"))?;
 
                 match action {
@@ -280,7 +284,8 @@ impl<'a> RedditClient<'a> {
 
                         let subreddit = &mut self.subreddits[idx];
 
-                        view.run_post(&mut self.modules, subreddit, idx, post, false)?;
+                        view.run_post(&mut self.modules, subreddit, idx, post, false)
+                            .await?;
                     }
                     InboxAction::RedoMsg(sub, msg) => {
                         let Some(idx) = self
@@ -296,14 +301,17 @@ impl<'a> RedditClient<'a> {
                                 continue;
                             }
 
-                            reg.module.run_comment(&mut view, &msg).with_context(|| {
-                                format!(
-                                    "redo run-comment /r/{}/{}/{}",
-                                    sub.subreddit(),
-                                    sub.id(),
-                                    msg.id()
-                                )
-                            })?;
+                            reg.module
+                                .run_comment(&mut view, &msg)
+                                .await
+                                .with_context(|| {
+                                    format!(
+                                        "redo run-comment /r/{}/{}/{}",
+                                        sub.subreddit(),
+                                        sub.id(),
+                                        msg.id()
+                                    )
+                                })?;
                         }
                     }
                 }
@@ -313,14 +321,18 @@ impl<'a> RedditClient<'a> {
         Ok(Duration::from_secs(15))
     }
 
-    fn check_subreddits(&mut self) -> anyhow::Result<Duration> {
+    async fn check_subreddits(&mut self) -> anyhow::Result<Duration> {
         for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
             if !self.subreddits_mask.posts.is_set(idx) {
                 // no modules want this subreddit's posts.
                 continue;
             }
 
-            for post in subreddit.newest_unseen().context("get newest unseen")? {
+            for post in subreddit
+                .newest_unseen()
+                .await
+                .context("get newest unseen")?
+            {
                 if post.author() == &self.own_name {
                     continue;
                 }
@@ -351,19 +363,20 @@ impl<'a> RedditClient<'a> {
                 }
 
                 let mut view = make_view!(self);
-                view.run_post(&mut self.modules, subreddit, idx, post, has_seen)?;
+                view.run_post(&mut self.modules, subreddit, idx, post, has_seen)
+                    .await?;
             }
         }
         Ok(Duration::from_secs(15))
     }
 
-    fn check_sub_comments(&mut self) -> anyhow::Result<Duration> {
+    async fn check_sub_comments(&mut self) -> anyhow::Result<Duration> {
         for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
             if !self.subreddits_mask.comments.is_set(idx) {
                 continue;
             }
 
-            let comments = subreddit.data.latest_comments(None, None)?;
+            let comments = subreddit.data.latest_comments(None, None).await?;
 
             let mut view = make_view!(self);
 
@@ -384,6 +397,7 @@ impl<'a> RedditClient<'a> {
                         let name = reg.module.name();
                         reg.module
                             .run_comment(&mut view, &comment)
+                            .await
                             .with_context(|| {
                                 format!("{name}.run_comment({})", comment.name().full())
                             })?;
@@ -395,7 +409,10 @@ impl<'a> RedditClient<'a> {
         Ok(Duration::from_secs(15))
     }
 
-    fn check_status_updates(&mut self, incident: &IncidentWithLive) -> anyhow::Result<()> {
+    async fn check_status_updates(
+        &mut self,
+        incident: &IncidentWithLive<'_>,
+    ) -> anyhow::Result<()> {
         let current_timestamp = incident
             .incident
             .updated_at
@@ -436,7 +453,8 @@ impl<'a> RedditClient<'a> {
             prior = Some(update.status);
 
             self.client
-                .update_live_thread(&incident.live_thread.fullname, &text)?;
+                .update_live_thread(&incident.live_thread.fullname, &text)
+                .await?;
         }
 
         self.db.update_live_incident(
@@ -447,20 +465,21 @@ impl<'a> RedditClient<'a> {
 
         if incident.incident.resolved_at.is_some() && incident.live_thread.resolved_at.is_none() {
             self.client
-                .close_live_thread(&incident.live_thread.fullname)?;
+                .close_live_thread(&incident.live_thread.fullname)
+                .await?;
         }
 
         Ok(())
     }
 
-    fn update_status_with(
+    async fn update_status_with(
         &mut self,
         incidents: &[Incident],
         is_summary: bool,
     ) -> anyhow::Result<()> {
         let mut incidents_with_live = Vec::new();
 
-        let components = self.cached_status_components.data(&self.status)?;
+        let components = self.cached_status_components.data(&self.status).await?;
 
         let mut unseen = self.db.get_unresolved_live_incidents()?;
 
@@ -488,22 +507,26 @@ impl<'a> RedditClient<'a> {
 
                     let _ = write_affected_components_list(&mut resources, incident, &components);
 
-                    let live_thread_id = self.client.create_live_thread(
-                        &get_title(incident, 128)?,
-                        &format!(
-                            "Tracking updates to [a Discord incident/outage]({}).",
-                            incident.shortlink
-                        ),
-                        false,
-                        &resources,
-                    )?;
+                    let live_thread_id = self
+                        .client
+                        .create_live_thread(
+                            &get_title(incident, 128)?,
+                            &format!(
+                                "Tracking updates to [a Discord incident/outage]({}).",
+                                incident.shortlink
+                            ),
+                            false,
+                            &resources,
+                        )
+                        .await?;
 
                     self.db
                         .create_live_incident(&incident.id, &live_thread_id, None)?;
 
                     if let Some(admin) = self.admin.as_ref() {
                         self.client
-                            .invite_live_thread_contributor(&live_thread_id, &admin)?;
+                            .invite_live_thread_contributor(&live_thread_id, &admin)
+                            .await?;
                     }
 
                     incidents_with_live.push(IncidentWithLive {
@@ -534,6 +557,7 @@ impl<'a> RedditClient<'a> {
                 let incident = self
                     .status
                     .get_incident(&id)
+                    .await
                     .with_context(|| format!("get incident {id}"))?;
 
                 let live_thread = self
@@ -549,7 +573,7 @@ impl<'a> RedditClient<'a> {
         }
 
         for incident in &incidents_with_live {
-            self.check_status_updates(incident).with_context(|| {
+            self.check_status_updates(incident).await.with_context(|| {
                 format!("check live updates for incident {}", incident.incident.id)
             })?;
         }
@@ -564,6 +588,7 @@ impl<'a> RedditClient<'a> {
                         is_summary,
                         config,
                     )
+                    .await
                     .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
             }
         }
@@ -571,8 +596,8 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn check_status(&mut self) -> anyhow::Result<Duration> {
-        let summary = self.status.get_summary()?;
+    async fn check_status(&mut self) -> anyhow::Result<Duration> {
+        let summary = self.status.get_summary().await?;
         self.last_status = summary.status.indicator;
         println!(
             "Status is {:?}, with {} incidents",
@@ -580,13 +605,13 @@ impl<'a> RedditClient<'a> {
             summary.incidents.len()
         );
 
-        self.update_status_with(&summary.incidents, true)?;
+        self.update_status_with(&summary.incidents, true).await?;
 
         Ok(Duration::from_secs(5 * 60))
     }
 
-    fn check_own_comments(&mut self) -> anyhow::Result<Duration> {
-        let comments = self.client.comments(None)?;
+    async fn check_own_comments(&mut self) -> anyhow::Result<Duration> {
+        let comments = self.client.comments(None).await?;
 
         for comment in comments {
             if !comment.score_hidden() && comment.score() < 0 {
@@ -597,11 +622,11 @@ impl<'a> RedditClient<'a> {
                         comment.link_title(),
                         comment.link_author()
                     );
-                    comment.delete()?;
+                    comment.delete().await?;
                     self.db.set_mistaken(comment.name().full())?;
                     if let Some(webhook) = &mut self.webhook {
                         let message = create_deleted_downvoted_comment(&comment);
-                        webhook.send(&message)?;
+                        webhook.send(&message).await?;
                     }
                 } else {
                     println!(
@@ -617,7 +642,7 @@ impl<'a> RedditClient<'a> {
         Ok(Duration::from_secs(15))
     }
 
-    fn handle_webhook_event(
+    async fn handle_webhook_event(
         &mut self,
         event: WebhookEvent,
         ratelimiter: &mut Ratelimiter<Self>,
@@ -626,7 +651,7 @@ impl<'a> RedditClient<'a> {
             crate::status_tracker::WebhookEvent::IncidentUpdate(incident) => {
                 println!("[status-recv] got incident webhook");
                 let incident = *incident;
-                self.update_status_with(&[incident], false)?;
+                self.update_status_with(&[incident], false).await?;
             }
             _ => {
                 println!("[status-recv] got unknown webhook, scheduling status check to run");
@@ -636,7 +661,7 @@ impl<'a> RedditClient<'a> {
         Ok(())
     }
 
-    fn check_module_timers(&mut self) -> anyhow::Result<Duration> {
+    async fn check_module_timers(&mut self) -> anyhow::Result<Duration> {
         let now = Instant::now();
 
         let mut earliest_next = Duration::MAX;
@@ -655,6 +680,7 @@ impl<'a> RedditClient<'a> {
             let after = reg
                 .module
                 .run_timer(&mut view, &mut self.subreddits)
+                .await
                 .with_context(|| format!("run_timer {}", reg.module.name()))?;
 
             if after < earliest_next {
@@ -665,7 +691,7 @@ impl<'a> RedditClient<'a> {
         Ok(earliest_next)
     }
 
-    pub fn run(&mut self) -> anyhow::Result<()> {
+    pub async fn run(&mut self) -> anyhow::Result<()> {
         let (tx, rx) = mpsc::channel();
 
         if let Some(addr) = &self.status_webhook {
@@ -685,46 +711,57 @@ impl<'a> RedditClient<'a> {
 
         if wants.inbox() {
             println!("enabling inbox.");
-            ratelimiter.push("check_inbox", Self::check_inbox);
+            ratelimiter.push("check_inbox", |ctx| Box::pin(Self::check_inbox(ctx)));
         }
 
         if wants.posts() {
             println!("enabling subreddits.");
-            ratelimiter.push("check_subreddits", Self::check_subreddits);
+            ratelimiter.push("check_subreddits", |ctx| {
+                Box::pin(Self::check_subreddits(ctx))
+            });
         }
 
         if wants.comments() {
             println!("enabling comments.");
-            ratelimiter.push("check_sub_comments", Self::check_sub_comments);
+            ratelimiter.push("check_sub_comments", |ctx| {
+                Box::pin(Self::check_sub_comments(ctx))
+            });
         }
 
         if wants.timer() {
             println!("enabling timer.");
-            ratelimiter.push("check_module_timers", Self::check_module_timers);
+            ratelimiter.push("check_module_timers", |ctx| {
+                Box::pin(Self::check_module_timers(ctx))
+            });
         }
 
-        ratelimiter.push("check_own_comments", Self::check_own_comments);
-        ratelimiter.push("check_status", Self::check_status);
+        ratelimiter.push("check_own_comments", |ctx| {
+            Box::pin(Self::check_own_comments(ctx))
+        });
+        ratelimiter.push("check_status", |ctx| Box::pin(Self::check_status(ctx)));
 
         loop {
             while let Ok(event) = rx.try_recv() {
-                self.handle_webhook_event(event, &mut ratelimiter)?;
+                self.handle_webhook_event(event, &mut ratelimiter).await?;
             }
 
             let now = Instant::now();
-            let next = ratelimiter.run(self, now)?;
+            let next = ratelimiter.run(self, now).await?;
 
             match rx.recv_timeout(next - now) {
-                Ok(event) => self.handle_webhook_event(event, &mut ratelimiter)?,
+                Ok(event) => self.handle_webhook_event(event, &mut ratelimiter).await?,
                 Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
                 Err(RecvTimeoutError::Timeout) => continue,
             }
         }
     }
 
-    pub fn send_webhook(&mut self, message: &mlapibot_webhook::Message) -> anyhow::Result<()> {
+    pub async fn send_webhook(
+        &mut self,
+        message: &mlapibot_webhook::Message,
+    ) -> anyhow::Result<()> {
         if let Some(webhook) = &mut self.webhook {
-            webhook.send(message)?;
+            webhook.send(message).await?;
         }
         Ok(())
     }
@@ -751,15 +788,15 @@ pub struct ModuleRedditClient<'client> {
 }
 
 impl<'client> ModuleRedditClient<'client> {
-    pub fn send_warnings(
+    pub async fn send_warnings(
         &mut self,
         warnings: Vec<ContextWarning>,
         context: impl Into<String>,
     ) -> anyhow::Result<()> {
-        RedditClient::_send_warnings(self.webhook.as_mut(), warnings, context)
+        RedditClient::_send_warnings(self.webhook.as_mut(), warnings, context).await
     }
 
-    fn run_post(
+    async fn run_post(
         &mut self,
         modules: &mut [RegisteredModule],
         subreddit: &mut Subreddit,
@@ -778,6 +815,7 @@ impl<'client> ModuleRedditClient<'client> {
                 let mod_act = reg
                     .module
                     .run_post(self, subreddit, config, &post, has_seen)
+                    .await
                     .with_context(|| format!("{name}.run_post({})", post.name().full()))?
                     .with_module(reg.module.name());
 
@@ -787,7 +825,8 @@ impl<'client> ModuleRedditClient<'client> {
 
         match action {
             PostAction::Action(data) if !self.dry_run => {
-                data.execute(self.debug, self.webhook.as_mut(), self.db, &post)?;
+                data.execute(self.debug, self.webhook.as_mut(), self.db, &post)
+                    .await?;
             }
             PostAction::Ignore | PostAction::Action(..) => {
                 self.db.set_ignored(post.name().full())?;

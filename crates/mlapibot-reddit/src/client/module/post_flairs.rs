@@ -53,6 +53,7 @@ pub struct PostFlairCache {
 
 pub struct PostFlairs;
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for PostFlairs {
     fn new() -> Self
     where
@@ -71,7 +72,7 @@ impl super::Module for PostFlairs {
 
     super::impl_mask_subreddits!(flairs => posts);
 
-    fn run_post<'client>(
+    async fn run_post<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
@@ -79,7 +80,7 @@ impl super::Module for PostFlairs {
         post: &crate::Submission,
         _has_seen: bool,
     ) -> anyhow::Result<PostAction> {
-        if subreddit.is_moderator(post.author().as_str())? {
+        if subreddit.is_moderator(post.author().as_str()).await? {
             return Ok(PostAction::Ignore);
         }
 
@@ -139,9 +140,11 @@ impl super::Module for PostFlairs {
                 .or_insert_with(PostFlairData::default);
 
             if !client.dry_run {
-                post.select_flair(&flair.change_to.as_update())?;
+                post.select_flair(&flair.change_to.as_update()).await?;
                 if let Some(webhook) = client.webhook.as_mut() {
-                    webhook.send(&create_change_flair_message(post, &flair.change_to))?;
+                    webhook
+                        .send(&create_change_flair_message(post, &flair.change_to))
+                        .await?;
                 }
                 break;
             }

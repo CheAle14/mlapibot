@@ -34,7 +34,7 @@ impl RedditArgs {
         let mut file = std::fs::File::open(&credentials_file)
             .with_context(|| format!("reading {credentials_file:?}"))?;
 
-        let parsed = serde_json::from_reader(&mut file)?;
+        let parsed = serde_json::from_reader(&mut file).context("credentials.json")?;
         Ok(parsed)
     }
 
@@ -43,11 +43,11 @@ impl RedditArgs {
         let mut file =
             std::fs::File::open(&config).with_context(|| format!("reading {config:?}"))?;
 
-        let parsed = serde_json::from_reader(&mut file)?;
+        let parsed = serde_json::from_reader(&mut file).context("subreddits.json config")?;
         Ok(parsed)
     }
 
-    pub fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self) -> anyhow::Result<()> {
         let credentials = self.get_credentials()?;
         let subreddits_config = self.get_subreddits_config()?;
 
@@ -64,25 +64,22 @@ impl RedditArgs {
 
         let panic_webhook = credentials.webhook_url.clone();
 
-        let result = std::panic::catch_unwind(|| {
-            let mut client = RedditClient::new(
-                &analyzers,
-                data_dir,
-                scratch_dir.join("database.db"),
-                dry_run,
-                status_webhook,
-                admin,
-                credentials,
-                subreddits_config,
-                !release,
-            )?;
+        let mut client = RedditClient::new(
+            &analyzers,
+            data_dir,
+            scratch_dir.join("database.db"),
+            dry_run,
+            status_webhook,
+            admin,
+            credentials,
+            subreddits_config,
+            !release,
+        )
+        .await?;
 
-            client.run()
-        });
-
-        match result {
-            Ok(Ok(())) => Ok(()),
-            Ok(Err(error)) => {
+        match client.run().await {
+            Ok(()) => Ok(()),
+            Err(error) => {
                 if release {
                     if let Some(webhook) = panic_webhook {
                         let mut client = WebhookClient::new(webhook)?;
@@ -102,7 +99,7 @@ impl RedditArgs {
                         }
 
                         let message = create_generic_error_message("Fatal error occured", s);
-                        client.send(&message)?;
+                        client.send(&message).await?;
                     }
                 }
 
@@ -113,55 +110,6 @@ impl RedditArgs {
 
                 Err(error)
             }
-            Err(panic) if release => {
-                if let Some(webhook) = panic_webhook {
-                    let mut client = WebhookClient::new(webhook)?;
-
-                    let msg = match downcast_panic_str(&panic) {
-                        Some(d) => d,
-                        None => "Unable to retrieve panic message",
-                    };
-
-                    let message = create_generic_error_message("Fatal panic occured", msg);
-                    client.send(&message)?;
-                }
-
-                std::panic::resume_unwind(panic)
-            }
-            Err(panic) => std::panic::resume_unwind(panic),
         }
-    }
-}
-
-fn downcast_panic_str(panic: &Box<dyn Any + Send>) -> Option<&str> {
-    if let Some(v) = panic.downcast_ref::<&str>() {
-        return Some(*v);
-    }
-
-    if let Some(v) = panic.downcast_ref::<String>() {
-        return Some(v.as_str());
-    }
-
-    return None;
-}
-
-#[cfg(test)]
-mod tests {
-    use std::panic::catch_unwind;
-
-    use super::downcast_panic_str;
-
-    #[test]
-    pub fn downcasts_str() {
-        let panic = catch_unwind(|| panic!("hello world")).unwrap_err();
-        let text = downcast_panic_str(&panic);
-        assert_eq!(text, Some("hello world"));
-    }
-
-    #[test]
-    pub fn downcasts_string() {
-        let panic = catch_unwind(|| panic!("hello {} world", 5)).unwrap_err();
-        let text = downcast_panic_str(&panic);
-        assert_eq!(text, Some("hello 5 world"));
     }
 }

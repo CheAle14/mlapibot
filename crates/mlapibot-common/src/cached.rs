@@ -1,54 +1,59 @@
-use std::time::{Duration, Instant};
+use std::{
+    pin::Pin,
+    time::{Duration, Instant},
+};
 
 pub struct Cached<T, Ctx, Err> {
     data: T,
     last: Instant,
     cache_for: Duration,
-    func: fn(&Ctx) -> Result<T, Err>,
+    func: HydrateFn<Ctx, T, Err>,
 }
 
 impl<T, Ctx, Err> Cached<T, Ctx, Err> {
-    pub fn new(
+    pub async fn new(
         cache_for: Duration,
         ctx: &Ctx,
-        func: fn(&Ctx) -> Result<T, Err>,
+        func: HydrateFn<Ctx, T, Err>,
     ) -> Result<Self, Err> {
-        func(ctx).map(|data| {
-            let last = Instant::now();
+        let data = func(ctx).await?;
+        let last = Instant::now();
 
-            Self {
-                data,
-                last,
-                cache_for,
-                func,
-            }
+        Ok(Self {
+            data,
+            last,
+            cache_for,
+            func,
         })
     }
 
-    pub fn flush(&mut self, ctx: &Ctx) -> Result<(), Err> {
-        self.data = (self.func)(ctx)?;
+    pub async fn flush(&mut self, ctx: &Ctx) -> Result<(), Err> {
+        self.data = (self.func)(ctx).await?;
         self.last = Instant::now();
         Ok(())
     }
 
-    pub fn data(&mut self, ctx: &Ctx) -> Result<&T, Err> {
+    pub async fn data(&mut self, ctx: &Ctx) -> Result<&T, Err> {
         if self.last.elapsed() > self.cache_for {
-            self.flush(ctx)?;
+            self.flush(ctx).await?;
         }
 
         Ok(&self.data)
     }
 }
 
+type HydrateFn<Ctx, T, Err> =
+    for<'a> fn(&'a Ctx) -> Pin<Box<dyn Future<Output = Result<T, Err>> + 'a>>;
+
 pub struct LazyCached<T, Ctx, Err> {
     data: Option<T>,
     last: Instant,
     cache_for: Duration,
-    func: fn(&Ctx) -> Result<T, Err>,
+    func: HydrateFn<Ctx, T, Err>,
 }
 
 impl<T, Ctx, Err> LazyCached<T, Ctx, Err> {
-    pub fn new(cache_for: Duration, func: fn(&Ctx) -> Result<T, Err>) -> Self {
+    pub fn new(cache_for: Duration, func: HydrateFn<Ctx, T, Err>) -> Self {
         Self {
             data: None,
             last: Instant::now(),
@@ -57,15 +62,15 @@ impl<T, Ctx, Err> LazyCached<T, Ctx, Err> {
         }
     }
 
-    pub fn flush(&mut self, ctx: &Ctx) -> Result<(), Err> {
-        self.data = Some((self.func)(ctx)?);
+    pub async fn flush(&mut self, ctx: &Ctx) -> Result<(), Err> {
+        self.data = Some((self.func)(ctx).await?);
         self.last = Instant::now();
         Ok(())
     }
 
-    pub fn data(&mut self, ctx: &Ctx) -> Result<&T, Err> {
+    pub async fn data(&mut self, ctx: &Ctx) -> Result<&T, Err> {
         if self.data.is_none() || self.last.elapsed() > self.cache_for {
-            self.flush(ctx)?;
+            self.flush(ctx).await?;
         }
 
         Ok(self.data.as_ref().unwrap())

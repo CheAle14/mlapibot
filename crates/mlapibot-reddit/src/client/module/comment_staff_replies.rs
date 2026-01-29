@@ -192,9 +192,9 @@ where
 }
 
 impl CommentStaffReplies {
-    fn fetch_reply_updates(
+    async fn fetch_reply_updates<'client>(
         &self,
-        client: &mut ModuleRedditClient,
+        client: &mut ModuleRedditClient<'client>,
         subreddit: &str,
         post_id: &str,
         replies: &mut [StaffReply],
@@ -211,12 +211,15 @@ impl CommentStaffReplies {
             reply_map.insert(reply.comment_id.clone(), reply);
         }
 
-        let post_comments = client.client.article_comments(
-            subreddit,
-            &ThingFullname::from_submission_id(post_id),
-            None,
-            Some(1500),
-        )?;
+        let post_comments = client
+            .client
+            .article_comments(
+                subreddit,
+                &ThingFullname::from_submission_id(post_id),
+                None,
+                Some(1500),
+            )
+            .await?;
 
         visit_comments::<_, anyhow::Error>(&post_comments, |comment| {
             if let Some(staff_reply) = reply_map.remove(&comment.common.id) {
@@ -259,9 +262,9 @@ impl CommentStaffReplies {
         earliest_next_update.unwrap_or_else(|| Utc::now())
     }
 
-    fn update_or_make_staff_reply_comment(
+    async fn update_or_make_staff_reply_comment<'client>(
         &mut self,
-        client: &mut ModuleRedditClient,
+        client: &mut ModuleRedditClient<'client>,
         subreddit: &str,
         post_id: &str,
     ) -> anyhow::Result<()> {
@@ -270,6 +273,7 @@ impl CommentStaffReplies {
 
         if all_replies.iter().any(|v| v.is_outdated(now)) {
             self.fetch_reply_updates(client, subreddit, post_id, &mut all_replies, now)
+                .await
                 .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
         }
 
@@ -294,7 +298,7 @@ impl CommentStaffReplies {
 
                 if reply_hash != existing.hash {
                     let fullname = ThingFullname::from_comment_id(&existing.our_comment_id);
-                    client.client.edit(&reply_text, &fullname)?;
+                    client.client.edit(&reply_text, &fullname).await?;
 
                     client
                         .db
@@ -307,7 +311,7 @@ impl CommentStaffReplies {
                 let reply_hash = Sha256Hasher::oneshot(&reply_text);
 
                 let fullname = ThingFullname::from_submission_id(post_id);
-                let reply = client.client.comment(&reply_text, &fullname)?;
+                let reply = client.client.comment(&reply_text, &fullname).await?;
 
                 client.db.insert_staff_reply_thread(
                     subreddit,
@@ -318,8 +322,10 @@ impl CommentStaffReplies {
                 )?;
 
                 if reply.can_mod_post() {
-                    reply.distinguish(roux::models::Distinguish::Moderator, true)?;
-                    reply.lock()?;
+                    reply
+                        .distinguish(roux::models::Distinguish::Moderator, true)
+                        .await?;
+                    reply.lock().await?;
                 }
             }
         }
@@ -328,6 +334,7 @@ impl CommentStaffReplies {
     }
 }
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for CommentStaffReplies {
     fn new() -> Self
     where
@@ -348,7 +355,7 @@ impl super::Module for CommentStaffReplies {
 
     impl_mask_subreddits!(comments_staff_reply => comments);
 
-    fn run_comment<'client>(
+    async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
@@ -373,6 +380,7 @@ impl super::Module for CommentStaffReplies {
                 live.post_id
             );
             self.update_or_make_staff_reply_comment(client, comment.subreddit(), &live.post_id)
+                .await
                 .context("redo reply")?;
             return Ok(());
         }
@@ -406,12 +414,13 @@ impl super::Module for CommentStaffReplies {
             .with_context(|| format!("staff reply {post_id} / {comment_id}"))?;
 
         self.update_or_make_staff_reply_comment(client, comment.subreddit(), post_id)
+            .await
             .with_context(|| format!("make reply comment {post_id} (due to {comment_id})"))?;
 
         Ok(())
     }
 
-    fn run_timer<'client>(
+    async fn run_timer<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddits: &mut [crate::subreddit::Subreddit],
@@ -433,6 +442,7 @@ impl super::Module for CommentStaffReplies {
 
             for thread in threads {
                 self.update_or_make_staff_reply_comment(client, &thread.subreddit, &thread.post_id)
+                    .await
                     .with_context(|| {
                         format!(
                             "run_timer refresh /r/{}/{}",

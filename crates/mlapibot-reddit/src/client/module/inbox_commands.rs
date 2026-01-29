@@ -19,6 +19,7 @@ use crate::{
 
 pub struct InboxCommands;
 
+#[async_trait::async_trait(?Send)]
 impl Module for InboxCommands {
     fn new() -> Self
     where
@@ -35,30 +36,30 @@ impl Module for InboxCommands {
         super::ModuleWants::INBOX
     }
 
-    fn run_inbox<'client>(
+    async fn run_inbox<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         subreddits: &mut [Subreddit],
         item: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<super::InboxAction>> {
         if item.subject == "test" {
-            client.run_inbox_test(&item)?;
+            client.run_inbox_test(&item).await?;
         } else if item.subject == "redo" {
-            return client.try_redo_from_message(subreddits, &item);
+            return client.try_redo_from_message(subreddits, &item).await;
         } else if item.subject == "media" {
-            client.try_run_media_count(subreddits, &item)?;
+            client.try_run_media_count(subreddits, &item).await?;
         } else if item.subject == "removal_reasons" {
-            client.send_removal_reasons(&item)?;
+            client.send_removal_reasons(&item).await?;
         } else if item.subject == "sticky" {
-            client.try_sticky_status_post(subreddits, &item)?;
+            client.try_sticky_status_post(subreddits, &item).await?;
         } else if item.subject.trim().eq_ignore_ascii_case("stop") {
-            client.try_stop_bot(subreddits, &item)?;
+            client.try_stop_bot(subreddits, &item).await?;
         } else if item.subject == "suffix" {
-            return client.run_staff_reply_suffix(subreddits, &item);
+            return client.run_staff_reply_suffix(subreddits, &item).await;
         } else if item.author == "" {
             if let Some(subreddit) = item.subject.strip_prefix("invitation to moderate /r/") {
                 let sub = client.client.subreddit(subreddit);
-                if let Err(e) = sub.accept_moderator_invite() {
+                if let Err(e) = sub.accept_moderator_invite().await {
                     println!("Unable to accept mod: {e:?}");
                 }
             }
@@ -75,7 +76,7 @@ struct LinkData<'a> {
 }
 
 impl<'client> ModuleRedditClient<'client> {
-    fn parse_link<'msg, 'sub>(
+    async fn parse_link<'msg, 'sub>(
         &mut self,
         subreddits: &'sub mut [Subreddit],
         message: &InboxMsg<'msg>,
@@ -86,20 +87,24 @@ impl<'client> ModuleRedditClient<'client> {
         };
 
         let Ok(link) = SubmissionLinkInfo::parse(first_line) else {
-            message.reply("Unrecognised link. Must be a full link to a submission or comment.")?;
+            message
+                .reply("Unrecognised link. Must be a full link to a submission or comment.")
+                .await?;
             return Ok(None);
         };
 
         let (submission, comment) = match link.comment_id {
             None => {
-                let submission = match self.client.get_submission_by_info(&link) {
+                let submission = match self.client.get_submission_by_info(&link).await {
                     Ok(t) => t,
                     Err(e) => {
                         eprintln!(
                             "Failed to parse or fetch post to redo: {:?} {e:?}",
                             message.body
                         );
-                        message.reply("Failed to parse or fetch which submission you meant.")?;
+                        message
+                            .reply("Failed to parse or fetch which submission you meant.")
+                            .await?;
                         return Ok(None);
                     }
                 };
@@ -107,13 +112,11 @@ impl<'client> ModuleRedditClient<'client> {
                 (submission, None)
             }
             Some(comment_id) => {
-                match self.client.article_and_comments(
-                    link.subreddit,
-                    link.post_id,
-                    comment_id,
-                    None,
-                    None,
-                ) {
+                match self
+                    .client
+                    .article_and_comments(link.subreddit, link.post_id, comment_id, None, None)
+                    .await
+                {
                     Ok((sub, comments)) => {
                         let comment = comments.into_iter().next().expect("direct link to comment");
                         let comment = comment.into_latest(&sub);
@@ -124,7 +127,9 @@ impl<'client> ModuleRedditClient<'client> {
                             "Failed to parse or fetch comment to redo: {:?} {e:?}",
                             message.body
                         );
-                        message.reply("Failed to parse or fetch which comment you meant.")?;
+                        message
+                            .reply("Failed to parse or fetch which comment you meant.")
+                            .await?;
                         return Ok(None);
                     }
                 }
@@ -135,12 +140,16 @@ impl<'client> ModuleRedditClient<'client> {
             .iter_mut()
             .find(|s| s.name() == submission.subreddit())
         else {
-            message.reply("That subreddit is not managed by this bot.")?;
+            message
+                .reply("That subreddit is not managed by this bot.")
+                .await?;
             return Ok(None);
         };
 
-        if !subreddit.is_moderator(message.author)? {
-            message.reply("You are not a moderator of that subreddit!")?;
+        if !subreddit.is_moderator(message.author).await? {
+            message
+                .reply("You are not a moderator of that subreddit!")
+                .await?;
             return Ok(None);
         }
 
@@ -154,17 +163,19 @@ impl<'client> ModuleRedditClient<'client> {
         )))
     }
 
-    fn run_staff_reply_suffix(
+    async fn run_staff_reply_suffix(
         &mut self,
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
-        let Some((link, suffix)) = self.parse_link(subreddits, message)? else {
+        let Some((link, suffix)) = self.parse_link(subreddits, message).await? else {
             return Ok(None);
         };
 
         let Some(comment) = link.comment else {
-            message.reply("You must provide a link to the bot's comment.")?;
+            message
+                .reply("You must provide a link to the bot's comment.")
+                .await?;
             return Ok(None);
         };
 
@@ -179,28 +190,33 @@ impl<'client> ModuleRedditClient<'client> {
             .update_staff_reply_thread_suffix(&link.submission.id(), suffix)
         {
             eprintln!("failed to set staff reply thread prefix: {err}");
-            message.reply("Failed to set suffix, probably not a staff reply thread comment")?;
+            message
+                .reply("Failed to set suffix, probably not a staff reply thread comment")
+                .await?;
             return Ok(None);
         }
 
-        message.reply("✔ Suffix set. The message should be edited soon.")?;
+        message
+            .reply("✔ Suffix set. The message should be edited soon.")
+            .await?;
 
         // Trigger the staff reply module to edit the message.
         Ok(Some(InboxAction::RedoMsg(link.submission, comment)))
     }
 
-    fn run_inbox_test(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
+    async fn run_inbox_test(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
         let mut warnings = Vec::new();
-        let ctx = mlapibot_analysis::Context::new_body(message.body, &mut warnings)?;
+        let ctx = mlapibot_analysis::Context::new_body(message.body, &mut warnings).await?;
 
-        self.send_warnings(warnings, "Warnings in inbox test")?;
+        self.send_warnings(warnings, "Warnings in inbox test")
+            .await?;
 
         match mlapibot_analysis::get_best_analysis(&ctx, &self.analzyers) {
             Ok(Some((detection, detected))) => {
                 let text = detection.get_markdown(&ctx)?;
                 let text = text.join("\n\n\n> ");
                 let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
-                message.reply(&s)?;
+                message.reply(&s).await?;
             }
             Ok(None) => {
                 let mut text = String::from("No scams were detected, text was:\r\n\r\n");
@@ -209,7 +225,7 @@ impl<'client> ModuleRedditClient<'client> {
                     text.push_str(&img.full_text());
                     text.push_str("\n\n\n");
                 }
-                message.reply(&text)?;
+                message.reply(&text).await?;
             }
             Err(err) => {
                 eprintln!(
@@ -218,17 +234,17 @@ impl<'client> ModuleRedditClient<'client> {
                 );
                 if let Some(webhook) = &mut self.webhook {
                     let msg = create_error_processing_message(message.author, message.subject);
-                    webhook.send(&msg)?;
+                    webhook.send(&msg).await?;
                 }
                 message.reply(
                     "An internal error occured whilst attempting to process your request. Sorry!",
-                )?;
+                ).await?;
             }
         };
         Ok(())
     }
 
-    fn try_stop_bot(
+    async fn try_stop_bot(
         &mut self,
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
@@ -242,19 +258,19 @@ impl<'client> ModuleRedditClient<'client> {
                 continue;
             }
 
-            if sub.is_moderator(message.author)? {
+            if sub.is_moderator(message.author).await? {
                 let _ = message.reply("Stopping...");
 
                 return Err(anyhow::Error::from(QuickStopError));
             }
         }
 
-        message.reply("You are authorised to do that")?;
+        message.reply("You are authorised to do that").await?;
 
         Ok(())
     }
 
-    fn try_run_media_count(
+    async fn try_run_media_count(
         &mut self,
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
@@ -264,12 +280,16 @@ impl<'client> ModuleRedditClient<'client> {
         let sub = self.client.subreddit(message.body);
 
         let Some(our_sub) = subreddits.iter_mut().find(|s| s.name() == &sub.name) else {
-            message.reply("That subreddit is not managed by this bot.")?;
+            message
+                .reply("That subreddit is not managed by this bot.")
+                .await?;
             return Ok(());
         };
 
-        if !our_sub.is_moderator(message.author)? {
-            message.reply("You are not a moderator of that subreddit!")?;
+        if !our_sub.is_moderator(message.author).await? {
+            message
+                .reply("You are not a moderator of that subreddit!")
+                .await?;
             return Ok(());
         }
 
@@ -286,7 +306,9 @@ impl<'client> ModuleRedditClient<'client> {
         let mut output = String::with_capacity(128);
 
         'outer: loop {
-            let page = sub.list_mod_log(after.clone(), Some(500), None, None)?;
+            let page = sub
+                .list_mod_log(after.clone(), Some(500), None, None)
+                .await?;
 
             for (idx, action) in page.into_iter().enumerate() {
                 let Some(fullname) = action.target_fullname else {
@@ -330,17 +352,17 @@ impl<'client> ModuleRedditClient<'client> {
             "\nFound {total} media in comments.\nRemoved: {removed_media}\nApproved: {approved_media}\nUnknown: {unknown_media}"
         );
 
-        message.reply(&output)?;
+        message.reply(&output).await?;
 
         Ok(())
     }
 
-    fn try_redo_from_message(
+    async fn try_redo_from_message(
         &mut self,
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<Option<InboxAction>> {
-        let Some((link, _)) = self.parse_link(subreddits, message)? else {
+        let Some((link, _)) = self.parse_link(subreddits, message).await? else {
             return Ok(None);
         };
 
@@ -350,27 +372,31 @@ impl<'client> ModuleRedditClient<'client> {
         }
     }
 
-    fn try_sticky_status_post(
+    async fn try_sticky_status_post(
         &mut self,
         subreddits: &mut [Subreddit],
         message: &InboxMsg<'_>,
     ) -> anyhow::Result<()> {
-        let Some((link, _)) = self.parse_link(subreddits, message)? else {
+        let Some((link, _)) = self.parse_link(subreddits, message).await? else {
             return Ok(());
         };
 
         if link.submission.stickied() {
-            message.reply("Submission is already stickied. You can simply un-sticky it if you want to remove it.")?;
+            message.reply("Submission is already stickied. You can simply un-sticky it if you want to remove it.").await?;
             return Ok(());
         }
 
         let Some(config) = self.subreddits_config.get_status(link.subreddit.name()) else {
-            message.reply("That subreddit is not configured for automatic status posts.")?;
+            message
+                .reply("That subreddit is not configured for automatic status posts.")
+                .await?;
             return Ok(());
         };
 
         let Some(sticky) = config.sticky.as_ref() else {
-            message.reply("That subreddit is not configured for stickying its status posts.")?;
+            message
+                .reply("That subreddit is not configured for stickying its status posts.")
+                .await?;
             return Ok(());
         };
 
@@ -378,26 +404,29 @@ impl<'client> ModuleRedditClient<'client> {
             .db
             .get_incident_from_post(link.submission.name().full())?
         else {
-            message.reply("That submission was not submitted by this bot for status tracking.")?;
+            message
+                .reply("That submission was not submitted by this bot for status tracking.")
+                .await?;
             return Ok(());
         };
 
         link.subreddit
-            .sticky_incident_post(self.db, sticky, &link.submission)?;
+            .sticky_incident_post(self.db, sticky, &link.submission)
+            .await?;
 
-        message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.")?;
+        message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.").await?;
 
         Ok(())
     }
 
-    fn send_removal_reasons(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
+    async fn send_removal_reasons(&mut self, message: &InboxMsg<'_>) -> anyhow::Result<()> {
         use std::fmt::Write;
 
         let subreddit = message.body.trim().trim_start_matches("/r/");
         let mut sending = format!("Removal reasons for /r/{subreddit}:  \n\n");
         let subreddit = self.client.subreddit(subreddit);
 
-        let reasons = subreddit.list_removal_reasons()?;
+        let reasons = subreddit.list_removal_reasons().await?;
 
         for id in reasons.order {
             let _ = match reasons.data.get(&id) {
@@ -406,7 +435,7 @@ impl<'client> ModuleRedditClient<'client> {
             };
         }
 
-        message.reply(&sending)?;
+        message.reply(&sending).await?;
 
         Ok(())
     }

@@ -4,6 +4,7 @@ use crate::client::module::Module;
 
 pub struct CommentCode;
 
+#[async_trait::async_trait(?Send)]
 impl Module for CommentCode {
     fn new() -> Self
     where
@@ -22,7 +23,7 @@ impl Module for CommentCode {
 
     super::impl_mask_subreddits!(comments_code => comments);
 
-    fn run_comment<'client>(
+    async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
@@ -62,7 +63,8 @@ impl Module for CommentCode {
         client
             .client
             .subreddit("mlapi")
-            .submit(&SubmissionSubmitBuilder::text("Fence conversion", text))?;
+            .submit(&SubmissionSubmitBuilder::text("Fence conversion", text))
+            .await?;
 
         Ok(())
     }

@@ -17,12 +17,13 @@ pub enum MainCommands {
     Download(download::DownloadArgs),
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let args = MainArgs::parse();
 
     match args.commands {
-        MainCommands::Reddit(reddit) => reddit.run(),
-        MainCommands::Test(single) => single.run(),
-        MainCommands::Download(download) => download.run(),
+        MainCommands::Reddit(reddit) => reddit.run().await,
+        MainCommands::Test(single) => single.run().await,
+        MainCommands::Download(download) => download.run().await,
     }
 }
