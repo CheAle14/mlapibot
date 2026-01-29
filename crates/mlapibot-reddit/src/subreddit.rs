@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     time::Duration,
 };
@@ -8,22 +7,19 @@ use anyhow::Context;
 use chrono::Utc;
 use mlapibot_datastore::{
     MlapiDb,
-    incident_posts::{IncidentPostLite, ResolvedIncidentPost, StickyState},
+    incident_posts::{ResolvedIncidentPost, StickyState},
 };
 use roux::{
     api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
-    builders::submission::SubmissionSubmitBuilder,
-    client::RedditClient,
+    client::{RedditClient, SelectFlairData},
     models::SubmissionStickySlot,
     util::{FeedOption, RouxError},
 };
-use statuspage::{StatusClient, incident::Incident};
 
-use mlapibot_common::{Cached, LazyCached, LowercaseString};
+use mlapibot_common::{LazyCached, LowercaseString};
 
 use crate::{
-    client::StatusComponentCache,
-    config::{StatusStickyConfig, SubredditStatusConfig},
+    config::{FlairSubBuilderExt, StatusStickyConfig, SubredditStatusConfig},
     status_tracker::IncidentWithLive,
 };
 
@@ -116,6 +112,32 @@ impl Subreddit {
         Ok(())
     }
 
+    fn is_incident_major(incident: &IncidentWithLive, config: &SubredditStatusConfig) -> bool {
+        let Some(sticky) = &config.sticky else {
+            return false;
+        };
+
+        if sticky.only_for.len() > 0 {
+            let has_components = (&incident.incident.components)
+                .iter()
+                .any(|c| sticky.only_for.contains(&c.id) || sticky.only_for.contains(&c.name));
+
+            if !has_components {
+                println!("Incident does not affect components required to sticky");
+                return false;
+            }
+        }
+
+        if let Some(min_impact) = sticky.min_impact {
+            if incident.incident.impact < min_impact {
+                println!("Incident does not meet minimum {min_impact:?} to sticky");
+                return false;
+            }
+        }
+
+        true
+    }
+
     fn send_incident_post(
         &mut self,
         db: &MlapiDb,
@@ -125,8 +147,14 @@ impl Subreddit {
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", self.lower);
 
-        let submission = match &config.flair_id {
-            Some(flair_id) => incident.to_builder().with_flair_id(flair_id),
+        let is_major = Self::is_incident_major(incident, config);
+
+        let submission = match &config.flair {
+            Some(flair) => incident.to_builder().with_flair_setting(if is_major {
+                flair.major.as_ref().unwrap_or(&flair.minor)
+            } else {
+                &flair.minor
+            }),
             None => incident.to_builder(),
         };
 
@@ -143,26 +171,15 @@ impl Subreddit {
             submission.distinguish(roux::models::Distinguish::Moderator)?;
         }
 
-        if let Some(sticky) = &config.sticky {
-            if sticky.only_for.len() > 0 {
-                let has_components = (&incident.incident.components)
-                    .iter()
-                    .any(|c| sticky.only_for.contains(&c.id) || sticky.only_for.contains(&c.name));
-
-                if !has_components {
-                    println!("Incident does not affect components required to sticky");
-                    return Ok(());
-                }
-            }
-
-            if let Some(min_impact) = sticky.min_impact {
-                if incident.incident.impact < min_impact {
-                    println!("Incident does not meet minimum {min_impact:?} to sticky");
-                    return Ok(());
-                }
-            }
-
-            self.sticky_incident_post(db, sticky, &submission)?;
+        if is_major {
+            self.sticky_incident_post(
+                db,
+                config
+                    .sticky
+                    .as_ref()
+                    .expect("must have sticky config to sticky"),
+                &submission,
+            )?;
         }
 
         Ok(())
@@ -207,6 +224,20 @@ impl Subreddit {
         Ok(None)
     }
 
+    fn set_resolved_flair(post: &Submission, config: &SubredditStatusConfig) -> anyhow::Result<()> {
+        let Some(flair) = config.flair.as_ref() else {
+            return Ok(());
+        };
+
+        let Some(resolved) = flair.resolved.as_ref() else {
+            return Ok(());
+        };
+
+        post.select_flair(&resolved.as_update())?;
+
+        Ok(())
+    }
+
     pub fn check_incident_sticky(
         &mut self,
         db: &MlapiDb,
@@ -248,6 +279,7 @@ impl Subreddit {
             // assume that a human mod has unstickied it manually.
             println!("Already unstickied");
             db.set_incident_post_unstickied(thing.full())?;
+            Self::set_resolved_flair(&submission, config)?;
             return Ok(());
         }
 
@@ -320,6 +352,7 @@ impl Subreddit {
         }
 
         db.set_incident_post_unstickied(thing.full())?;
+        Self::set_resolved_flair(&submission, config)?;
 
         Ok(())
     }

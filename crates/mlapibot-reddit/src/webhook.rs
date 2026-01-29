@@ -1,6 +1,9 @@
 use mlapibot_webhook::{LinkExt, Message, MessageEmbed, MessageEmbedAuthor};
+use roux::client::SelectFlairData;
 
-use crate::{CreatedCommentWithLinkInfo, RedditMessage, Submission, utils::clamp};
+use crate::{
+    CreatedCommentWithLinkInfo, RedditMessage, Submission, config::PostFlairSetting, utils::clamp,
+};
 
 pub fn create_detection_message(
     submission: &Submission,
@@ -26,12 +29,18 @@ pub fn create_detection_message(
     Message::builder().embed(embed)
 }
 
-pub fn create_change_flair_message(submission: &Submission, now_flair: &str) -> Message {
+pub fn create_change_flair_message(
+    submission: &Submission,
+    now_flair: &PostFlairSetting,
+) -> Message {
     let embed = MessageEmbed::builder()
         .title("Flair updated")
         .description(format!(
-            "Was `{:?}` now `{now_flair}`",
-            submission.link_flair_template_id()
+            "- Template: was `{:?}` now `{:?}`\n- Text: was `{:?}` now `{:?}`",
+            submission.link_flair_template_id(),
+            now_flair.template(),
+            submission.link_flair_text(),
+            now_flair.text()
         ))
         .reddit_link(submission.permalink())
         .author(MessageEmbedAuthor::new(submission.author()));

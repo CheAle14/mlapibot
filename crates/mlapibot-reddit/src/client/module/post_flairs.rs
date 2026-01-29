@@ -5,7 +5,8 @@ use roux::api::ThingFullname;
 use serde::Deserialize;
 
 use crate::{
-    client::module::PostAction, utils::into_timestamp, webhook::create_change_flair_message,
+    client::module::PostAction, config::PostFlairSetting, utils::into_timestamp,
+    webhook::create_change_flair_message,
 };
 
 use mlapibot_common::LowercaseString;
@@ -17,7 +18,7 @@ pub struct FlairChangeConfig {
     pub flair_id: String,
     pub title_must_include: LowercaseString,
     pub permitted_user_flairs: Vec<String>,
-    pub change_to: String,
+    pub change_to: PostFlairSetting,
 }
 
 pub struct PostFlairData {
@@ -138,7 +139,7 @@ impl super::Module for PostFlairs {
                 .or_insert_with(PostFlairData::default);
 
             if !client.dry_run {
-                post.select_flair(&flair.change_to)?;
+                post.select_flair(&flair.change_to.as_update())?;
                 if let Some(webhook) = client.webhook.as_mut() {
                     webhook.send(&create_change_flair_message(post, &flair.change_to))?;
                 }
