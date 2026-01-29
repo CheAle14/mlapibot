@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::HashMap, hash::Hash};
+use std::{borrow::Borrow, collections::HashMap};
 
 use roux::{api::FlairId, builders::submission::SubmissionSubmitBuilder, client::SelectFlairData};
 use serde::Deserialize;
@@ -62,6 +62,8 @@ pub struct SubredditConfig {
     pub comments_complex: Vec<SubredditComplexCommentConfig>,
     #[serde(default)]
     pub related_titles: bool,
+    #[serde(default)]
+    pub ai_slop: Option<SubredditAiSlopConfig>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -266,19 +268,32 @@ pub struct StatusStickyConfig {
     pub only_for: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SubredditAiSlopConfig {}
+
 #[derive(Clone, Deserialize)]
-pub struct ImgurCredentials {
-    pub imgur_client_id: String,
-    pub imgur_client_secret: String,
+pub struct GlobalSettings {
+    pub webhook_url: Option<String>,
+    pub reddit: RedditSettings,
+    pub imgur: Option<ImgurSettings>,
+    pub github: Option<GithubSettings>,
 }
 
 #[derive(Clone, Deserialize)]
-pub struct RedditCredentials {
+pub struct RedditSettings {
     pub client_id: String,
     pub client_secret: String,
     pub username: String,
     pub password: String,
-    pub webhook_url: Option<String>,
-    #[serde(flatten)]
-    pub imgur_credentials: Option<ImgurCredentials>,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct ImgurSettings {
+    pub client_id: String,
+    pub client_secret: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct GithubSettings {
+    pub token: String,
 }

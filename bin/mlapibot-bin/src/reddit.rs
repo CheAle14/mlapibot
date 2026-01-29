@@ -4,7 +4,7 @@ use anyhow::Context;
 use mlapibot_common::LowercaseString;
 use mlapibot_reddit::{
     QuickStopError, RedditClient,
-    config::{RedditCredentials, SubredditsConfig},
+    config::{GlobalSettings, RedditCredentials, SubredditsConfig},
 };
 use mlapibot_webhook::{WebhookClient, create_generic_error_message};
 
@@ -29,12 +29,13 @@ pub struct RedditArgs {
 }
 
 impl RedditArgs {
-    pub fn get_credentials(&self) -> anyhow::Result<RedditCredentials> {
-        let credentials_file = self.scratch_dir.join("credentials.json");
-        let mut file = std::fs::File::open(&credentials_file)
-            .with_context(|| format!("reading {credentials_file:?}"))?;
+    pub fn get_global_settings(&self) -> anyhow::Result<GlobalSettings> {
+        let settings_file = self.scratch_dir.join("settings.toml");
 
-        let parsed = serde_json::from_reader(&mut file).context("credentials.json")?;
+        let text = std::fs::read_to_string(&settings_file)
+            .with_context(|| format!("reading {settings_file:?}"))?;
+
+        let parsed = toml::from_str(&text)?;
         Ok(parsed)
     }
 

@@ -8,6 +8,7 @@ use std::{
 use anyhow::{Context, bail};
 use mlapibot_common::Cached;
 use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
+use octocrab::OctocrabBuilder;
 use roux::{
     api::Distinguished,
     client::{OAuthClient, RedditClient as RouxRedditClient},
@@ -26,7 +27,7 @@ use crate::{
         InboxAction, InboxMsg, PostAction, RegisteredModule, SplitSubMask,
         post_flairs::PostFlairCache,
     },
-    config::{RedditCredentials, SubredditsConfig},
+    config::{GlobalSettings, SubredditsConfig},
     exts::SubmissionExt,
     ratelimiter::Ratelimiter,
     status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
@@ -47,6 +48,7 @@ pub struct RedditClient<'a> {
     templates: Tera,
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
+    github: Option<octocrab::Octocrab>,
     status: StatusClient,
     last_status: StatusIndicator,
     subreddits_config: SubredditsConfig,
@@ -76,6 +78,7 @@ macro_rules! make_view {
             templates: &$self.templates,
             webhook: &mut $self.webhook,
             imgur: &mut $self.imgur,
+            github: &mut $self.github,
             status: &$self.status,
             last_status: &$self.last_status,
             subreddits_config: &$self.subreddits_config,
@@ -99,7 +102,7 @@ impl<'a> RedditClient<'a> {
         dry_run: bool,
         status_webhook: Option<String>,
         admin: Option<String>,
-        credentials: RedditCredentials,
+        settings: GlobalSettings,
         subreddits_config: SubredditsConfig,
         debug: bool,
     ) -> anyhow::Result<Self> {
@@ -114,24 +117,34 @@ impl<'a> RedditClient<'a> {
 
         let config = roux::Config::new(
             Self::USER_AGENT,
-            &credentials.client_id,
-            &credentials.client_secret,
+            &settings.reddit.client_id,
+            &settings.reddit.client_secret,
         )
-        .username(&credentials.username)
-        .password(&credentials.password);
+        .username(&settings.reddit.username)
+        .password(&settings.reddit.password);
 
         let client = OAuthClient::new(config)?.login().await?;
 
-        let webhook = credentials
+        let webhook = settings
             .webhook_url
             .as_ref()
             .map(|url| WebhookClient::new(url))
             .transpose()?;
 
-        let imgur = credentials
-            .imgur_credentials
+        let imgur = settings
+            .imgur
             .as_ref()
-            .map(|creds| ImgurClient::new(&creds.imgur_client_id))
+            .map(|creds| ImgurClient::new(&creds.client_id))
+            .transpose()?;
+
+        let github = settings
+            .github
+            .as_ref()
+            .map(|creds| {
+                OctocrabBuilder::new()
+                    .personal_token(creds.token.as_str())
+                    .build()
+            })
             .transpose()?;
 
         let status = StatusClient::new("https://discordstatus.com")?;
@@ -164,7 +177,7 @@ impl<'a> RedditClient<'a> {
 
         println!(
             "Logged in as /u/{}; monitoring {} with {} total known subreddits in {}",
-            credentials.username,
+            settings.reddit.username,
             subreddits.len(),
             subreddits_config.len(),
             if debug { "debug mode" } else { "release mode" }
@@ -178,7 +191,7 @@ impl<'a> RedditClient<'a> {
 
         Ok(Self {
             db,
-            own_name: credentials.username,
+            own_name: settings.reddit.username,
             client,
             subreddits,
             analzyers,
@@ -186,6 +199,7 @@ impl<'a> RedditClient<'a> {
             templates,
             webhook,
             imgur,
+            github,
             status,
             subreddits_config,
             dry_run: dry_run,
@@ -775,6 +789,7 @@ pub struct ModuleRedditClient<'client> {
     templates: &'client Tera,
     webhook: &'client mut Option<WebhookClient>,
     imgur: &'client mut Option<ImgurClient>,
+    github: &'client mut Option<octocrab::Octocrab>,
     status: &'client StatusClient,
     last_status: &'client StatusIndicator,
     subreddits_config: &'client SubredditsConfig,

@@ -20,6 +20,7 @@ pub mod comment_code;
 pub mod comment_complex;
 pub mod comment_staff_replies;
 pub mod inbox_commands;
+pub mod post_ai_slop;
 pub mod post_flairs;
 pub mod post_scams;
 pub mod post_vague_title;
@@ -29,6 +30,7 @@ pub use comment_code::CommentCode;
 pub use comment_complex::CommentComplex;
 pub use comment_staff_replies::CommentStaffReplies;
 pub use inbox_commands::InboxCommands;
+pub use post_ai_slop::PostAiSlop;
 pub use post_flairs::PostFlairs;
 pub use post_scams::PostScams;
 pub use post_vague_title::PostVagueTitle;
@@ -126,7 +128,8 @@ impl<'a> super::RedditClient<'a> {
             PostVagueTitle,
             CdnLinks,
             CommentStaffReplies,
-            CommentComplex
+            CommentComplex,
+            PostAiSlop,
         )
     }
 }

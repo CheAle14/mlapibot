@@ -7,3 +7,4 @@
 
 !tests/**/*.png
 !*.test.txt
+settings.toml
