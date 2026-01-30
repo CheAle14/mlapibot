@@ -11,6 +11,19 @@ impl MlapiDb {
         Ok(r > 0)
     }
 
+    pub fn delete_monitored(&self, fullname: &str) -> rusqlite::Result<()> {
+        let n = self
+            .conn
+            .execute("DELETE FROM Monitored WHERE PostFullname=?1", (fullname,))?;
+
+        if n == 1 {
+            Ok(())
+        } else {
+            eprintln!("deleted {n} rows, expected 1");
+            Err(rusqlite::Error::QueryReturnedNoRows)
+        }
+    }
+
     pub fn set_seen(&self, subreddit: &str, post_fullname: &str) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO Monitored (Subreddit, PostFullname, State) VALUES (?1, ?2, ?3)",
@@ -41,7 +54,7 @@ impl MlapiDb {
             None => self.conn.execute(
                 "
                 UPDATE Monitored
-                SET 
+                SET
                     State = ?1,
                     Analzyer = ?2,
                     Reported = ?3,
@@ -59,7 +72,7 @@ impl MlapiDb {
             Some(reply) => self.conn.execute(
                 "
                 UPDATE Monitored
-                SET 
+                SET
                     State = ?1,
                     Analzyer = ?2,
                     ReplyFullname = ?3,
