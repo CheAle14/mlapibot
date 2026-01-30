@@ -1,19 +1,15 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     ops::{ControlFlow, Range},
 };
 
-use annotate_snippets::{AnnotationKind, Group, Level, Origin, Renderer, Report, Snippet};
+use annotate_snippets::{AnnotationKind, Group, Level, Origin, Renderer, Snippet};
 use anyhow::Context;
 use bumpalo::Bump;
 use futures_util::TryStreamExt;
-use markdown::{
-    mdast::Node,
-    unist::{Point, Position},
-};
+use markdown::{mdast::Node, unist::Position};
 use mlapibot_analysis::{Url, extract_all_links};
-use octocrab::{GitHubError, Octocrab, models::repos::RepoCommit, repos::RepoHandler};
-use roux::{client::RedditClient, util::error::RouxErrorKind};
+use octocrab::{Octocrab, models::repos::RepoCommit, repos::RepoHandler};
 
 use crate::client::module::impl_mask_subreddits;
 
@@ -233,32 +229,9 @@ struct ReadmeSlopness {
     total_chars: u32,
 }
 
-impl ReadmeSlopness {
-    fn reasons_for_slop(&self) -> Vec<String> {
-        let mut reasons = Vec::new();
-
-        if self.emoji_headings.ratio() > 0.75 {
-            reasons.push(format!(
-                "emoji-headings {}",
-                Perc(self.emoji_headings.ratio())
-            ));
-        }
-
-        if self.emoji_points.ratio() > 0.25 {
-            reasons.push(format!(
-                "emoji-list-points {}",
-                Perc(self.emoji_headings.ratio())
-            ));
-        }
-
-        reasons
-    }
-}
-
 struct Slopness<'arena> {
     readme: ReadmeSlopness,
-    /// The % of commits that are co-authored by an AI
-    ai_co_authored_commits: Ratio,
+    commits: CommitsSlopness,
     // The emitted diagnostics
     reports: Vec<BVec<'arena, Group<'arena>>>,
 }
@@ -267,7 +240,7 @@ impl<'arena> std::fmt::Debug for Slopness<'arena> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Slopness")
             .field("readme", &self.readme)
-            .field("ai_co_authored_commits", &self.ai_co_authored_commits)
+            .field("commits", &self.commits)
             .field("reports", &self.reports.len())
             .finish()
     }
@@ -373,17 +346,56 @@ impl<'l> GitRepository<Octocrab> for RepoHandler<'l> {
     }
 }
 
+type DateTimeUtc = chrono::DateTime<chrono::Utc>;
+
 trait GitCommit {
     fn sha(&self) -> &str;
     fn message(&self) -> &str;
+    fn date(&self) -> Option<DateTimeUtc>;
+
+    // A hopefully stable identifier for the author of this commit
+    //
+    // This may be their account username, or potentially an email.
+    fn author_identifier(&self) -> Option<&str>;
 }
 
 impl GitCommit for RepoCommit {
     fn sha(&self) -> &str {
         &self.sha
     }
+
     fn message(&self) -> &str {
         &self.commit.message
+    }
+
+    fn date(&self) -> Option<DateTimeUtc> {
+        self.commit
+            .committer
+            .as_ref()
+            .and_then(|v| v.date)
+            .or_else(|| self.commit.author.as_ref().and_then(|v| v.date))
+    }
+
+    fn author_identifier(&self) -> Option<&str> {
+        if let Some(author) = self.author.as_ref() {
+            return Some(author.login.as_str());
+        }
+
+        if let Some(user) = self.commit.author.as_ref() {
+            if let Some(email) = user.email.as_ref() {
+                return Some(email.as_str());
+            }
+            return Some(user.name.as_str());
+        }
+
+        if let Some(user) = self.commit.committer.as_ref() {
+            if let Some(email) = user.email.as_ref() {
+                return Some(email.as_str());
+            }
+            return Some(user.name.as_str());
+        }
+
+        None
     }
 }
 
@@ -400,19 +412,79 @@ async fn determine_ai_slop<'arena, C: GitClient>(
 
     let mut reports = Vec::new();
     let readme = guess_readme_slop(arena, &mut reports, &readme)?;
+    let commits = guess_commit_slop::<C>(arena, &mut reports, client, &repo).await?;
 
     guess_files_slop::<C>(arena, &mut reports, &repo).await?;
 
-    let mut ai_co_authored_commits = Ratio::default();
+    Ok(Slopness {
+        readme,
+        commits,
+        reports,
+    })
+}
+
+#[derive(Debug)]
+struct CommitsSlopness {
+    ai_co_author: Ratio,
+    /// Commits per day, by highest contributor
+    commits_per_day: f32,
+}
+
+async fn guess_commit_slop<'arena, 'git, C: GitClient>(
+    arena: &'arena Bump,
+    reports: &mut Vec<BVec<'arena, Group<'arena>>>,
+    client: &C,
+    repo: &C::Repository<'git>,
+) -> anyhow::Result<CommitsSlopness> {
+    let mut ai_co_author = Ratio::default();
     let mut ai_co_author_snippets = Vec::new();
 
+    struct ContributorStats {
+        total_commits: u32,
+        oldest: Option<DateTimeUtc>,
+    }
+
+    impl ContributorStats {
+        pub fn commits_per_day(&self, now: DateTimeUtc) -> Option<f32> {
+            let oldest = self.oldest?;
+            let secs = now.signed_duration_since(oldest).as_seconds_f32();
+            let mins = secs / 60.0;
+            let hours = mins / 60.0;
+            let days = hours / 24.0;
+
+            Some(self.total_commits as f32 / days)
+        }
+    }
+
+    let mut contributors: HashMap<String, ContributorStats> = HashMap::new();
+
     repo.for_each_commit(client, |commit| {
-        ai_co_authored_commits.total += 1;
-        // TODO: add report
+        ai_co_author.total += 1;
+
+        if let Some(id) = commit.author_identifier() {
+            let date = commit.date();
+
+            contributors
+                .entry(id.to_owned())
+                .and_modify(|s| {
+                    s.total_commits += 1;
+
+                    if let Some(this) = date
+                        && let Some(eldest) = s.oldest.as_mut()
+                        && this < *eldest
+                    {
+                        *eldest = this;
+                    }
+                })
+                .or_insert_with(|| ContributorStats {
+                    total_commits: 1,
+                    oldest: date,
+                });
+        }
 
         if let Some(idx) = commit.message().find("Co-Authored-By: Claude") {
             let span = idx..(idx + "Co-Authored-By: Claude".len());
-            ai_co_authored_commits.num += 1;
+            ai_co_author.num += 1;
 
             let text = &*arena.alloc_str(commit.message());
             let sha = &*arena.alloc_str(commit.sha());
@@ -424,7 +496,7 @@ async fn determine_ai_slop<'arena, C: GitClient>(
             )
         }
 
-        if ai_co_authored_commits.total >= 1000 {
+        if ai_co_author.total >= 1000 {
             ControlFlow::Break(())
         } else {
             ControlFlow::Continue(())
@@ -432,26 +504,53 @@ async fn determine_ai_slop<'arena, C: GitClient>(
     })
     .await?;
 
-    if ai_co_authored_commits.ratio() > 0.5 {
+    let mut highest_commits_per_day = f32::MIN;
+    let now = chrono::Utc::now();
+    for (_id, contrib) in contributors {
+        if let Some(cpd) = contrib.commits_per_day(now)
+            && cpd > highest_commits_per_day
+        {
+            highest_commits_per_day = cpd;
+        }
+    }
+
+    if highest_commits_per_day > 30.0 {
+        reports.push(bumpalo::vec![in arena;
+            Group::with_title(Level::ERROR
+                .primary_title(format!(
+                    "very high commit rate: {:.1} per day",
+                    highest_commits_per_day
+                ))),
+        ]);
+    } else if highest_commits_per_day > 15.0 {
+        reports.push(bumpalo::vec![in arena;
+            Group::with_title(Level::WARNING
+                .primary_title(format!(
+                    "high commit rate: {:.1} per day",
+                    highest_commits_per_day
+                )))
+        ]);
+    }
+
+    if ai_co_author.ratio() > 0.5 {
         reports.push(bumpalo::vec![in arena; Level::ERROR
             .primary_title(format!(
                 "{} commits have agentic co-authors",
-                Perc(ai_co_authored_commits.ratio())
+                Perc(ai_co_author.ratio())
             ))
             .elements(ai_co_author_snippets.into_iter().take(10))]);
-    } else if ai_co_authored_commits.ratio() > 0.25 {
+    } else if ai_co_author.ratio() > 0.25 {
         reports.push(bumpalo::vec![in arena; Level::WARNING
             .primary_title(format!(
                 "{} commits have agentic co-authors",
-                Perc(ai_co_authored_commits.ratio())
+                Perc(ai_co_author.ratio())
             ))
             .elements(ai_co_author_snippets.into_iter().take(10))]);
     }
 
-    Ok(Slopness {
-        readme,
-        ai_co_authored_commits,
-        reports,
+    Ok(CommitsSlopness {
+        ai_co_author,
+        commits_per_day: highest_commits_per_day,
     })
 }
 
@@ -476,14 +575,16 @@ where
         for line in gitignore.split_inclusive('\n') {
             let line_span = offset..(offset + line.len() - 1);
 
-            for phrase in ["CLAUDE.md", "GEMINI.md", "AGENTS.md", ".claude"] {
+            for phrase in ["CLAUDE.md", "GEMINI.md", "AGENTS.md", ".claude", ".serena"] {
                 if line.starts_with(phrase) {
                     annotations.push(
-                        Snippet::source(gitignore).annotation(
-                            AnnotationKind::Context
-                                .span(line_span.clone())
-                                .label("ignores agentic file or directory"),
-                        ),
+                        Snippet::source(gitignore)
+                            .annotation(
+                                AnnotationKind::Context
+                                    .span(line_span.clone())
+                                    .label("ignores agentic file or directory"),
+                            )
+                            .path(".gitignore"),
                     );
                 }
             }
@@ -496,7 +597,7 @@ where
 
             report.push(
                 Level::ERROR
-                    .primary_title(".gitignore contains possible AI-related entries")
+                    .primary_title("files contain AI-related references")
                     .elements(annotations.into_iter().take(10)),
             );
 
@@ -773,7 +874,6 @@ fn is_char_emoji(chr: char) -> bool {
 mod tests {
     use annotate_snippets::Renderer;
     use bumpalo::Bump;
-    use mlapibot_analysis::Url;
 
     use crate::client::module::post_ai_slop::{Ratio, ReadmeSlopness, RepoLink};
 
@@ -821,11 +921,12 @@ mod tests {
         // https://github.com/colliery-io/plissken
         // https://github.com/Daemoniorum-LLC/arcanum
         // https://github.com/samvallad33/vestige
+        // https://github.com/YeautyYE/skill-rust-ffmpeg
         //
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = RepoLink::parse("https://github.com/samvallad33/vestige");
+        let url = RepoLink::parse("https://github.com/YeautyYE/skill-rust-ffmpeg");
         println!("determine");
 
         let arena = Bump::new();
@@ -845,7 +946,7 @@ mod tests {
 
         println!("length: {total_len}");
 
-        println!("{slopness:?}");
+        println!("{slopness:#?}");
     }
 
     #[test]
