@@ -1,17 +1,27 @@
 use std::{
     collections::{HashSet, VecDeque},
-    ops::ControlFlow,
+    ops::{ControlFlow, Range},
 };
 
+use annotate_snippets::{AnnotationKind, Group, Level, Origin, Renderer, Report, Snippet};
+use anyhow::Context;
+use bumpalo::Bump;
 use futures_util::TryStreamExt;
-use markdown::mdast::Node;
+use markdown::{
+    mdast::Node,
+    unist::{Point, Position},
+};
 use mlapibot_analysis::{Url, extract_all_links};
-use octocrab::{Octocrab, models::repos::RepoCommit, repos::RepoHandler};
+use octocrab::{GitHubError, Octocrab, models::repos::RepoCommit, repos::RepoHandler};
+use roux::{client::RedditClient, util::error::RouxErrorKind};
 
 use crate::client::module::impl_mask_subreddits;
 
+type BVec<'arena, T> = bumpalo::collections::Vec<'arena, T>;
+
 pub struct PostAiSlop {}
 
+#[async_trait::async_trait(?Send)]
 impl super::Module for PostAiSlop {
     fn new() -> Self
     where
@@ -30,14 +40,22 @@ impl super::Module for PostAiSlop {
 
     impl_mask_subreddits!(ai_slop => posts);
 
-    fn run_post<'client>(
+    async fn run_post<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
-        subreddit: &mut crate::client::Subreddit,
+        _subreddit: &mut crate::client::Subreddit,
         config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
         has_seen: bool,
     ) -> anyhow::Result<super::PostAction> {
+        if has_seen {
+            return Ok(super::PostAction::Ignore);
+        }
+
+        let Some(slopconf) = config.and_then(|v| v.ai_slop.as_ref()) else {
+            return Ok(super::PostAction::Ignore);
+        };
+
         let Some(github) = client.github else {
             return Ok(super::PostAction::Ignore);
         };
@@ -51,14 +69,35 @@ impl super::Module for PostAiSlop {
             links.push(link);
         }
 
+        let bump = Bump::new();
+
         for link in links {
             if !link.domain().ends_with("github.com") {
                 continue;
             }
 
-            match determine_ai_slop(&*github, &link) {
+            match determine_ai_slop(&*github, &link, &bump).await {
                 Ok(slop) => {
-                    println!("{slop:?}");
+                    let subject = format!("Slop report for {}", link);
+                    let mut body = format!("For {}  \n{slop:?}", post.permalink());
+
+                    let renderer = Renderer::plain()
+                        .decor_style(annotate_snippets::renderer::DecorStyle::Unicode);
+
+                    body.push_str("\n\n```");
+
+                    for report in slop.reports {
+                        let r = renderer.render(&report);
+                        body.push('\n');
+                        body.push_str(&r);
+                    }
+
+                    body.push_str("\n\n```");
+
+                    client
+                        .client
+                        .compose_message(&slopconf.modmail_to, &subject, &body)
+                        .await?;
                 }
                 Err(err) => {
                     eprintln!("{link}: {err}")
@@ -79,7 +118,14 @@ impl std::fmt::Display for Perc {
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+impl std::fmt::Debug for Perc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let v = self.0 * 100.0;
+        write!(f, "{v:.1}%")
+    }
+}
+
+#[derive(Default, PartialEq)]
 struct Ratio {
     num: u32,
     total: u32,
@@ -92,6 +138,16 @@ impl Ratio {
         }
 
         self.num as f32 / self.total as f32
+    }
+}
+
+impl std::fmt::Debug for Ratio {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ratio")
+            .field("n", &self.num)
+            .field("t", &self.total)
+            .field("r", &Perc(self.ratio()))
+            .finish()
     }
 }
 
@@ -131,11 +187,22 @@ impl ReadmeSlopness {
     }
 }
 
-#[derive(Debug)]
-struct Slopness {
+struct Slopness<'arena> {
     readme: ReadmeSlopness,
     /// The % of commits that are co-authored by an AI
     ai_co_authored_commits: Ratio,
+    // The emitted diagnostics
+    reports: Vec<BVec<'arena, Group<'arena>>>,
+}
+
+impl<'arena> std::fmt::Debug for Slopness<'arena> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Slopness")
+            .field("readme", &self.readme)
+            .field("ai_co_authored_commits", &self.ai_co_authored_commits)
+            .field("reports", &self.reports.len())
+            .finish()
+    }
 }
 
 trait GitClient: Sized {
@@ -143,24 +210,49 @@ trait GitClient: Sized {
     where
         Self: 'l;
 
-    fn open_repo<'l>(&'l self, owner: &str, name: &str) -> anyhow::Result<Self::Repository<'l>>;
+    async fn open_repo<'l>(
+        &'l self,
+        owner: &str,
+        name: &str,
+    ) -> anyhow::Result<Self::Repository<'l>>;
 }
 
 impl GitClient for Octocrab {
     type Repository<'l> = octocrab::repos::RepoHandler<'l>;
 
-    fn open_repo<'l>(&'l self, owner: &str, name: &str) -> anyhow::Result<Self::Repository<'l>> {
+    async fn open_repo<'l>(
+        &'l self,
+        owner: &str,
+        name: &str,
+    ) -> anyhow::Result<Self::Repository<'l>> {
+        println!("open_repo: {owner} / {name}");
         let repo = self.repos(owner, name);
         Ok(repo)
     }
 }
 
+struct RepoContent {
+    pub name: String,
+    pub decoded: Option<String>,
+}
+
 trait GitRepository<C: GitClient> {
     type Commit: GitCommit;
 
-    fn fetch_readme(&self) -> anyhow::Result<String>;
+    async fn fetch_content(&self, path: &str) -> anyhow::Result<Vec<RepoContent>>;
 
-    fn for_each_commit<F>(&self, client: &C, callback: F) -> anyhow::Result<()>
+    async fn fetch_file(&self, path: &str) -> anyhow::Result<Option<String>> {
+        let mut content = self.fetch_content(path).await?;
+        if content.len() != 1 {
+            anyhow::bail!("no file at {path}");
+        }
+
+        Ok(content.pop().and_then(|v| v.decoded))
+    }
+
+    async fn fetch_readme(&self) -> anyhow::Result<String>;
+
+    async fn for_each_commit<F>(&self, client: &C, callback: F) -> anyhow::Result<()>
     where
         F: FnMut(Self::Commit) -> ControlFlow<()>;
 }
@@ -168,34 +260,48 @@ trait GitRepository<C: GitClient> {
 impl<'l> GitRepository<Octocrab> for RepoHandler<'l> {
     type Commit = octocrab::models::repos::RepoCommit;
 
-    fn fetch_readme(&self) -> anyhow::Result<String> {
-        let rt = tokio::runtime::Handle::current();
-        let content = rt.block_on(async { self.get_readme().send().await })?;
+    async fn fetch_content(&self, path: &str) -> anyhow::Result<Vec<RepoContent>> {
+        println!("fetch {path}");
+        let content = self.get_content().path(path).send().await?;
 
+        Ok(content
+            .items
+            .into_iter()
+            .map(|v| RepoContent {
+                decoded: v.decoded_content(),
+                name: v.name,
+            })
+            .collect())
+    }
+
+    async fn fetch_readme(&self) -> anyhow::Result<String> {
+        // println!("fetch readme");
+        let content = self.get_readme().send().await.context("fetch readme")?;
         Ok(content.decoded_content().unwrap_or_default())
     }
 
-    fn for_each_commit<F>(&self, client: &Octocrab, mut callback: F) -> anyhow::Result<()>
+    async fn for_each_commit<F>(&self, client: &Octocrab, mut callback: F) -> anyhow::Result<()>
     where
         F: FnMut(Self::Commit) -> ControlFlow<()>,
     {
-        println!("for-each-commit");
-        let rt = tokio::runtime::Handle::current();
+        // println!("for-each-commit");
+        let s = self
+            .list_commits()
+            .per_page(100)
+            .send()
+            .await?
+            .into_stream(client);
 
-        rt.block_on(async {
-            let s = self.list_commits().send().await?.into_stream(client);
+        tokio::pin!(s);
 
-            tokio::pin!(s);
-
-            while let Some(cmm) = s.try_next().await? {
-                match callback(cmm) {
-                    ControlFlow::Continue(()) => continue,
-                    ControlFlow::Break(()) => break,
-                }
+        while let Some(cmm) = s.try_next().await? {
+            match callback(cmm) {
+                ControlFlow::Continue(()) => continue,
+                ControlFlow::Break(()) => break,
             }
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 }
 
@@ -209,12 +315,21 @@ impl GitCommit for RepoCommit {
     }
 }
 
-fn determine_ai_slop<C: GitClient>(client: &C, link: &Url) -> anyhow::Result<Slopness> {
+async fn determine_ai_slop<'arena, C: GitClient>(
+    client: &C,
+    link: &Url,
+    arena: &'arena Bump,
+) -> anyhow::Result<Slopness<'arena>> {
     if !link.domain().ends_with("github.com") {
         anyhow::bail!("only github.com supported, was: {}", link.domain());
     }
 
-    let mut iter = link.path().split('/');
+    let mut iter = link
+        .path()
+        .strip_prefix('/')
+        .unwrap_or_else(|| link.path())
+        .split('/');
+
     let repo_owner = iter
         .next()
         .ok_or_else(|| anyhow::anyhow!("no repo owner: {}", link.path()))?;
@@ -222,17 +337,22 @@ fn determine_ai_slop<C: GitClient>(client: &C, link: &Url) -> anyhow::Result<Slo
         .next()
         .ok_or_else(|| anyhow::anyhow!("no repo name: {}", link.path()))?;
 
-    let repo = client.open_repo(repo_owner, repo_name)?;
+    let repo = client.open_repo(repo_owner, repo_name).await?;
 
-    let readme = repo.fetch_readme()?;
+    let readme = repo.fetch_readme().await?;
+    let readme = &*arena.alloc_str(&readme);
 
-    let readme = guess_readme_slop(&readme)?;
+    let mut reports = Vec::new();
+    let readme = guess_readme_slop(arena, &mut reports, &readme)?;
+
+    guess_files_slop::<C>(arena, &mut reports, &repo).await?;
 
     let mut ai_co_authored_commits = Ratio::default();
 
     repo.for_each_commit(client, |commit| {
         ai_co_authored_commits.total += 1;
-        if commit.message().contains("Claude") {
+        // TODO: add report
+        if commit.message().contains("Co-Authored-By: Claude") {
             ai_co_authored_commits.num += 1;
         }
 
@@ -241,18 +361,93 @@ fn determine_ai_slop<C: GitClient>(client: &C, link: &Url) -> anyhow::Result<Slo
         } else {
             ControlFlow::Continue(())
         }
-    })?;
+    })
+    .await?;
 
     Ok(Slopness {
         readme,
         ai_co_authored_commits,
+        reports,
     })
 }
 
-fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
+async fn guess_files_slop<'arena, 'git, C>(
+    arena: &'arena Bump,
+    reports: &mut Vec<BVec<'arena, Group<'arena>>>,
+    repo: &C::Repository<'git>,
+) -> anyhow::Result<()>
+where
+    C: GitClient,
+{
+    let root_files = repo.fetch_content("").await?;
+
+    if root_files.iter().any(|v| v.name == ".gitignore")
+        && let Some(gitignore) = repo.fetch_file(".gitignore").await?
+    {
+        let gitignore = &*arena.alloc_str(&gitignore);
+
+        let mut annotations = Vec::new();
+        let mut offset = 0;
+
+        for line in gitignore.split_inclusive('\n') {
+            let line_span = offset..(offset + line.len() - 1);
+
+            for phrase in ["CLAUDE.md", "GEMINI.md", "AGENTS.md", ".claude"] {
+                if line.starts_with(phrase) {
+                    annotations.push(
+                        Snippet::source(gitignore).annotation(
+                            AnnotationKind::Context
+                                .span(line_span.clone())
+                                .label("ignores agentic file or directory"),
+                        ),
+                    );
+                }
+            }
+
+            offset += line.len();
+        }
+
+        if annotations.len() > 0 {
+            let mut report = BVec::new_in(arena);
+
+            report.push(
+                Level::ERROR
+                    .primary_title(".gitignore contains possible AI-related entries")
+                    .elements(annotations),
+            );
+
+            reports.push(report);
+        }
+    }
+
+    for agentic in ["CLAUDE.md", "GEMINI.md", "AGENTS.md", ".claude"] {
+        if root_files.iter().any(|v| v.name == agentic) {
+            let mut report = BVec::new_in(arena);
+            report.push(
+                Level::ERROR
+                    .primary_title("agentic instruction file or directory detected")
+                    .element(Origin::path(agentic)),
+            );
+            reports.push(report);
+        }
+    }
+
+    Ok(())
+}
+
+fn guess_readme_slop<'arena>(
+    arena: &'arena Bump,
+    reports: &mut Vec<BVec<'arena, Group<'arena>>>,
+    readme: &'arena str,
+) -> anyhow::Result<ReadmeSlopness> {
     let mut slopness = ReadmeSlopness::default();
-    let mut next_list_id = 0;
     let mut seen_emoji_in_lists = HashSet::new();
+
+    let mut this_report = BVec::<'arena, Group<'arena>>::new_in(arena);
+
+    let mut pending_em_dashes = Vec::new();
+    let mut pending_emoji_headings = Vec::new();
+    let mut pending_emoji_points = Vec::new();
 
     let ast = markdown::to_mdast(readme, &markdown::ParseOptions::gfm()).map_err(|e| {
         anyhow::anyhow!(
@@ -264,10 +459,10 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
         )
     })?;
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone)]
     enum WalkParent {
-        List { id: u32 },
-        Heading,
+        List { span: Range<usize> },
+        Heading { span: Range<usize> },
     }
 
     struct WalkCtx {
@@ -283,10 +478,15 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
 
     while let Some(ctx) = queue.pop_front() {
         macro_rules! push_children {
+            ($item:ident, !) => {
+                for node in $item.children {
+                    queue.push_back(WalkCtx { parent: None, node })
+                }
+            };
             ($item:ident, $parent:expr) => {
                 for node in $item.children {
                     queue.push_back(WalkCtx {
-                        parent: Some($parent),
+                        parent: Some($parent.clone()),
                         node,
                     })
                 }
@@ -294,7 +494,7 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
             ($item:ident) => {
                 for node in $item.children {
                     queue.push_back(WalkCtx {
-                        parent: ctx.parent,
+                        parent: ctx.parent.clone(),
                         node,
                     })
                 }
@@ -304,10 +504,11 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
         match ctx.node {
             Node::Text(text) => {
                 let mut saw_emoji = false;
-                for chr in text.value.chars() {
+                for (idx, chr) in text.value.char_indices() {
                     slopness.total_chars += 1;
                     if chr == '—' {
-                        slopness.num_em_dash += 1;
+                        let start = text.position.as_ref().unwrap().start.offset + idx;
+                        pending_em_dashes.push((start, start + 1));
                     } else if is_char_emoji(chr) {
                         slopness.num_emoji += 1;
 
@@ -317,10 +518,21 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
 
                         saw_emoji = true;
                         match ctx.parent {
-                            Some(WalkParent::Heading) => slopness.emoji_headings.num += 1,
-                            Some(WalkParent::List { id }) if seen_emoji_in_lists.insert(id) => {
-                                println!("Flag emoji {chr:?} {:?}: {:?}", ctx.parent, text.value);
-                                slopness.emoji_points.num += 1
+                            Some(WalkParent::Heading { ref span }) => {
+                                slopness.emoji_headings.num += 1;
+                                pending_emoji_headings.push(
+                                    Snippet::source(readme)
+                                        .annotation(AnnotationKind::Context.span(span.clone())),
+                                );
+                            }
+                            Some(WalkParent::List { ref span })
+                                if seen_emoji_in_lists.insert(span.clone()) =>
+                            {
+                                slopness.emoji_points.num += 1;
+                                pending_emoji_points.push(
+                                    Snippet::source(readme)
+                                        .annotation(AnnotationKind::Context.span(span.clone())),
+                                );
                             }
                             _ => (),
                         }
@@ -330,21 +542,18 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
             Node::Root(root) => push_children!(root),
             Node::Heading(heading) => {
                 slopness.emoji_headings.total += 1;
-                push_children!(heading, WalkParent::Heading);
+                let span = heading.into_span();
+                push_children!(heading, WalkParent::Heading { span: span.clone() });
             }
-            Node::ListItem(v) => {
+            Node::ListItem(list) => {
                 slopness.emoji_points.total += 1;
 
-                println!("LIST: {v:?}");
-
-                let id = next_list_id;
-                next_list_id += 1;
-                push_children!(v, WalkParent::List { id })
+                let span = list.into_span();
+                push_children!(list, WalkParent::List { span: span.clone() })
             }
 
             Node::List(heading) => push_children!(heading),
             Node::Paragraph(v) => push_children!(v),
-            Node::Blockquote(v) => push_children!(v),
             Node::FootnoteDefinition(v) => push_children!(v),
             Node::MdxJsxFlowElement(v) => push_children!(v),
             Node::Delete(v) => push_children!(v),
@@ -353,9 +562,13 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
             Node::Link(v) => push_children!(v),
             Node::LinkReference(v) => push_children!(v),
             Node::Strong(v) => push_children!(v),
-            Node::Table(v) => push_children!(v),
-            Node::TableRow(v) => push_children!(v),
-            Node::TableCell(v) => push_children!(v),
+
+            // Stop propagating the list/heading into these
+            // complex formatting sections.
+            Node::Blockquote(v) => push_children!(v, !),
+            Node::Table(v) => push_children!(v, !),
+            Node::TableRow(v) => push_children!(v, !),
+            Node::TableCell(v) => push_children!(v, !),
 
             Node::MdxjsEsm(_)
             | Node::Toml(_)
@@ -376,8 +589,79 @@ fn guess_readme_slop(readme: &str) -> anyhow::Result<ReadmeSlopness> {
         }
     }
 
+    if slopness.emoji_headings.ratio() > 0.5 {
+        this_report.push(
+            Level::ERROR
+                .primary_title(format!(
+                    "{} headings use emoji",
+                    Perc(slopness.emoji_headings.ratio())
+                ))
+                .elements(pending_emoji_headings),
+        );
+    } else if slopness.emoji_headings.ratio() > 0.25 {
+        this_report.push(
+            Level::WARNING
+                .primary_title(format!(
+                    "{} headings use emoji",
+                    Perc(slopness.emoji_headings.ratio())
+                ))
+                .elements(pending_emoji_headings),
+        );
+    }
+
+    if slopness.emoji_points.ratio() > 0.25 {
+        this_report.push(
+            Level::ERROR
+                .primary_title(format!(
+                    "{} list entries use emoji",
+                    Perc(slopness.emoji_points.ratio())
+                ))
+                .elements(pending_emoji_points),
+        );
+    } else if slopness.emoji_points.ratio() > 0.1 {
+        this_report.push(
+            Level::WARNING
+                .primary_title(format!(
+                    "{} list entries use emoji",
+                    Perc(slopness.emoji_points.ratio())
+                ))
+                .elements(pending_emoji_points),
+        );
+    }
+
+    if this_report.len() > 0 {
+        reports.push(this_report);
+    }
+
     Ok(slopness)
 }
+
+trait IntoSpan {
+    fn into_span(&self) -> Range<usize>;
+}
+
+impl IntoSpan for Option<Position> {
+    fn into_span(&self) -> Range<usize> {
+        match self {
+            Some(pos) => pos.start.offset..pos.end.offset,
+            None => 0..0,
+        }
+    }
+}
+
+macro_rules! delegate_into_span {
+    ($($item:ident),* $(,)?) => {
+        $(
+            impl IntoSpan for markdown::mdast::$item {
+                fn into_span(&self) -> Range<usize> {
+                    self.position.into_span()
+                }
+            }
+        )*
+    };
+}
+
+delegate_into_span!(Text, Heading, List, ListItem);
 
 // this doesn't correctly handle multi-char emoji.
 // e.g., flags that visually render as one item will be counted twice
@@ -403,8 +687,9 @@ fn is_char_emoji(chr: char) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use annotate_snippets::Renderer;
+    use bumpalo::Bump;
     use mlapibot_analysis::Url;
-    use octocrab::Octocrab;
 
     use crate::client::module::post_ai_slop::{Ratio, ReadmeSlopness};
 
@@ -412,30 +697,70 @@ mod tests {
     fn our_readme_is_not_slop() {
         static THIS_README: &str = include_str!("../../../../../README.md");
 
-        let slop = super::guess_readme_slop(THIS_README).unwrap();
+        let arena = Bump::new();
+        let mut reports = Vec::new();
 
+        let slop = super::guess_readme_slop(&arena, &mut reports, THIS_README).unwrap();
+
+        assert_eq!(reports.len(), 0);
         assert_eq!(slop.num_em_dash, 0);
         assert_eq!(slop.num_emoji, 0);
         assert_eq!(slop.emoji_points.ratio(), 0.0);
         assert_eq!(slop.emoji_headings.ratio(), 0.0);
     }
 
-    #[test]
-    fn rustc_is_not_slop() {
+    #[tokio::test]
+    async fn rustc_is_not_slop() {
         println!("init");
 
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(async {
-                let octo = octocrab::instance();
-                let url = Url::parse("https://github.com/rust-lang/rust").unwrap();
-                println!("determine");
+        let octo = octocrab::instance();
+        let url = Url::parse("https://github.com/rust-lang/rust").unwrap();
+        println!("determine");
 
-                let slopness = super::determine_ai_slop(octo.as_ref(), &url).unwrap();
-                println!("{slopness:?}");
-            });
+        let arena = Bump::new();
+
+        let slopness = super::determine_ai_slop(octo.as_ref(), &url, &arena)
+            .await
+            .unwrap();
+
+        println!("{slopness:?}");
+    }
+
+    #[tokio::test]
+    async fn get_repo_slopness() {
+        println!("init");
+
+        // ai use:
+        // https://github.com/mattdef/dampen
+        // https://github.com/cdump/proton-tui
+        // https://github.com/cledouarec/sara
+        // https://github.com/colliery-io/plissken
+        // https://github.com/Daemoniorum-LLC/arcanum
+        //
+        // ???:
+        // https://github.com/landaire/stoptrackingme
+        let octo = octocrab::instance();
+        let url = Url::parse("").unwrap();
+        println!("determine");
+
+        let arena = Bump::new();
+
+        let slopness = super::determine_ai_slop(octo.as_ref(), &url, &arena)
+            .await
+            .unwrap();
+
+        let renderer = Renderer::styled();
+
+        let mut total_len = 0;
+        for report in &slopness.reports {
+            let text = renderer.render(&report);
+            total_len += text.len();
+            println!("\n\n{text}");
+        }
+
+        println!("length: {total_len}");
+
+        println!("{slopness:?}");
     }
 
     #[test]
@@ -443,11 +768,20 @@ mod tests {
         /// Generated by ChatGPT, naturally.
         static SLOP_README: &str = include_str!("slop_readme.md");
 
-        let slop = super::guess_readme_slop(SLOP_README).unwrap();
+        let arena = Bump::new();
+        let mut reports = Vec::new();
+        let slop = super::guess_readme_slop(&arena, &mut reports, SLOP_README).unwrap();
 
-        let points = slop.emoji_points.ratio();
-        let headings = slop.emoji_headings.ratio();
-        let emoji = slop.num_emoji as f32 / slop.total_chars as f32;
+        let renderer = Renderer::styled();
+
+        let mut total_len = 0;
+        for report in &reports {
+            let text = renderer.render(&report);
+            total_len += text.len();
+            println!("\n\n{text}");
+        }
+
+        println!("length: {total_len}");
 
         assert_eq!(
             slop,
@@ -456,7 +790,7 @@ mod tests {
                 emoji_headings: Ratio { num: 12, total: 12 },
                 num_emoji: 49,
                 num_em_dash: 0,
-                total_chars: 2601
+                total_chars: 2608
             }
         );
     }

@@ -49,6 +49,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotate-snippets"
+version = "0.12.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15580ece6ea97cbf832d60ba19c021113469480852c6a2a6beb0db28f097bf1f"
+dependencies = [
+ "anstyle",
+ "unicode-width",
+]
+
+[[package]]
 name = "anstyle"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -186,9 +196,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.17.0"
+version = "3.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
+checksum = "5dd9dc738b7a8311c7ade152424974d8115f2cdad61e8dab8dac9f2362298510"
 
 [[package]]
 name = "bytemuck"
@@ -1615,6 +1625,7 @@ dependencies = [
  "clap",
  "mlapibot-analysis",
  "mlapibot-common",
+ "mlapibot-datastore",
  "mlapibot-reddit",
  "mlapibot-webhook",
  "serde_json",
@@ -1677,9 +1688,11 @@ dependencies = [
 name = "mlapibot-reddit"
 version = "0.1.0"
 dependencies = [
+ "annotate-snippets",
  "anyhow",
  "async-trait",
  "base64ct",
+ "bumpalo",
  "chrono",
  "chrono-tz",
  "futures-util",
@@ -2464,8 +2477,8 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.45"
-source = "git+https://github.com/CheAle14/roux.git#02ac921f6ec9205d08f0048b96c22a7c8e73faca"
+version = "2.3.46"
+source = "git+https://github.com/CheAle14/roux.git#6069d9b192a7cba0aa8d4528bdaa65a4aa4e386c"
 dependencies = [
  "html-escape",
  "maybe-async",
@@ -3481,6 +3494,12 @@ name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
+
+[[package]]
+name = "unicode-width"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "untrusted"

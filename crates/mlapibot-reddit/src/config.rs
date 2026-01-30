@@ -269,7 +269,9 @@ pub struct StatusStickyConfig {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct SubredditAiSlopConfig {}
+pub struct SubredditAiSlopConfig {
+    pub modmail_to: String,
+}
 
 #[derive(Clone, Deserialize)]
 pub struct GlobalSettings {

@@ -1,10 +1,9 @@
-use std::{any::Any, fmt::Write, path::PathBuf};
+use std::{fmt::Write, path::PathBuf};
 
 use anyhow::Context;
-use mlapibot_common::LowercaseString;
 use mlapibot_reddit::{
     QuickStopError, RedditClient,
-    config::{GlobalSettings, RedditCredentials, SubredditsConfig},
+    config::{GlobalSettings, SubredditsConfig},
 };
 use mlapibot_webhook::{WebhookClient, create_generic_error_message};
 
@@ -49,7 +48,7 @@ impl RedditArgs {
     }
 
     pub async fn run(self) -> anyhow::Result<()> {
-        let credentials = self.get_credentials()?;
+        let settings = self.get_global_settings()?;
         let subreddits_config = self.get_subreddits_config()?;
 
         let Self {
@@ -63,7 +62,7 @@ impl RedditArgs {
 
         let analyzers = mlapibot_analysis::load_scams()?;
 
-        let panic_webhook = credentials.webhook_url.clone();
+        let panic_webhook = settings.webhook_url.clone();
 
         let mut client = RedditClient::new(
             &analyzers,
@@ -72,7 +71,7 @@ impl RedditArgs {
             dry_run,
             status_webhook,
             admin,
-            credentials,
+            settings,
             subreddits_config,
             !release,
         )
