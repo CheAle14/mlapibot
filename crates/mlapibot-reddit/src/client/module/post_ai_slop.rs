@@ -122,22 +122,22 @@ impl super::Module for PostAiSlop {
             return Ok(super::PostAction::Ignore);
         };
 
-        let mut links = Vec::new();
+        let mut links = HashSet::new();
         if let Some(Ok(url)) = post.url().as_ref().map(|v| Url::parse(&v)) {
-            links.push(url);
+            if let Ok(url) = RepoLink::new(&url) {
+                links.insert(url);
+            }
         }
 
         for link in extract_all_links(post.selftext(), None) {
-            links.push(link);
+            if let Ok(link) = RepoLink::new(&link) {
+                links.insert(link);
+            }
         }
 
         let bump = Bump::new();
 
         for link in links {
-            let Ok(link) = RepoLink::new(&link) else {
-                continue;
-            };
-
             if !self.seen.insert(link.clone()) {
                 continue;
             }
@@ -372,10 +372,14 @@ impl<'l> GitRepository<Octocrab> for RepoHandler<'l> {
 }
 
 trait GitCommit {
+    fn sha(&self) -> &str;
     fn message(&self) -> &str;
 }
 
 impl GitCommit for RepoCommit {
+    fn sha(&self) -> &str {
+        &self.sha
+    }
     fn message(&self) -> &str {
         &self.commit.message
     }
@@ -398,12 +402,24 @@ async fn determine_ai_slop<'arena, C: GitClient>(
     guess_files_slop::<C>(arena, &mut reports, &repo).await?;
 
     let mut ai_co_authored_commits = Ratio::default();
+    let mut ai_co_author_snippets = Vec::new();
 
     repo.for_each_commit(client, |commit| {
         ai_co_authored_commits.total += 1;
         // TODO: add report
-        if commit.message().contains("Co-Authored-By: Claude") {
+
+        if let Some(idx) = commit.message().find("Co-Authored-By: Claude") {
+            let span = idx..(idx + "Co-Authored-By: Claude".len());
             ai_co_authored_commits.num += 1;
+
+            let text = &*arena.alloc_str(commit.message());
+            let sha = &*arena.alloc_str(commit.sha());
+
+            ai_co_author_snippets.push(
+                Snippet::source(text)
+                    .annotation(AnnotationKind::Primary.span(span))
+                    .path(sha),
+            )
         }
 
         if ai_co_authored_commits.total >= 1000 {
@@ -413,6 +429,22 @@ async fn determine_ai_slop<'arena, C: GitClient>(
         }
     })
     .await?;
+
+    if ai_co_authored_commits.ratio() > 0.5 {
+        reports.push(bumpalo::vec![in arena; Level::ERROR
+            .primary_title(format!(
+                "{} commits have agentic co-authors",
+                Perc(ai_co_authored_commits.ratio())
+            ))
+            .elements(ai_co_author_snippets.into_iter().take(10))]);
+    } else if ai_co_authored_commits.ratio() > 0.25 {
+        reports.push(bumpalo::vec![in arena; Level::WARNING
+            .primary_title(format!(
+                "{} commits have agentic co-authors",
+                Perc(ai_co_authored_commits.ratio())
+            ))
+            .elements(ai_co_author_snippets.into_iter().take(10))]);
+    }
 
     Ok(Slopness {
         readme,
@@ -463,7 +495,7 @@ where
             report.push(
                 Level::ERROR
                     .primary_title(".gitignore contains possible AI-related entries")
-                    .elements(annotations),
+                    .elements(annotations.into_iter().take(10)),
             );
 
             reports.push(report);
@@ -646,7 +678,7 @@ fn guess_readme_slop<'arena>(
                     "{} headings use emoji",
                     Perc(slopness.emoji_headings.ratio())
                 ))
-                .elements(pending_emoji_headings),
+                .elements(pending_emoji_headings.into_iter().take(10)),
         );
     } else if slopness.emoji_headings.ratio() > 0.25 {
         this_report.push(
@@ -655,7 +687,7 @@ fn guess_readme_slop<'arena>(
                     "{} headings use emoji",
                     Perc(slopness.emoji_headings.ratio())
                 ))
-                .elements(pending_emoji_headings),
+                .elements(pending_emoji_headings.into_iter().take(10)),
         );
     }
 
@@ -675,7 +707,7 @@ fn guess_readme_slop<'arena>(
                     "{} list entries use emoji",
                     Perc(slopness.emoji_points.ratio())
                 ))
-                .elements(pending_emoji_points),
+                .elements(pending_emoji_points.into_iter().take(10)),
         );
     }
 
@@ -786,11 +818,12 @@ mod tests {
         // https://github.com/cledouarec/sara
         // https://github.com/colliery-io/plissken
         // https://github.com/Daemoniorum-LLC/arcanum
+        // https://github.com/samvallad33/vestige
         //
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = RepoLink::parse("");
+        let url = RepoLink::parse("https://github.com/samvallad33/vestige");
         println!("determine");
 
         let arena = Bump::new();
