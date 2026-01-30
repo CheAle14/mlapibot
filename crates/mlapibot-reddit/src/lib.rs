@@ -1,3 +1,4 @@
+#![feature(trim_prefix_suffix)]
 mod client;
 pub mod config;
 pub mod exts;

@@ -66,9 +66,11 @@ impl RepoLink {
         let repo_owner = iter
             .next()
             .ok_or_else(|| anyhow::anyhow!("no repo owner: {}", link.path()))?;
+
         let repo_name = iter
             .next()
-            .ok_or_else(|| anyhow::anyhow!("no repo name: {}", link.path()))?;
+            .ok_or_else(|| anyhow::anyhow!("no repo name: {}", link.path()))?
+            .trim_suffix(".git");
 
         Ok(Self {
             website,
