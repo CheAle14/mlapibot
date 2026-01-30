@@ -1629,6 +1629,7 @@ dependencies = [
  "mlapibot-reddit",
  "mlapibot-webhook",
  "serde_json",
+ "systemd_socket",
  "tera",
  "tokio",
  "toml",

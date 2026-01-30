@@ -13,6 +13,7 @@ mlapibot-reddit = { path = "../../crates/mlapibot-reddit" }
 anyhow = { workspace = true }
 serde_json = { workspace = true }
 tera = { workspace = true }
+systemd_socket = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 

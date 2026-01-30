@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::Parser;
 
 mod db;
@@ -24,10 +25,20 @@ pub enum MainCommands {
     Db(db::DbCommands),
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     let args = MainArgs::parse();
 
+    if let MainCommands::Reddit(..) = &args.commands {
+        // This needs to be ran before any threads are started, which means
+        // before tokio's thread loop.
+        systemd_socket::init().context("initializing systemd sockets")?;
+    }
+
+    async_start(args)
+}
+
+#[tokio::main]
+async fn async_start(args: MainArgs) -> anyhow::Result<()> {
     match args.commands {
         MainCommands::Reddit(reddit) => reddit.run().await,
         MainCommands::Test(single) => single.run().await,

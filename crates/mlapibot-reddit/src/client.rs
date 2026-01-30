@@ -106,8 +106,6 @@ impl<'a> RedditClient<'a> {
         subreddits_config: SubredditsConfig,
         debug: bool,
     ) -> anyhow::Result<Self> {
-        systemd_socket::init().context("initializing systemd sockets")?;
-
         let templates_path = data_dir.join("templates").join("*.md");
         let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
         let found: Vec<_> = templates.get_template_names().collect();
