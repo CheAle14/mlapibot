@@ -19,7 +19,67 @@ use crate::client::module::impl_mask_subreddits;
 
 type BVec<'arena, T> = bumpalo::collections::Vec<'arena, T>;
 
-pub struct PostAiSlop {}
+pub struct PostAiSlop {
+    seen: HashSet<RepoLink>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum RepoWebsite {
+    GitHub,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct RepoLink {
+    website: RepoWebsite,
+    repo: String,
+}
+
+impl std::fmt::Display for RepoLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.website {
+            RepoWebsite::GitHub => f.write_str("https://github.com/")?,
+        }
+
+        f.write_str(&self.repo)
+    }
+}
+
+impl RepoLink {
+    #[cfg(test)]
+    pub fn parse(link: &str) -> Self {
+        let url = Url::parse(link).unwrap();
+        Self::new(&url).unwrap()
+    }
+
+    pub fn new(link: &Url) -> anyhow::Result<Self> {
+        let website = match link.domain() {
+            "github.com" => RepoWebsite::GitHub,
+            other => anyhow::bail!("only github.com supported, was: {other:?}"),
+        };
+
+        let mut iter = link
+            .path()
+            .strip_prefix('/')
+            .unwrap_or_else(|| link.path())
+            .split('/');
+
+        let repo_owner = iter
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("no repo owner: {}", link.path()))?;
+        let repo_name = iter
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("no repo name: {}", link.path()))?;
+
+        Ok(Self {
+            website,
+            repo: format!("{repo_owner}/{repo_name}"),
+        })
+    }
+
+    pub fn owner_and_name(&self) -> (&str, &str) {
+        unsafe { self.repo.split_once('/').unwrap_unchecked() }
+    }
+}
 
 #[async_trait::async_trait(?Send)]
 impl super::Module for PostAiSlop {
@@ -27,7 +87,9 @@ impl super::Module for PostAiSlop {
     where
         Self: Sized,
     {
-        Self {}
+        Self {
+            seen: HashSet::new(),
+        }
     }
 
     fn name(&self) -> &'static str {
@@ -72,7 +134,11 @@ impl super::Module for PostAiSlop {
         let bump = Bump::new();
 
         for link in links {
-            if !link.domain().ends_with("github.com") {
+            let Ok(link) = RepoLink::new(&link) else {
+                continue;
+            };
+
+            if !self.seen.insert(link.clone()) {
                 continue;
             }
 
@@ -317,26 +383,10 @@ impl GitCommit for RepoCommit {
 
 async fn determine_ai_slop<'arena, C: GitClient>(
     client: &C,
-    link: &Url,
+    link: &RepoLink,
     arena: &'arena Bump,
 ) -> anyhow::Result<Slopness<'arena>> {
-    if !link.domain().ends_with("github.com") {
-        anyhow::bail!("only github.com supported, was: {}", link.domain());
-    }
-
-    let mut iter = link
-        .path()
-        .strip_prefix('/')
-        .unwrap_or_else(|| link.path())
-        .split('/');
-
-    let repo_owner = iter
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("no repo owner: {}", link.path()))?;
-    let repo_name = iter
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("no repo name: {}", link.path()))?;
-
+    let (repo_owner, repo_name) = link.owner_and_name();
     let repo = client.open_repo(repo_owner, repo_name).await?;
 
     let readme = repo.fetch_readme().await?;
@@ -691,7 +741,7 @@ mod tests {
     use bumpalo::Bump;
     use mlapibot_analysis::Url;
 
-    use crate::client::module::post_ai_slop::{Ratio, ReadmeSlopness};
+    use crate::client::module::post_ai_slop::{Ratio, ReadmeSlopness, RepoLink};
 
     #[test]
     fn our_readme_is_not_slop() {
@@ -714,7 +764,7 @@ mod tests {
         println!("init");
 
         let octo = octocrab::instance();
-        let url = Url::parse("https://github.com/rust-lang/rust").unwrap();
+        let url = RepoLink::parse("https://github.com/rust-lang/rust");
         println!("determine");
 
         let arena = Bump::new();
@@ -740,7 +790,7 @@ mod tests {
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = Url::parse("").unwrap();
+        let url = RepoLink::parse("");
         println!("determine");
 
         let arena = Bump::new();
