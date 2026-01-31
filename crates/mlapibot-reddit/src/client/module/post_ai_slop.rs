@@ -9,6 +9,7 @@ use bumpalo::Bump;
 use futures_util::TryStreamExt;
 use markdown::{mdast::Node, unist::Position};
 use mlapibot_analysis::{Url, extract_all_links};
+use mlapibot_common::{DataMetaData, RunningStat};
 use octocrab::{Octocrab, models::repos::RepoCommit, repos::RepoHandler};
 
 use crate::client::module::impl_mask_subreddits;
@@ -426,8 +427,8 @@ async fn determine_ai_slop<'arena, C: GitClient>(
 #[derive(Debug)]
 struct CommitsSlopness {
     ai_co_author: Ratio,
-    /// Commits per day, by highest contributor
-    commits_per_day: f32,
+    /// Commits per day for each contributor
+    commits_per_day: DataMetaData,
 }
 
 async fn guess_commit_slop<'arena, 'git, C: GitClient>(
@@ -504,30 +505,30 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
     })
     .await?;
 
+    let mut commits_per_day = RunningStat::default();
     let mut highest_commits_per_day = f32::MIN;
     let now = chrono::Utc::now();
     for (_id, contrib) in contributors {
-        if let Some(cpd) = contrib.commits_per_day(now)
-            && cpd > highest_commits_per_day
-        {
-            highest_commits_per_day = cpd;
+        if let Some(cpd) = contrib.commits_per_day(now) {
+            commits_per_day += cpd;
         }
     }
+    let commits_per_day = commits_per_day.results();
 
-    if highest_commits_per_day > 30.0 {
+    if commits_per_day.max > 30.0 {
         reports.push(bumpalo::vec![in arena;
             Group::with_title(Level::ERROR
                 .primary_title(format!(
                     "very high commit rate: {:.1} per day",
-                    highest_commits_per_day
+                    commits_per_day.max
                 ))),
         ]);
-    } else if highest_commits_per_day > 15.0 {
+    } else if commits_per_day.max > 15.0 {
         reports.push(bumpalo::vec![in arena;
             Group::with_title(Level::WARNING
                 .primary_title(format!(
                     "high commit rate: {:.1} per day",
-                    highest_commits_per_day
+                    commits_per_day.max
                 )))
         ]);
     }
@@ -550,7 +551,7 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
 
     Ok(CommitsSlopness {
         ai_co_author,
-        commits_per_day: highest_commits_per_day,
+        commits_per_day,
     })
 }
 

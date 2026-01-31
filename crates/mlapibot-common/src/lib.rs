@@ -16,5 +16,6 @@ moduse!(
     needle_finder,
     lowercase,
     cached,
-    errors
+    errors,
+    running_stat,
 );
