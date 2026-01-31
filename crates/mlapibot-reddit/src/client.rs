@@ -12,6 +12,7 @@ use octocrab::OctocrabBuilder;
 use roux::{
     api::Distinguished,
     client::{OAuthClient, RedditClient as RouxRedditClient},
+    util::{SubmissionStream, now_utc},
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
 use tera::Tera;
@@ -59,6 +60,8 @@ pub struct RedditClient<'a> {
     flair_cache: PostFlairCache,
     cached_status_components: StatusComponentCache,
     debug: bool,
+
+    posts: roux::util::SubmissionStream<Submission>,
 
     modules: Vec<RegisteredModule>,
     // the subreddit posts/comments wanted by *any* module.
@@ -159,6 +162,8 @@ impl<'a> RedditClient<'a> {
 
         let subreddits = subreddits?;
 
+        let posts = SubmissionStream::new(25, subreddits.iter().map(|v| v.name().as_str()));
+
         let cached_status_components = Cached::new(Duration::from_secs(600), &status, |client| {
             Box::pin(async {
                 let mut map = HashMap::new();
@@ -207,6 +212,7 @@ impl<'a> RedditClient<'a> {
             last_status: StatusIndicator::None,
             cached_status_components,
             debug,
+            posts,
 
             modules,
             subreddits_mask,
@@ -334,50 +340,62 @@ impl<'a> RedditClient<'a> {
     }
 
     async fn check_subreddits(&mut self) -> anyhow::Result<Duration> {
-        for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
+        let posts = self
+            .posts
+            .get_next_batch(roux::util::FetchMethod::Multi, now_utc(), &mut self.client)
+            .await?;
+
+        for post in posts {
+            let Some((idx, subreddit)) = self
+                .subreddits
+                .iter_mut()
+                .enumerate()
+                .find(|v| v.1.name() == post.subreddit())
+            else {
+                eprintln!(
+                    "Received post from subreddit we never asked for? {}",
+                    post.permalink()
+                );
+                continue;
+            };
+
             if !self.subreddits_mask.posts.is_set(idx) {
                 // no modules want this subreddit's posts.
                 continue;
             }
 
-            for post in subreddit
-                .newest_unseen()
-                .await
-                .context("get newest unseen")?
-            {
-                if post.author() == &self.own_name {
-                    continue;
-                }
-
-                let is_removed = post.moderation().map(|m| m.removed).unwrap_or_default();
-                if is_removed {
-                    continue;
-                }
-
-                let has_seen = self
-                    .db
-                    .has_seen(post.name().full())
-                    .context("lookup seen")?;
-
-                if post.has_unknown_media() {
-                    continue;
-                } else if !has_seen {
-                    self.db
-                        .set_seen(subreddit.name().as_str(), post.name().full())
-                        .context("add monitor")?;
-
-                    println!(
-                        "Saw {:?} {:?} by /u/{}",
-                        post.name(),
-                        post.title(),
-                        post.author(),
-                    );
-                }
-
-                let mut view = make_view!(self);
-                view.run_post(&mut self.modules, subreddit, idx, post, has_seen)
-                    .await?;
+            if post.author() == &self.own_name {
+                continue;
             }
+
+            let is_removed = post.moderation().map(|m| m.removed).unwrap_or_default();
+            if is_removed {
+                continue;
+            }
+
+            let has_seen = self
+                .db
+                .has_seen(post.name().full())
+                .context("lookup seen")?;
+
+            if post.has_unknown_media() {
+                continue;
+            } else if !has_seen {
+                self.db
+                    .set_seen(subreddit.name().as_str(), post.name().full())
+                    .context("add monitor")?;
+
+                println!(
+                    "Saw {:?} {:?} by /u/{}",
+                    post.name(),
+                    post.title(),
+                    post.author(),
+                );
+            }
+
+            let mut view = make_view!(self);
+            view.run_post(&mut self.modules, subreddit, idx, post, has_seen)
+                .await?;
         }
         Ok(Duration::from_secs(15))
     }
