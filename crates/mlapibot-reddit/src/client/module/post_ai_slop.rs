@@ -506,7 +506,6 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
     .await?;
 
     let mut commits_per_day = RunningStat::default();
-    let mut highest_commits_per_day = f32::MIN;
     let now = chrono::Utc::now();
     for (_id, contrib) in contributors {
         if let Some(cpd) = contrib.commits_per_day(now) {
@@ -852,23 +851,11 @@ delegate_into_span!(Text, Heading, List, ListItem);
 // this doesn't correctly handle multi-char emoji.
 // e.g., flags that visually render as one item will be counted twice
 fn is_char_emoji(chr: char) -> bool {
-    if chr.is_ascii_punctuation() {
+    if chr.is_ascii() {
         return false;
     }
 
-    if chr.is_whitespace() {
-        return false;
-    }
-
-    if chr.is_alphanumeric() {
-        return false;
-    }
-
-    if ['“', '”'].contains(&chr) {
-        return false;
-    }
-
-    true
+    unic_emoji_char::is_emoji(chr)
 }
 
 #[cfg(test)]
@@ -980,5 +967,25 @@ mod tests {
                 total_chars: 2608
             }
         );
+    }
+
+    #[test]
+    fn does_not_count_text_as_emoji() {
+        for chr in "hello world123;'#[]'“', '”'".chars() {
+            assert!(!super::is_char_emoji(chr), "{chr:?}");
+        }
+    }
+
+    #[test]
+    fn counts_emoji_as_emoji() {
+        assert!(super::is_char_emoji('✅'));
+        assert!(super::is_char_emoji('✔'));
+    }
+
+    #[test]
+    fn does_not_count_math_symbols_as_emoji() {
+        assert!(!super::is_char_emoji('≤'));
+        assert!(!super::is_char_emoji('±'));
+        assert!(!super::is_char_emoji('×'));
     }
 }
