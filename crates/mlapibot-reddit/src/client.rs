@@ -162,8 +162,6 @@ impl<'a> RedditClient<'a> {
 
         let subreddits = subreddits?;
 
-        let posts = SubmissionStream::new(25, subreddits.iter().map(|v| v.name().as_str()));
-
         let cached_status_components = Cached::new(Duration::from_secs(600), &status, |client| {
             Box::pin(async {
                 let mut map = HashMap::new();
@@ -191,6 +189,17 @@ impl<'a> RedditClient<'a> {
         }
 
         let (subreddits_mask, modules) = Self::build_modules(&subreddits_config, &subreddits);
+
+        let posts = SubmissionStream::new(
+            25,
+            subreddits.iter().enumerate().filter_map(|(idx, sub)| {
+                if subreddits_mask.posts.is_set(idx) {
+                    Some(sub.name().as_str())
+                } else {
+                    None
+                }
+            }),
+        );
 
         Ok(Self {
             db,
