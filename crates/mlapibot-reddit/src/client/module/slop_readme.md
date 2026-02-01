@@ -40,7 +40,7 @@ Powered by:
 
 ## 🏗️ ARCHITECTURE OVERVIEW
 
-```text
+```mermaid
 IMAGE → OCR → TEXT → VIBES → SCAM DETECTION → REDDIT → INTERNET DOMINATION
 ```
 

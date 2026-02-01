@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     ops::{ControlFlow, Range},
 };
 
@@ -644,6 +644,8 @@ fn guess_readme_slop<'arena>(
         )
     })?;
 
+    let _ = std::fs::write(r"D:\_GitHub\mlapibot\ast.txt", format!("{ast:#?}"));
+
     #[derive(Debug, Clone)]
     enum WalkParent {
         List { span: Range<usize> },
@@ -651,34 +653,94 @@ fn guess_readme_slop<'arena>(
     }
 
     struct WalkCtx {
+        depth: usize,
+        order: usize,
         parent: Option<WalkParent>,
         node: markdown::mdast::Node,
     }
 
-    let mut queue = VecDeque::new();
-    queue.push_back(WalkCtx {
+    impl std::fmt::Debug for WalkCtx {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let node = format!("{:?}", self.node);
+
+            let (start, _rest) = node.split_once('{').unwrap_or_else(|| (node.as_str(), ""));
+
+            f.debug_struct("WalkCtx")
+                .field("depth", &self.depth)
+                .field("order", &self.order)
+                .field("parent", &self.parent)
+                .field("node", &start)
+                .finish()
+        }
+    }
+
+    impl PartialEq for WalkCtx {
+        fn eq(&self, other: &Self) -> bool {
+            self.depth == other.depth && self.order == other.order
+        }
+    }
+
+    impl Eq for WalkCtx {}
+
+    impl PartialOrd for WalkCtx {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(&other))
+        }
+    }
+
+    impl Ord for WalkCtx {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            match self.depth.cmp(&other.depth) {
+                std::cmp::Ordering::Equal => other.order.cmp(&self.order),
+                other => other,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct SpanString {
+        text: String,
+        span: Range<usize>,
+        walk_depth: usize,
+    }
+
+    let mut last_heading: Option<SpanString> = None;
+
+    let mut queue = BinaryHeap::new();
+    queue.push(WalkCtx {
+        depth: 0,
+        order: 0,
         node: ast,
         parent: None,
     });
 
-    while let Some(ctx) = queue.pop_front() {
+    while let Some(ctx) = queue.pop() {
         macro_rules! push_children {
             ($item:ident, !) => {
-                for node in $item.children {
-                    queue.push_back(WalkCtx { parent: None, node })
+                for (order, node) in $item.children.into_iter().enumerate() {
+                    queue.push(WalkCtx {
+                        depth: ctx.depth + 1,
+                        order,
+                        parent: None,
+                        node,
+                    })
                 }
             };
             ($item:ident, $parent:expr) => {
-                for node in $item.children {
-                    queue.push_back(WalkCtx {
+                for (order, node) in $item.children.into_iter().enumerate() {
+                    queue.push(WalkCtx {
+                        depth: ctx.depth + 1,
+                        order,
                         parent: Some($parent.clone()),
                         node,
                     })
                 }
             };
             ($item:ident) => {
-                for node in $item.children {
-                    queue.push_back(WalkCtx {
+                for (order, node) in $item.children.into_iter().enumerate() {
+                    queue.push(WalkCtx {
+                        depth: ctx.depth + 1,
+                        order,
                         parent: ctx.parent.clone(),
                         node,
                     })
@@ -688,6 +750,16 @@ fn guess_readme_slop<'arena>(
 
         match ctx.node {
             Node::Text(text) => {
+                if ctx
+                    .parent
+                    .as_ref()
+                    .is_some_and(|p| matches!(p, WalkParent::Heading { .. }))
+                    && let Some(heading) = last_heading.as_mut()
+                {
+                    let lowercase = text.value.to_lowercase();
+                    heading.text.push_str(&lowercase);
+                }
+
                 let mut saw_emoji = false;
                 for (idx, chr) in text.value.char_indices() {
                     slopness.total_chars += 1;
@@ -728,6 +800,13 @@ fn guess_readme_slop<'arena>(
             Node::Heading(heading) => {
                 slopness.emoji_headings.total += 1;
                 let span = heading.into_span();
+
+                last_heading = Some(SpanString {
+                    span: span.clone(),
+                    walk_depth: ctx.depth,
+                    text: String::new(),
+                });
+
                 push_children!(heading, WalkParent::Heading { span: span.clone() });
             }
             Node::ListItem(list) => {
@@ -755,6 +834,36 @@ fn guess_readme_slop<'arena>(
             Node::TableRow(v) => push_children!(v, !),
             Node::TableCell(v) => push_children!(v, !),
 
+            Node::Code(code) => {
+                println!("code {:?} @ {:?}", code.lang, code.position);
+                println!(" under: {:?}", last_heading);
+
+                if let Some(heading) = last_heading.as_ref()
+                    && heading.text.contains("architecture")
+                    && code.lang.is_some_and(|lang| lang == "mermaid")
+                {
+                    let span = code.position.into_span();
+                    // since the diagram might be quite large, we only want
+                    // to highlight the start of it.
+                    let span = span.start..std::cmp::min(span.end, span.start + "```mermaid".len());
+
+                    this_report.push(
+                        Level::ERROR
+                            .primary_title("possible AI-generated architecture diagram")
+                            .element(Snippet::source(readme).annotation(
+                                AnnotationKind::Primary.span(span).label("diagram here"),
+                            ))
+                            .element(
+                                Snippet::source(readme).annotation(
+                                    AnnotationKind::Context
+                                        .span(heading.span.clone())
+                                        .label("underneath architecture heading here"),
+                                ),
+                            ),
+                    )
+                }
+            }
+
             Node::MdxjsEsm(_)
             | Node::Toml(_)
             | Node::Yaml(_)
@@ -766,7 +875,6 @@ fn guess_readme_slop<'arena>(
             | Node::Html(_)
             | Node::Image(_)
             | Node::ImageReference(_)
-            | Node::Code(_)
             | Node::Math(_)
             | Node::MdxFlowExpression(_)
             | Node::ThematicBreak(_)
