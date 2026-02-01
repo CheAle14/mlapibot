@@ -648,8 +648,6 @@ fn guess_readme_slop<'arena>(
         )
     })?;
 
-    let _ = std::fs::write(r"D:\_GitHub\mlapibot\ast.txt", format!("{ast:#?}"));
-
     #[derive(Debug, Clone)]
     enum WalkParent {
         List { span: Range<usize> },
@@ -839,8 +837,8 @@ fn guess_readme_slop<'arena>(
             Node::TableCell(v) => push_children!(v, !),
 
             Node::Code(code) => {
-                println!("code {:?} @ {:?}", code.lang, code.position);
-                println!(" under: {:?}", last_heading);
+                // println!("code {:?} @ {:?}", code.lang, code.position);
+                // println!(" under: {:?}", last_heading);
 
                 if let Some(heading) = last_heading.as_ref()
                     && heading.text.contains("architecture")
