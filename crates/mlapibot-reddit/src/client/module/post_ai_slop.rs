@@ -447,6 +447,10 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
 
     impl ContributorStats {
         pub fn commits_per_day(&self, now: DateTimeUtc) -> Option<f32> {
+            if self.total_commits < 10 {
+                return None;
+            }
+
             let oldest = self.oldest?;
             let secs = now.signed_duration_since(oldest).as_seconds_f32();
             let mins = secs / 60.0;
