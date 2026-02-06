@@ -437,6 +437,8 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
     client: &C,
     repo: &C::Repository<'git>,
 ) -> anyhow::Result<CommitsSlopness> {
+    static CO_AUTHORS: &[&str] = &["Co-Authored-By: Claude", "Co-authored-by: Cursor"];
+
     let mut ai_co_author = Ratio::default();
     let mut ai_co_author_snippets = Vec::new();
 
@@ -487,18 +489,20 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
                 });
         }
 
-        if let Some(idx) = commit.message().find("Co-Authored-By: Claude") {
-            let span = idx..(idx + "Co-Authored-By: Claude".len());
-            ai_co_author.num += 1;
+        for co_author in CO_AUTHORS {
+            if let Some(idx) = commit.message().find(co_author) {
+                let span = idx..(idx + co_author.len());
+                ai_co_author.num += 1;
 
-            let text = &*arena.alloc_str(commit.message());
-            let sha = &*arena.alloc_str(commit.sha());
+                let text = &*arena.alloc_str(commit.message());
+                let sha = &*arena.alloc_str(commit.sha());
 
-            ai_co_author_snippets.push(
-                Snippet::source(text)
-                    .annotation(AnnotationKind::Primary.span(span))
-                    .path(sha),
-            )
+                ai_co_author_snippets.push(
+                    Snippet::source(text)
+                        .annotation(AnnotationKind::Primary.span(span))
+                        .path(sha),
+                )
+            }
         }
 
         if ai_co_author.total >= 1000 {
@@ -1024,7 +1028,7 @@ mod tests {
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = RepoLink::parse("https://github.com/YeautyYE/skill-rust-ffmpeg");
+        let url = RepoLink::parse("https://github.com/OlaProeis/ironPad");
         println!("determine");
 
         let arena = Bump::new();
