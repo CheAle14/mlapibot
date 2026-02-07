@@ -238,11 +238,13 @@ static STOP_WORDS: &[&str] = &[
     "have",
     "having",
     "he",
+    "hello",
     "help",
     "her",
     "here",
     "hers",
     "herself",
+    "hi",
     "him",
     "himself",
     "his",
@@ -429,7 +431,8 @@ mod tests {
             "Awesome. Love that.",
             "discord bugged",
             "Please someone help me",
-            "Can someone help me out with something."
+            "Can someone help me out with something.",
+            "Hi, is anyone else having this problem?"
         );
     }
 
