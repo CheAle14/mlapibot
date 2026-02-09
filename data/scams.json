@@ -564,6 +564,22 @@
       "report": true
     },
     {
+      "name": "ageVerifyRepost",
+      "template": null,
+      "ocr": [
+        "verify age group",
+        {
+          "type": "ordered",
+          "children": ["video", "selfie", "scan", "id"]
+        },
+        {
+          "type": "ordered",
+          "children": ["age", "determine", "experiences"]
+        }
+      ],
+      "report": true
+    },
+    {
       "name": "externalApp",
       "ocr": ["message could not be loaded"],
       "template": "externalApp"
