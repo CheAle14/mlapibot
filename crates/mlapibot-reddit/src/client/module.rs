@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use mlapibot_datastore::MlapiDb;
 use mlapibot_webhook::WebhookClient;
 use roux::{
-    client::AuthedClient,
+    client::{AuthedClient, RedditClient},
     models::{Distinguish, LatestComment},
 };
 
@@ -366,14 +366,24 @@ impl PostAction {
                 let data = match (this_data.moderate, other_data.moderate) {
                     (ModAct::None, ModAct::None)
                     | (ModAct::Report, ModAct::Report)
-                    | (ModAct::Remove, ModAct::Remove) => Self::merge(this_data, other_data),
+                    | (ModAct::Remove, ModAct::Remove)
+                    | (ModAct::Filter, ModAct::Filter) => Self::merge(this_data, other_data),
 
                     (ModAct::None, ModAct::Report) => other_data,
                     (ModAct::None, ModAct::Remove) => other_data,
+                    (ModAct::None, ModAct::Filter) => other_data,
+
                     (ModAct::Report, ModAct::None) => this_data,
                     (ModAct::Report, ModAct::Remove) => other_data,
+                    (ModAct::Report, ModAct::Filter) => other_data,
+
                     (ModAct::Remove, ModAct::None) => this_data,
                     (ModAct::Remove, ModAct::Report) => this_data,
+                    (ModAct::Remove, ModAct::Filter) => other_data,
+
+                    (ModAct::Filter, ModAct::None) => this_data,
+                    (ModAct::Filter, ModAct::Report) => this_data,
+                    (ModAct::Filter, ModAct::Remove) => this_data,
                 };
 
                 PostAction::Action(data)
@@ -451,6 +461,7 @@ impl ActionData {
         webhook: Option<&mut WebhookClient>,
         db: &MlapiDb,
         post: &Submission,
+        client: &RouxClient,
     ) -> anyhow::Result<()> {
         let reply_fullname = if let Some(reply) = self.reply {
             let comment = post.comment(&reply.text).await?;
@@ -478,6 +489,27 @@ impl ActionData {
             ModAct::Remove => {
                 post.remove(false).await?;
                 (false, true)
+            }
+            ModAct::Filter => {
+                post.remove(false).await?;
+
+                let mut modmail = match self.analyser.as_ref() {
+                    Some(c) => format!("Filtered post for manual review, related to {c}"),
+                    None => format!("Filtered post for manual review"),
+                };
+
+                modmail.push_str("\n\nTitle:  \n>");
+                modmail.push_str(post.title());
+
+                modmail.push_str("\n\nLink: ");
+                modmail.push_str(post.permalink());
+
+                let sub = client.subreddit(&post.subreddit());
+
+                sub.compose_message(&format!("Filtered post by /u/{}", post.author()), &modmail)
+                    .await?;
+
+                (true, true)
             }
         };
 
@@ -556,6 +588,16 @@ impl ActionData {
         self.set_remove();
         self
     }
+
+    pub fn set_filter(&mut self) -> &mut Self {
+        self.moderate = ModAct::Filter;
+        self
+    }
+
+    pub fn filter(mut self) -> Self {
+        self.set_filter();
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -566,9 +608,14 @@ pub struct PostReply {
 
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum ModAct {
+    /// Take no moderation decisions
     None,
+    /// Report the post
     Report,
+    /// Remove the post
     Remove,
+    /// Remove the post and send a message to the subreddit's modmail
+    Filter,
 }
 
 #[cfg(test)]

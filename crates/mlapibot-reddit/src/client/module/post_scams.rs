@@ -82,7 +82,7 @@ impl super::Module for PostScams {
 
             let mut template_context = tera::Context::new();
 
-            let is_mod = match (modconf, detected.remove) {
+            let should_remove = match (modconf, detected.remove) {
                 (Some(modconf), true) if post.moderation().is_some() => {
                     let reason_id = modconf
                         .removal_reasons
@@ -155,13 +155,21 @@ impl super::Module for PostScams {
                             format!("rendering to template {:?}", detected.template)
                         })?;
 
-                    action.set_reply(template, is_mod);
+                    action.set_reply(template, should_remove);
                 }
                 None => (),
             };
 
-            if is_mod {
-                action.set_remove();
+            if should_remove {
+                if detected.report {
+                    // remove + report = filter
+                    // ideally we would report like /u/AutoModerator, by
+                    // sending it to the modqueue. Unfortunately we can't,
+                    // so we just send to modmail instead.
+                    action.set_filter();
+                } else {
+                    action.set_remove();
+                }
             } else if detected.report {
                 action.set_report();
             }

@@ -580,6 +580,21 @@
       "report": true
     },
     {
+      "name": "ageVerifyCEO",
+      "template": null,
+      "ocr": [
+        {
+          "type": "all",
+          "children": [
+            ["israel", "jew"],
+            ["CEO", "humam sakhnini"]
+          ]
+        }
+      ],
+      "remove": true,
+      "report": true
+    },
+    {
       "name": "externalApp",
       "ocr": ["message could not be loaded"],
       "template": "externalApp"

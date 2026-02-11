@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Sub};
+use std::collections::HashSet;
 
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
@@ -279,7 +279,7 @@ impl<'client> ModuleRedditClient<'client> {
 
         let sub = self.client.subreddit(message.body);
 
-        let Some(our_sub) = subreddits.iter_mut().find(|s| s.name() == &sub.name) else {
+        let Some(our_sub) = subreddits.iter_mut().find(|s| s.name() == sub.name()) else {
             message
                 .reply("That subreddit is not managed by this bot.")
                 .await?;
