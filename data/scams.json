@@ -595,6 +595,22 @@
       "report": true
     },
     {
+      "name": "ageVerifyFakeMessage",
+      "template": "ageVerifyFakeMessage",
+      "ocr": [
+        {
+          "type": "ordered",
+          "children": [
+            "discord",
+            "verification",
+            ["see", "view", "access"],
+            "messages"
+          ]
+        }
+      ],
+      "remove": true
+    },
+    {
       "name": "externalApp",
       "ocr": ["message could not be loaded"],
       "template": "externalApp"
