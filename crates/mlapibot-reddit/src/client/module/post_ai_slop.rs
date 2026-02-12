@@ -401,6 +401,8 @@ trait GitCommit {
     fn message(&self) -> &str;
     fn date(&self) -> Option<DateTimeUtc>;
 
+    fn author_name(&self) -> Option<&str>;
+
     // A hopefully stable identifier for the author of this commit
     //
     // This may be their account username, or potentially an email.
@@ -422,6 +424,22 @@ impl GitCommit for RepoCommit {
             .as_ref()
             .and_then(|v| v.date)
             .or_else(|| self.commit.author.as_ref().and_then(|v| v.date))
+    }
+
+    fn author_name(&self) -> Option<&str> {
+        if let Some(author) = self.author.as_ref() {
+            return Some(author.login.as_str());
+        }
+
+        if let Some(user) = self.commit.author.as_ref() {
+            return Some(user.name.as_str());
+        }
+
+        if let Some(user) = self.commit.committer.as_ref() {
+            return Some(user.name.as_str());
+        }
+
+        None
     }
 
     fn author_identifier(&self) -> Option<&str> {
@@ -487,6 +505,7 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
     client: &C,
     repo: &C::Repository<'git>,
 ) -> anyhow::Result<CommitsSlopness> {
+    static BOT_AUTHORS: &[&str] = &["Copilot"];
     static CO_AUTHORS: &[&str] = &["Co-Authored-By: Claude", "Co-authored-by: Cursor"];
 
     let mut oldest = None;
@@ -542,6 +561,26 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
                     total_commits: 1,
                     oldest: date,
                 });
+        }
+
+        if let Some(name) = commit.author_name() {
+            println!("{} => {name:?}", commit.sha());
+
+            for bot_author in BOT_AUTHORS {
+                if let Some(idx) = name.find(bot_author) {
+                    let span = idx..(idx + bot_author.len());
+                    ai_co_author.num += 1;
+
+                    let text = &*arena.alloc_str(name);
+                    let sha = &*arena.alloc_str(commit.sha());
+
+                    ai_co_author_snippets.push(
+                        Snippet::source(text)
+                            .annotation(AnnotationKind::Primary.span(span))
+                            .path(sha),
+                    )
+                }
+            }
         }
 
         for co_author in CO_AUTHORS {
@@ -1084,7 +1123,7 @@ mod tests {
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = RepoLink::parse("https://github.com/OlaProeis/ironPad");
+        let url = RepoLink::parse("https://github.com/RustedBytes/mtproxy");
         println!("determine");
 
         let arena = Bump::new();
