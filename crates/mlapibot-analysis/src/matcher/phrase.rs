@@ -24,7 +24,7 @@ impl Matcher for PhraseMatcher {
         if words.len() == 1 {
             let word = words[0];
             if debug {
-                println!("  Looking for single {:?}", word)
+                println!("  Looking for single {:?}", word);
             }
 
             let mut all_matches = Vec::new();

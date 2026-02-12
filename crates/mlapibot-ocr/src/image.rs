@@ -6,7 +6,7 @@ use imageproc::{
     drawing::{draw_filled_rect_mut, draw_hollow_rect_mut, draw_text_mut},
     rect::Rect,
 };
-use leptess::leptonica::Box;
+use leptess::leptonica::BoxGeometry;
 use mlapibot_common::{DetectedItem, Words};
 use tempfile::NamedTempFile;
 
@@ -67,7 +67,7 @@ pub struct OcrImage {
     source: ImageSource,
     cached_image: DynamicImage,
     ocr_words: Vec<String>,
-    ocr_boxes: Vec<Box>,
+    ocr_boxes: Vec<BoxGeometry>,
 }
 
 impl std::fmt::Debug for OcrImage {
@@ -124,8 +124,23 @@ impl OcrImage {
         for (bx, word) in std::iter::zip(initial_boxes, initial_words) {
             let mut owned = word.to_owned();
             Words::clean(&mut owned);
-            if word.len() > 0 {
-                ocr_boxes.push(bx);
+
+            // tesseract returns "hello-world" as one word, but Words::clean will strip
+            // the `-`, leaving two words in one 'word'.
+            // This means all sub-words will have the same bounding box,
+            // but that's not really used anyway so.
+            // It looks as though leptonica's `Box` should be refcounted, but it doesn't
+            // provide any way to clone them. As such, we just clone the xywh geometry itself.
+            if owned.contains(' ') {
+                let geom = bx.get_geometry();
+                for word in owned.split_ascii_whitespace() {
+                    if word.len() > 0 {
+                        ocr_boxes.push(geom.clone());
+                        ocr_words.push(word.to_owned());
+                    }
+                }
+            } else if word.len() > 0 {
+                ocr_boxes.push(bx.get_geometry().clone());
                 ocr_words.push(owned);
             }
         }
@@ -168,9 +183,8 @@ impl OcrImage {
 
         for word in self.words_bbox() {
             let text = word.text();
-            let bbox = word.bbox();
+            let rect = word.bbox();
 
-            let rect = bbox.get_geometry();
             let padded_rect = Rect::at(rect.x - PADDING, rect.y - PADDING).of_size(
                 (rect.w + PADDING + PADDING) as u32,
                 (rect.h + PADDING + PADDING) as u32,
@@ -217,9 +231,7 @@ impl OcrImage {
                 continue;
             }
 
-            let bbox = word.bbox();
-
-            let rect = bbox.get_geometry();
+            let rect = word.bbox();
             let padded_rect = Rect::at(rect.x - PADDING, rect.y - PADDING).of_size(
                 (rect.w + PADDING + PADDING) as u32,
                 (rect.h + PADDING + PADDING) as u32,

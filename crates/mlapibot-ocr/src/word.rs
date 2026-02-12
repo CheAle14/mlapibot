@@ -1,13 +1,13 @@
-use leptess::leptonica::Box;
+use leptess::leptonica::BoxGeometry;
 
 #[derive(Debug)]
 pub struct OcrWord<'a> {
     text: &'a str,
-    bbox: &'a Box,
+    bbox: &'a BoxGeometry,
 }
 
 impl<'a> OcrWord<'a> {
-    pub fn new(text: &'a str, bbox: &'a Box) -> Self {
+    pub fn new(text: &'a str, bbox: &'a BoxGeometry) -> Self {
         Self { text, bbox }
     }
 
@@ -15,7 +15,7 @@ impl<'a> OcrWord<'a> {
         self.text
     }
 
-    pub fn bbox(&self) -> &'a Box {
+    pub fn bbox(&self) -> &'a BoxGeometry {
         self.bbox
     }
 }

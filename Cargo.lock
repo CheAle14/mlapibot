@@ -1390,9 +1390,8 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "leptess"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae8964e3d3270be667dda2d0026e8c77011bafaad33936011b93750489987513"
+version = "0.14.1"
+source = "git+https://github.com/CheAle14/leptess#49926a56dcbd6c500325cfb14c554b50efc2654d"
 dependencies = [
  "tesseract-plumbing",
  "thiserror 1.0.69",
@@ -3102,9 +3101,9 @@ dependencies = [
 
 [[package]]
 name = "tesseract-plumbing"
-version = "0.8.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a25fbbb95169954a9262a565fbfb001c4d9dad271d48142e6632a3e2b7314b35"
+checksum = "4ed025d755abb7f5af8d16cd5663742a08c8ae7c4032c8bf4b70c51d412fe378"
 dependencies = [
  "leptonica-plumbing",
  "tesseract-sys",
@@ -3113,9 +3112,9 @@ dependencies = [
 
 [[package]]
 name = "tesseract-sys"
-version = "0.5.15"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd33f6f216124cfaf0fa86c2c0cdf04da39b6257bd78c5e44fa4fa98c3a5857b"
+checksum = "1e1297ece7aa841bd33a4f80046a6682c4e58fca0f8600e868d822359eef7bde"
 dependencies = [
  "bindgen",
  "leptonica-sys",
