@@ -233,6 +233,7 @@ struct ReadmeSlopness {
 struct Slopness<'arena> {
     readme: ReadmeSlopness,
     commits: CommitsSlopness,
+    repo: RepoInfo,
     // The emitted diagnostics
     reports: Vec<BVec<'arena, Group<'arena>>>,
 }
@@ -242,6 +243,7 @@ impl<'arena> std::fmt::Debug for Slopness<'arena> {
         f.debug_struct("Slopness")
             .field("readme", &self.readme)
             .field("commits", &self.commits)
+            .field("repo", &self.repo)
             .field("reports", &self.reports.len())
             .finish()
     }
@@ -278,6 +280,8 @@ struct RepoContent {
     pub decoded: Option<String>,
 }
 
+type DateTimeUtc = chrono::DateTime<chrono::Utc>;
+
 trait GitRepository<C: GitClient> {
     type Commit: GitCommit;
 
@@ -293,6 +297,8 @@ trait GitRepository<C: GitClient> {
     }
 
     async fn fetch_readme(&self) -> anyhow::Result<String>;
+
+    async fn info(&self) -> anyhow::Result<RepoInfo>;
 
     async fn for_each_commit<F>(&self, client: &C, callback: F) -> anyhow::Result<()>
     where
@@ -322,6 +328,14 @@ impl<'l> GitRepository<Octocrab> for RepoHandler<'l> {
         Ok(content.decoded_content().unwrap_or_default())
     }
 
+    async fn info(&self) -> anyhow::Result<RepoInfo> {
+        let this = self.get().await?;
+        Ok(RepoInfo {
+            created_at: this.created_at,
+            size: this.size,
+        })
+    }
+
     async fn for_each_commit<F>(&self, client: &Octocrab, mut callback: F) -> anyhow::Result<()>
     where
         F: FnMut(Self::Commit) -> ControlFlow<()>,
@@ -347,7 +361,40 @@ impl<'l> GitRepository<Octocrab> for RepoHandler<'l> {
     }
 }
 
-type DateTimeUtc = chrono::DateTime<chrono::Utc>;
+struct RepoInfo {
+    created_at: Option<DateTimeUtc>,
+    size: Option<u32>,
+}
+
+impl std::fmt::Debug for RepoInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let secs = self
+            .created_at
+            .map(|v| {
+                chrono::Utc::now()
+                    .signed_duration_since(v)
+                    .abs()
+                    .as_seconds_f64()
+            })
+            .unwrap_or_default();
+
+        let minutes = secs / 60.0;
+        let hours = minutes / 60.0;
+        let days = hours / 24.0;
+
+        let size_per_day = if days == 0.0 {
+            0.0
+        } else {
+            self.size.unwrap_or_default() as f64 / days
+        };
+
+        f.debug_struct("RepoInfo")
+            .field("created_at", &self.created_at)
+            .field("size", &self.size)
+            .field("sizeperday", &size_per_day)
+            .finish()
+    }
+}
 
 trait GitCommit {
     fn sha(&self) -> &str;
@@ -408,6 +455,7 @@ async fn determine_ai_slop<'arena, C: GitClient>(
     let (repo_owner, repo_name) = link.owner_and_name();
     let repo = client.open_repo(repo_owner, repo_name).await?;
 
+    let repo_info = repo.info().await?;
     let readme = repo.fetch_readme().await?;
     let readme = &*arena.alloc_str(&readme);
 
@@ -418,6 +466,7 @@ async fn determine_ai_slop<'arena, C: GitClient>(
     guess_files_slop::<C>(arena, &mut reports, &repo).await?;
 
     Ok(Slopness {
+        repo: repo_info,
         readme,
         commits,
         reports,
@@ -426,6 +475,7 @@ async fn determine_ai_slop<'arena, C: GitClient>(
 
 #[derive(Debug)]
 struct CommitsSlopness {
+    oldest: Option<DateTimeUtc>,
     ai_co_author: Ratio,
     /// Commits per day for each contributor
     commits_per_day: DataMetaData,
@@ -439,6 +489,7 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
 ) -> anyhow::Result<CommitsSlopness> {
     static CO_AUTHORS: &[&str] = &["Co-Authored-By: Claude", "Co-authored-by: Cursor"];
 
+    let mut oldest = None;
     let mut ai_co_author = Ratio::default();
     let mut ai_co_author_snippets = Vec::new();
 
@@ -466,6 +517,10 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
     let mut contributors: HashMap<String, ContributorStats> = HashMap::new();
 
     repo.for_each_commit(client, |commit| {
+        if oldest.is_none_or(|date| commit.date().is_some_and(|other| other < date)) {
+            oldest = commit.date();
+        }
+
         ai_co_author.total += 1;
 
         if let Some(id) = commit.author_identifier() {
@@ -557,6 +612,7 @@ async fn guess_commit_slop<'arena, 'git, C: GitClient>(
     }
 
     Ok(CommitsSlopness {
+        oldest,
         ai_co_author,
         commits_per_day,
     })
