@@ -3,3 +3,5 @@ pub mod client;
 pub mod errors;
 pub mod migrations;
 pub mod repos;
+
+pub(crate) type DateTimeUtc = chrono::DateTime<chrono::Utc>;

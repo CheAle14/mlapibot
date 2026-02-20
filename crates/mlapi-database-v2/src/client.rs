@@ -24,7 +24,13 @@ impl PgClient {
 
     pub async fn danger_delete_all_data(&self) -> DbResult<()> {
         self.client
-            .batch_execute(r#"DELETE FROM monitored;"#)
+            .batch_execute(
+                r#"
+                DELETE FROM monitored;
+                DELETE FROM staff_replies;
+                DELETE FROM staff_reply_threads;
+                "#,
+            )
             .await?;
 
         Ok(())
@@ -42,6 +48,37 @@ impl PgClient {
             .execute(statement, params)
             .await
             .map_err(DbError::from)
+    }
+
+    pub(crate) async fn query_opt<T>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> DbResult<Option<Row>>
+    where
+        T: ToStatement + ?Sized,
+    {
+        self.client
+            .query_opt(statement, params)
+            .await
+            .map_err(DbError::from)
+    }
+
+    pub(crate) async fn query_opt_map<T, F, R>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+        map: F,
+    ) -> DbResult<Option<R>>
+    where
+        F: FnOnce(Row) -> DbResult<R>,
+        T: ToStatement + ?Sized,
+    {
+        match self.client.query_opt(statement, params).await {
+            Ok(Some(item)) => map(item).map(Some),
+            Ok(None) => Ok(None),
+            Err(err) => Err(DbError::from(err)),
+        }
     }
 
     pub(crate) async fn query_one<T>(

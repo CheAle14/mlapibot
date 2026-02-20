@@ -87,4 +87,7 @@ async fn apply_migration_in_transaction<M: Migration>(
     }
 }
 
-define_migrations![m001_init_monitored::InitMonitored];
+define_migrations![
+    m001_init_monitored::InitMonitored,
+    m002_init_staff_replies::InitStaffReplies
+];
