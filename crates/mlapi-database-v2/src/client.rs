@@ -29,6 +29,8 @@ impl PgClient {
                 DELETE FROM monitored;
                 DELETE FROM staff_replies;
                 DELETE FROM staff_reply_threads;
+                DELETE FROM incident_sub_posts;
+                DELETE FROM status_incidents;
                 "#,
             )
             .await?;

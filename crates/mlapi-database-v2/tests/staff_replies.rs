@@ -60,13 +60,15 @@ async fn can_update_staff_replies() -> DbResult<()> {
     db.insert_staff_reply("comment112", "post123", "Hello", "some text")
         .await?;
 
+    db.update_staff_reply_thread("post123", "hashxyz").await?;
+
     db.update_staff_reply_thread_suffix("post123", Some("hello world"))
         .await?;
 
     db.update_staff_reply_content("comment112", "another text")
         .await?;
 
-    let mut thread = db
+    let thread = db
         .get_staff_reply_thread(FindBy::PostId, "post123")
         .await?
         .expect("can find thread");
@@ -78,7 +80,6 @@ async fn can_update_staff_replies() -> DbResult<()> {
             .as_seconds_f32()
             < 5.0
     );
-    thread.created_at = now; // so we can use assert_eq
 
     assert_eq!(
         thread,
@@ -86,11 +87,18 @@ async fn can_update_staff_replies() -> DbResult<()> {
             subreddit: "sub0123".into(),
             post_id: "post123".into(),
             our_comment_id: "comment032".into(),
-            created_at: now,
-            hash: "abchash".into(),
+            created_at: thread.created_at,
+            hash: "hashxyz".into(),
             suffix: Some("hello world".into())
         }
     );
+
+    let by_comment = db
+        .get_staff_reply_thread(FindBy::OurCommentId, "comment032")
+        .await?
+        .expect("can find thread");
+
+    assert_eq!(thread, by_comment);
 
     Ok(())
 }

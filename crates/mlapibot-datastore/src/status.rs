@@ -77,19 +77,6 @@ impl MlapiDb {
         Ok(())
     }
 
-    pub fn resolve_incident_post(
-        &self,
-        post_fullname: &str,
-        resolved_at: DateTime<Utc>,
-    ) -> rusqlite::Result<()> {
-        self.conn.execute(
-            "UPDATE IncidentPosts SET ResolvedAt=?1 WHERE PostFullname=?2",
-            (resolved_at, post_fullname),
-        )?;
-
-        Ok(())
-    }
-
     pub fn get_incident_posts_waiting_unsticky(
         &self,
     ) -> rusqlite::Result<Vec<ResolvedIncidentPost>> {
