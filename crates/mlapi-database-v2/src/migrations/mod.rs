@@ -3,10 +3,6 @@ use tokio_postgres::Transaction;
 use crate::{client::PgClient, errors::DbResult};
 
 pub trait Migration {
-    fn name() -> &'static str {
-        std::any::type_name::<Self>()
-    }
-
     async fn apply(conn: &Transaction<'_>) -> DbResult<()>;
     async fn undo(conn: &Transaction<'_>) -> DbResult<()>;
 }
@@ -28,9 +24,9 @@ macro_rules! define_migrations {
             };
 
             $(
-              let name = $module::$struct::name();
+              let name = concat!(stringify!($module), "::", stringify!($struct));
               if !migrations.iter().any(|i| i == name) {
-                  apply_migration_in_transaction::<$module::$struct>(client).await?;
+                  apply_migration_in_transaction::<$module::$struct>(name, client).await?;
               }
             )*
 
@@ -64,21 +60,31 @@ async fn get_done_migrations(client: &PgClient) -> DbResult<Option<Vec<String>>>
     }
 }
 
-async fn apply_migration_in_transaction<M: Migration>(client: &mut PgClient) -> DbResult<()> {
+async fn apply_migration_in_transaction<M: Migration>(
+    name: &str,
+    client: &mut PgClient,
+) -> DbResult<()> {
     let trans = client.transaction().await?;
-    println!("[db] Applying {}", M::name());
+    println!("[db] Applying {name}");
 
     match M::apply(&trans).await {
         Ok(()) => {
-            println!("[db] Applied {} successfully.", M::name());
+            trans
+                .execute("INSERT INTO _migrations (name) VALUES ($1)", &[&name])
+                .await?;
+
+            trans.commit().await?;
+            println!("[db] Applied {name} successfully.");
             Ok(())
         }
         Err(err) => {
-            eprintln!("[db] Failed to apply {}; attempting rollback..", M::name());
-            let _ = M::undo(&trans).await;
+            eprintln!("[db] Failed to apply {name}; attempting rollback..");
+            if let Err(t_err) = trans.rollback().await {
+                eprintln!("[db] Failed to rollback: {t_err}");
+            }
             Err(err)
         }
     }
 }
 
-define_migrations![];
+define_migrations![m001_init_monitored::InitMonitored];

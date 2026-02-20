@@ -7,3 +7,4 @@ edition = "2024"
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
+postgres-types = { version = "0.2.12", features = ["derive"] }

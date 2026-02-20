@@ -22,6 +22,14 @@ impl PgClient {
         Ok(Self { client })
     }
 
+    pub async fn danger_delete_all_data(&self) -> DbResult<()> {
+        self.client
+            .batch_execute(r#"DELETE FROM monitored;"#)
+            .await?;
+
+        Ok(())
+    }
+
     pub(crate) async fn execute<T>(
         &self,
         statement: &T,
@@ -32,6 +40,20 @@ impl PgClient {
     {
         self.client
             .execute(statement, params)
+            .await
+            .map_err(DbError::from)
+    }
+
+    pub(crate) async fn query_one<T>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> DbResult<Row>
+    where
+        T: ToStatement + ?Sized,
+    {
+        self.client
+            .query_one(statement, params)
             .await
             .map_err(DbError::from)
     }
@@ -49,6 +71,34 @@ impl PgClient {
             .query_scalar(statement, params)
             .await
             .map_err(DbError::from)
+    }
+
+    pub(crate) async fn query_one_scalar<T, R>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+    ) -> DbResult<R>
+    where
+        T: std::fmt::Debug + ToStatement + ?Sized,
+        R: FromSqlOwned,
+    {
+        self.client
+            .query_one_scalar(statement, params)
+            .await
+            .map_err(DbError::from)
+    }
+
+    pub(crate) async fn query_one_map<T, F, R>(
+        &self,
+        statement: &T,
+        params: &[&(dyn ToSql + Sync)],
+        map: F,
+    ) -> DbResult<R>
+    where
+        T: ToStatement + ?Sized,
+        F: FnOnce(Row) -> DbResult<R>,
+    {
+        self.query_one(statement, params).await.and_then(map)
     }
 
     pub(crate) async fn query_map<T, F, R>(

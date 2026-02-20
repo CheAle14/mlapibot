@@ -1635,6 +1635,7 @@ dependencies = [
 name = "mlapi-database-v2"
 version = "0.1.0"
 dependencies = [
+ "postgres-types",
  "thiserror 2.0.12",
  "tokio",
  "tokio-postgres",
@@ -2343,6 +2344,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres-derive"
+version = "0.4.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56df96f5394370d1b20e49de146f9e6c25aa9ae750f449c9d665eafecb3ccae6"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.101",
+]
+
+[[package]]
 name = "postgres-protocol"
 version = "0.6.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2368,6 +2381,7 @@ checksum = "54b858f82211e84682fecd373f68e1ceae642d8d751a1ebd13f33de6257b3e20"
 dependencies = [
  "bytes",
  "fallible-iterator 0.2.0",
+ "postgres-derive",
  "postgres-protocol",
 ]
 
