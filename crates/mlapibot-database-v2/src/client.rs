@@ -10,13 +10,13 @@ use crate::{
 
 pub struct PgClient {
     client: tokio_postgres::Client,
-    // Since we are going to do this a lot to check whether a post/comment is new,
-    // we cache the query.
-    // pub(crate) stmt_is_monitored: Statement,
+    /// Since we are going to do this a lot to check whether a post/comment is new,
+    /// we cache the query.
+    pub(crate) stmt_is_monitored: Statement,
 }
 
 impl PgClient {
-    pub async fn connect(url: &str) -> DbResult<Self> {
+    pub async fn connect(url: &str, do_migrate: bool) -> DbResult<Self> {
         let (client, conn) = tokio_postgres::connect(url, tokio_postgres::NoTls).await?;
 
         tokio::spawn(async move {
@@ -25,14 +25,26 @@ impl PgClient {
             }
         });
 
-        // let stmt_is_monitored = client
-        //     .prepare(crate::repos::monitor::IS_MONITORED_QUERY)
-        //     .await?;
-
-        Ok(Self {
+        // Preparing the statement will check the table definitions to make sure they're valid,
+        // but the migrations may not have been ran yet and the migrations want the `PgClient`
+        // for the util methods.
+        // So use a dummy statement for the migrations, then make the actual ones after.
+        let null_stmt = client.prepare("SELECT NULL").await?;
+        let mut this = Self {
             client,
-            //stmt_is_monitored,
-        })
+            stmt_is_monitored: null_stmt,
+        };
+
+        if do_migrate {
+            apply_migrations(&mut this).await?;
+        }
+
+        this.stmt_is_monitored = this
+            .client
+            .prepare(crate::repos::monitor::IS_MONITORED_QUERY)
+            .await?;
+
+        Ok(this)
     }
 
     pub async fn danger_delete_all_data(&self) -> DbResult<()> {

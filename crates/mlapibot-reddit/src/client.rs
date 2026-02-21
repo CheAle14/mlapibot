@@ -119,7 +119,7 @@ impl<'a> RedditClient<'a> {
         let found: Vec<_> = templates.get_template_names().collect();
         assert!(found.len() > 0);
 
-        let db = PgClient::connect(&settings.database_uri)
+        let db = PgClient::connect(&settings.database_uri, true)
             .await
             .context("initialize db")?;
 

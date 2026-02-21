@@ -1,18 +1,13 @@
 use mlapibot_database_v2::{
     client::PgClient,
     errors::DbResult,
-    migrations::apply_migrations,
     repos::monitor::{MonitorRepo, MonitorState},
 };
 
 async fn make_db() -> PgClient {
-    let mut db = PgClient::connect("postgres://postgres:postgres@localhost/mlapibot")
+    let db = PgClient::connect("postgres://postgres:postgres@localhost/mlapibot", true)
         .await
         .expect("can connect");
-
-    apply_migrations(&mut db)
-        .await
-        .expect("can apply migrations");
 
     db.danger_delete_all_data()
         .await
