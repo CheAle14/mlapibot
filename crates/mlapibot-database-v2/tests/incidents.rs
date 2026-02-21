@@ -1,5 +1,5 @@
 use chrono::{SubsecRound, Utc};
-use mlapi_database_v2::{
+use mlapibot_database_v2::{
     client::PgClient, errors::DbResult, migrations::apply_migrations, repos::incidents::*,
 };
 

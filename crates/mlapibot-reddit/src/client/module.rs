@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use mlapi_database_v2::{
+use mlapibot_database_v2::{
     client::PgClient,
     repos::monitor::{MonitorRepo, MonitorState},
 };

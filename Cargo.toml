@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "bin/mlapibot-bin",
-    "crates/mlapi-database-v2",
+    "crates/mlapibot-database-v2",
     "crates/mlapibot-analysis",
     "crates/mlapibot-common",
     "crates/mlapibot-datastore",

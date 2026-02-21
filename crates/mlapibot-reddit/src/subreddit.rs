@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use chrono::Utc;
 
-use mlapi_database_v2::repos::incidents::{IncidentRepo, ResolvedIncidentPost, StickyState};
+use mlapibot_database_v2::repos::incidents::{IncidentRepo, ResolvedIncidentPost, StickyState};
 use roux::{
     api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
     client::RedditClient,

@@ -6,14 +6,14 @@ use std::{
 };
 
 use anyhow::{Context, bail};
-use mlapi_database_v2::{
+use mlapibot_common::Cached;
+use mlapibot_database_v2::{
     client::PgClient,
     repos::{
         incidents::{IncidentRepo, StatusIncident},
         monitor::MonitorRepo,
     },
 };
-use mlapibot_common::Cached;
 use octocrab::OctocrabBuilder;
 use roux::{
     api::Distinguished,
@@ -894,7 +894,7 @@ impl<'client> ModuleRedditClient<'client> {
                 self.db
                     .update_item_monitor_state(
                         post.name().full(),
-                        mlapi_database_v2::repos::monitor::MonitorState::Ignored,
+                        mlapibot_database_v2::repos::monitor::MonitorState::Ignored,
                     )
                     .await?;
             }

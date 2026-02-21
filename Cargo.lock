@@ -1632,17 +1632,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mlapi-database-v2"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "postgres-types",
- "thiserror 2.0.12",
- "tokio",
- "tokio-postgres",
-]
-
-[[package]]
 name = "mlapibot-analysis"
 version = "0.1.0"
 dependencies = [
@@ -1665,9 +1654,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "mlapi-database-v2",
  "mlapibot-analysis",
  "mlapibot-common",
+ "mlapibot-database-v2",
  "mlapibot-reddit",
  "mlapibot-webhook",
  "serde_json",
@@ -1684,6 +1673,17 @@ dependencies = [
  "ord-many",
  "rust-stemmers",
  "serde",
+]
+
+[[package]]
+name = "mlapibot-database-v2"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "postgres-types",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio-postgres",
 ]
 
 [[package]]
@@ -1741,9 +1741,9 @@ dependencies = [
  "futures-util",
  "image",
  "markdown",
- "mlapi-database-v2",
  "mlapibot-analysis",
  "mlapibot-common",
+ "mlapibot-database-v2",
  "mlapibot-imgur",
  "mlapibot-markdown",
  "mlapibot-ocr",

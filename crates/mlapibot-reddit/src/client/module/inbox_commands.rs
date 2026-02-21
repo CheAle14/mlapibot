@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use mlapi_database_v2::repos::{incidents::IncidentRepo, staff_replies::StaffReplyRepo};
+use mlapibot_database_v2::repos::{incidents::IncidentRepo, staff_replies::StaffReplyRepo};
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
     client::{AuthedClient, RedditClient},

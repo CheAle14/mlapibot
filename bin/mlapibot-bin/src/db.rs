@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mlapi_database_v2::repos::monitor::MonitorRepo;
+use mlapibot_database_v2::repos::monitor::MonitorRepo;
 
 #[derive(clap::Args)]
 pub struct DbArgs {
@@ -20,7 +20,7 @@ enum DbCommands {
 impl DbArgs {
     pub async fn run(self) -> anyhow::Result<()> {
         let settings = crate::get_global_settings(&self.scratch_dir)?;
-        let db = mlapi_database_v2::client::PgClient::connect(&settings.database_uri).await?;
+        let db = mlapibot_database_v2::client::PgClient::connect(&settings.database_uri).await?;
 
         match self.cmd {
             DbCommands::Unmonitor { fullname } => {

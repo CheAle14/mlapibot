@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 mlapibot-analysis = { path = "../../crates/mlapibot-analysis" }
 mlapibot-common = { path = "../../crates/mlapibot-common" }
-mlapi-database-v2 = { path = "../../crates/mlapi-database-v2" }
+mlapibot-database-v2 = { path = "../../crates/mlapibot-database-v2" }
 mlapibot-webhook = { path = "../../crates/mlapibot-webhook" }
 mlapibot-reddit = { path = "../../crates/mlapibot-reddit" }
 

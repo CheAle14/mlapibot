@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use mlapi_database_v2::{
+use mlapibot_database_v2::{
     client::PgClient,
     repos::staff_replies::{FindBy, StaffReply, StaffReplyRepo},
 };
@@ -501,7 +501,7 @@ impl super::Module for CommentStaffReplies {
 
 #[cfg(test)]
 mod tests {
-    use mlapi_database_v2::repos::staff_replies::StaffReply;
+    use mlapibot_database_v2::repos::staff_replies::StaffReply;
 
     static SUBREDDIT: &str = "subreddit1";
     static POST_ID: &str = "post123";

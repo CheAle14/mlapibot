@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io::Read, str::FromStr, sync::mpsc::Sender};
 
 use anyhow::Context;
-use mlapi_database_v2::repos::incidents::StatusIncident;
+use mlapibot_database_v2::repos::incidents::StatusIncident;
 use roux::builders::submission::SubmissionSubmitBuilder;
 use statuspage::{component::Component, incident::Incident};
 use tiny_http::Response;
