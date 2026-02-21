@@ -1,17 +1,34 @@
+use std::path::PathBuf;
+
+use mlapi_database_v2::repos::monitor::MonitorRepo;
+
+#[derive(clap::Args)]
+pub struct DbArgs {
+    #[clap(long, short('d'))]
+    scratch_dir: PathBuf,
+
+    #[clap(subcommand)]
+    cmd: DbCommands,
+}
+
 #[derive(clap::Subcommand)]
-pub enum DbCommands {
+enum DbCommands {
     /// Removes the provided post from the Monitored table.
     Unmonitor { fullname: String },
 }
 
-impl DbCommands {
+impl DbArgs {
     pub async fn run(self) -> anyhow::Result<()> {
-        let db = mlapibot_datastore::MlapiDb::new("database.db")?;
+        let settings = crate::get_global_settings(&self.scratch_dir)?;
+        let db = mlapi_database_v2::client::PgClient::connect(&settings.database_uri).await?;
 
-        match self {
+        match self.cmd {
             DbCommands::Unmonitor { fullname } => {
-                db.delete_monitored(&fullname)?;
-                println!("Deleted {fullname}");
+                if db.delete_monitored(&fullname).await? {
+                    println!("Deleted {fullname}");
+                } else {
+                    println!("Hmm, {fullname:?} was not monitored?");
+                }
             }
         }
 

@@ -6,8 +6,14 @@ use std::{
 };
 
 use anyhow::{Context, bail};
+use mlapi_database_v2::{
+    client::PgClient,
+    repos::{
+        incidents::{IncidentRepo, StatusIncident},
+        monitor::MonitorRepo,
+    },
+};
 use mlapibot_common::Cached;
-use mlapibot_datastore::{MlapiDb, live_incident_posts::LiveIncidentPost};
 use octocrab::OctocrabBuilder;
 use roux::{
     api::Distinguished,
@@ -41,7 +47,7 @@ pub mod module;
 
 pub struct RedditClient<'a> {
     // data_dir: PathBuf,
-    db: MlapiDb,
+    db: PgClient,
     analzyers: &'a [Analyzer],
     own_name: String,
     pub client: RouxClient,
@@ -101,7 +107,6 @@ impl<'a> RedditClient<'a> {
     pub async fn new(
         analzyers: &'a [Analyzer],
         data_dir: PathBuf,
-        database_path: PathBuf,
         dry_run: bool,
         status_webhook: Option<String>,
         admin: Option<String>,
@@ -114,7 +119,9 @@ impl<'a> RedditClient<'a> {
         let found: Vec<_> = templates.get_template_names().collect();
         assert!(found.len() > 0);
 
-        let db = MlapiDb::new(database_path).context("initialize db")?;
+        let db = PgClient::connect(&settings.database_uri)
+            .await
+            .context("initialize db")?;
 
         let config = roux::Config::new(
             Self::USER_AGENT,
@@ -384,14 +391,16 @@ impl<'a> RedditClient<'a> {
 
             let has_seen = self
                 .db
-                .has_seen(post.name().full())
+                .has_seen_item(post.name().full())
+                .await
                 .context("lookup seen")?;
 
             if post.has_unknown_media() {
                 continue;
             } else if !has_seen {
                 self.db
-                    .set_seen(subreddit.name().as_str(), post.name().full())
+                    .mark_item_seen(post.name().full(), subreddit.name().as_str())
+                    .await
                     .context("add monitor")?;
 
                 println!(
@@ -424,12 +433,13 @@ impl<'a> RedditClient<'a> {
                     continue;
                 }
 
-                if self.db.has_seen(comment.name().full())? {
+                if self.db.has_seen_item(comment.name().full()).await? {
                     continue;
                 }
 
                 self.db
-                    .set_seen(subreddit.name().as_str(), comment.name().full())?;
+                    .mark_item_seen(comment.name().full(), subreddit.name().as_str())
+                    .await?;
 
                 for reg in &mut self.modules {
                     if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
@@ -492,19 +502,21 @@ impl<'a> RedditClient<'a> {
             prior = Some(update.status);
 
             self.client
-                .update_live_thread(&incident.live_thread.fullname, &text)
+                .update_live_thread(&incident.live_thread.live_fullname, &text)
                 .await?;
         }
 
-        self.db.update_live_incident(
-            &incident.incident.id,
-            current_timestamp,
-            incident.incident.resolved_at.map(|_| current_timestamp),
-        )?;
+        self.db
+            .update_status_incident(
+                &incident.incident.id,
+                current_timestamp,
+                incident.incident.resolved_at.map(|_| current_timestamp),
+            )
+            .await?;
 
         if incident.incident.resolved_at.is_some() && incident.live_thread.resolved_at.is_none() {
             self.client
-                .close_live_thread(&incident.live_thread.fullname)
+                .close_live_thread(&incident.live_thread.live_fullname)
                 .await?;
         }
 
@@ -520,11 +532,11 @@ impl<'a> RedditClient<'a> {
 
         let components = self.cached_status_components.data(&self.status).await?;
 
-        let mut unseen = self.db.get_unresolved_live_incidents()?;
+        let mut unseen = self.db.get_unresolved_status_incidents().await?;
 
         for incident in incidents {
             unseen.remove(&incident.id);
-            match self.db.get_live_incident(&incident.id)? {
+            match self.db.get_status_incident_by_id(&incident.id).await? {
                 None => {
                     let any_would_post = self.subreddits.iter().any(|s| {
                         self.subreddits_config
@@ -560,7 +572,8 @@ impl<'a> RedditClient<'a> {
                         .await?;
 
                     self.db
-                        .create_live_incident(&incident.id, &live_thread_id, None)?;
+                        .create_status_incident(&incident.id, &live_thread_id, None)
+                        .await?;
 
                     if let Some(admin) = self.admin.as_ref() {
                         self.client
@@ -570,9 +583,9 @@ impl<'a> RedditClient<'a> {
 
                     incidents_with_live.push(IncidentWithLive {
                         incident: BoO::Borrow(incident),
-                        live_thread: LiveIncidentPost {
+                        live_thread: StatusIncident {
                             incident_id: incident.id.clone(),
-                            fullname: live_thread_id,
+                            live_fullname: live_thread_id,
                             updated_at: None,
                             resolved_at: None,
                         },
@@ -601,7 +614,8 @@ impl<'a> RedditClient<'a> {
 
                 let live_thread = self
                     .db
-                    .get_live_incident(&id)?
+                    .get_status_incident_by_id(&id)
+                    .await?
                     .expect("we just got this ID from the database");
 
                 incidents_with_live.push(IncidentWithLive {
@@ -662,7 +676,9 @@ impl<'a> RedditClient<'a> {
                         comment.link_author()
                     );
                     comment.delete().await?;
-                    self.db.set_mistaken(comment.name().full())?;
+                    self.db
+                        .set_item_mistaken(comment.name().full(), true)
+                        .await?;
                     if let Some(webhook) = &mut self.webhook {
                         let message = create_deleted_downvoted_comment(&comment);
                         webhook.send(&message).await?;
@@ -807,7 +823,7 @@ impl<'a> RedditClient<'a> {
 }
 
 pub struct ModuleRedditClient<'client> {
-    db: &'client MlapiDb,
+    db: &'client PgClient,
     analzyers: &'client [Analyzer],
     own_name: &'client String,
     client: &'client RouxClient,
@@ -875,7 +891,12 @@ impl<'client> ModuleRedditClient<'client> {
                 .await?;
             }
             PostAction::Ignore | PostAction::Action(..) => {
-                self.db.set_ignored(post.name().full())?;
+                self.db
+                    .update_item_monitor_state(
+                        post.name().full(),
+                        mlapi_database_v2::repos::monitor::MonitorState::Ignored,
+                    )
+                    .await?;
             }
         }
 

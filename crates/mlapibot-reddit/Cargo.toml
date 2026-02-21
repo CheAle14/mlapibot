@@ -9,7 +9,7 @@ imgur = []
 [dependencies]
 mlapibot-analysis = { path = "../mlapibot-analysis" }
 mlapibot-common = { path = "../mlapibot-common" }
-mlapibot-datastore = { path = "../mlapibot-datastore" }
+mlapi-database-v2 = { path = "../mlapi-database-v2" }
 mlapibot-imgur = { path = "../mlapibot-imgur" }
 mlapibot-ocr = { path = "../mlapibot-ocr" }
 mlapibot-webhook = { path = "../mlapibot-webhook" }

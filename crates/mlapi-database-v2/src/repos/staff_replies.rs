@@ -51,7 +51,7 @@ pub enum FindBy {
 }
 
 pub trait StaffReplyRepo {
-    type Error;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     async fn insert_staff_reply(
         &self,

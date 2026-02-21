@@ -5,7 +5,10 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use mlapibot_datastore::staff_replies::{FindBy, StaffReply};
+use mlapi_database_v2::{
+    client::PgClient,
+    repos::staff_replies::{FindBy, StaffReply, StaffReplyRepo},
+};
 use mlapibot_markdown::substr::{LayoutPlan, SubstrAttempt, substr_markdown_many};
 use roux::{
     api::{ArticleCommentData, ArticleCommentOrMoreComments, ArticleReplies, ThingFullname},
@@ -149,19 +152,22 @@ fn layout_reply(
     Ok(plan.execute(items))
 }
 
-pub fn visit_comments<V, E>(
+trait CommentVisitor {
+    type Error;
+
+    async fn visit_comment(&mut self, comment: &ArticleCommentData) -> Result<(), Self::Error>;
+}
+
+pub async fn visit_comments<V: CommentVisitor>(
     listing: &Listing<ArticleCommentOrMore<AuthedClient>>,
     mut visitor: V,
-) -> Result<(), E>
-where
-    V: FnMut(&ArticleCommentData) -> Result<(), E>,
-{
+) -> Result<(), V::Error> {
     let mut queue = VecDeque::new();
 
     for comment in &listing.children {
         match comment {
             ArticleCommentOrMore::Comment(comment) => {
-                visitor(comment.raw_data())?;
+                visitor.visit_comment(comment.raw_data()).await?;
 
                 if let ArticleReplies::Replies(replies) = comment.replies() {
                     for comment in &replies.data.children {
@@ -176,7 +182,7 @@ where
     while let Some(maybe_reply) = queue.pop_back() {
         match maybe_reply {
             ArticleCommentOrMoreComments::Comment(comment) => {
-                visitor(comment)?;
+                visitor.visit_comment(comment).await?;
 
                 if let ArticleReplies::Replies(replies) = &comment.replies {
                     for comment in &replies.data.children {
@@ -221,23 +227,46 @@ impl CommentStaffReplies {
             )
             .await?;
 
-        visit_comments::<_, anyhow::Error>(&post_comments, |comment| {
-            if let Some(staff_reply) = reply_map.remove(&comment.common.id) {
-                staff_reply.content = comment.common.body.to_owned();
-                staff_reply.last_updated = now;
+        struct Visitor<'a, 'b> {
+            now: DateTime<Utc>,
+            map: &'a mut HashMap<String, &'b mut StaffReply>,
+            db: &'a PgClient,
+        }
 
-                if staff_reply.author_name != comment.common.author {
-                    staff_reply.author_name = comment.common.author.clone();
+        impl<'a, 'b> CommentVisitor for Visitor<'a, 'b> {
+            type Error = anyhow::Error;
+
+            async fn visit_comment(
+                &mut self,
+                comment: &ArticleCommentData,
+            ) -> Result<(), Self::Error> {
+                if let Some(staff_reply) = self.map.remove(&comment.common.id) {
+                    staff_reply.content = comment.common.body.to_owned();
+                    staff_reply.last_updated = self.now;
+
+                    if staff_reply.author_name != comment.common.author {
+                        staff_reply.author_name = comment.common.author.clone();
+                    }
+
+                    self.db
+                        .update_staff_reply_content(&staff_reply.comment_id, &staff_reply.content)
+                        .await
+                        .context("update staff reply")?;
                 }
 
-                client
-                    .db
-                    .update_staff_reply(&staff_reply)
-                    .context("update staff reply")?;
+                Ok(())
             }
+        }
 
-            Ok(())
-        })?;
+        visit_comments(
+            &post_comments,
+            Visitor {
+                now,
+                map: &mut reply_map,
+                db: client.db,
+            },
+        )
+        .await?;
 
         for (_, unseen) in reply_map {
             // we don't care about unseen ones that we don't think are outdated.
@@ -268,7 +297,7 @@ impl CommentStaffReplies {
         subreddit: &str,
         post_id: &str,
     ) -> anyhow::Result<()> {
-        let mut all_replies = client.db.get_staff_replies_in(post_id)?;
+        let mut all_replies = client.db.get_staff_replies_in(post_id).await?;
         let now = Utc::now();
 
         if all_replies.iter().any(|v| v.is_outdated(now)) {
@@ -283,7 +312,11 @@ impl CommentStaffReplies {
             self.next_update = std::cmp::min(self.next_update, Self::get_next_update(&all_replies));
         }
 
-        match client.db.get_staff_reply_thread(FindBy::PostId, post_id)? {
+        match client
+            .db
+            .get_staff_reply_thread(FindBy::PostId, post_id)
+            .await?
+        {
             Some(existing) => {
                 let reply_text = layout_reply(
                     &all_replies,
@@ -302,7 +335,8 @@ impl CommentStaffReplies {
 
                     client
                         .db
-                        .update_staff_reply_thread(&existing.post_id, &reply_hash)?;
+                        .update_staff_reply_thread(&existing.post_id, &reply_hash)
+                        .await?;
                 }
             }
             None => {
@@ -313,13 +347,10 @@ impl CommentStaffReplies {
                 let fullname = ThingFullname::from_submission_id(post_id);
                 let reply = client.client.comment(&reply_text, &fullname).await?;
 
-                client.db.insert_staff_reply_thread(
-                    subreddit,
-                    post_id,
-                    reply.id(),
-                    now,
-                    &reply_hash,
-                )?;
+                client
+                    .db
+                    .insert_staff_reply_thread(subreddit, post_id, reply.id(), &reply_hash)
+                    .await?;
 
                 if reply.can_mod_post() {
                     reply
@@ -370,7 +401,8 @@ impl super::Module for CommentStaffReplies {
 
         if let Some(live) = client
             .db
-            .get_staff_reply_thread(FindBy::OurCommentId, comment.id())?
+            .get_staff_reply_thread(FindBy::OurCommentId, comment.id())
+            .await?
         {
             // Normally we ignore our own comments, so the only way this could've triggered
             // is if someone used the `redo` command and gave our comment as the link.
@@ -411,6 +443,7 @@ impl super::Module for CommentStaffReplies {
         client
             .db
             .insert_staff_reply(comment_id, post_id, comment.author(), comment.body())
+            .await
             .with_context(|| format!("staff reply {post_id} / {comment_id}"))?;
 
         self.update_or_make_staff_reply_comment(client, comment.subreddit(), post_id)
@@ -438,7 +471,8 @@ impl super::Module for CommentStaffReplies {
         for subreddit in subreddits {
             let threads = client
                 .db
-                .get_staff_reply_threads_in(subreddit.name().as_str(), after)?;
+                .get_staff_reply_threads_in(subreddit.name().as_str(), after)
+                .await?;
 
             for thread in threads {
                 self.update_or_make_staff_reply_comment(client, &thread.subreddit, &thread.post_id)
@@ -467,7 +501,7 @@ impl super::Module for CommentStaffReplies {
 
 #[cfg(test)]
 mod tests {
-    use mlapibot_datastore::staff_replies::StaffReply;
+    use mlapi_database_v2::repos::staff_replies::StaffReply;
 
     static SUBREDDIT: &str = "subreddit1";
     static POST_ID: &str = "post123";

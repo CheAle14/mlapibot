@@ -1,7 +1,7 @@
 use std::{collections::HashMap, io::Read, str::FromStr, sync::mpsc::Sender};
 
 use anyhow::Context;
-use mlapibot_datastore::live_incident_posts::LiveIncidentPost;
+use mlapi_database_v2::repos::incidents::StatusIncident;
 use roux::builders::submission::SubmissionSubmitBuilder;
 use statuspage::{component::Component, incident::Incident};
 use tiny_http::Response;
@@ -10,14 +10,17 @@ use crate::utils::{BoO, clamp};
 
 pub struct IncidentWithLive<'a> {
     pub incident: BoO<'a, Incident>,
-    pub live_thread: LiveIncidentPost,
+    pub live_thread: StatusIncident,
 }
 
 impl<'a> IncidentWithLive<'a> {
     pub fn to_builder(&self) -> SubmissionSubmitBuilder {
         SubmissionSubmitBuilder::link(
             get_title(&self.incident, 256).expect("String write should be infalliable"),
-            format!("https://www.reddit.com/live/{}/", self.live_thread.fullname),
+            format!(
+                "https://www.reddit.com/live/{}/",
+                self.live_thread.live_fullname
+            ),
             false,
         )
         .with_send_replies(false)

@@ -114,7 +114,7 @@ impl StatusIncident {
 }
 
 pub trait IncidentRepo {
-    type Error;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     async fn create_incident_post(
         &self,

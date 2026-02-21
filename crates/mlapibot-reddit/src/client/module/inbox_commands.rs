@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use mlapi_database_v2::repos::{incidents::IncidentRepo, staff_replies::StaffReplyRepo};
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
     client::{AuthedClient, RedditClient},
@@ -188,6 +189,7 @@ impl<'client> ModuleRedditClient<'client> {
         if let Err(err) = self
             .db
             .update_staff_reply_thread_suffix(&link.submission.id(), suffix)
+            .await
         {
             eprintln!("failed to set staff reply thread prefix: {err}");
             message
@@ -402,7 +404,8 @@ impl<'client> ModuleRedditClient<'client> {
 
         let Some(_exists) = self
             .db
-            .get_incident_from_post(link.submission.name().full())?
+            .get_incident_post_by_id(link.submission.name().full())
+            .await?
         else {
             message
                 .reply("That submission was not submitted by this bot for status tracking.")

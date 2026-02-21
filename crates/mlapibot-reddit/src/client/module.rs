@@ -1,6 +1,9 @@
 use std::time::{Duration, Instant};
 
-use mlapibot_datastore::MlapiDb;
+use mlapi_database_v2::{
+    client::PgClient,
+    repos::monitor::{MonitorRepo, MonitorState},
+};
 use mlapibot_webhook::WebhookClient;
 use roux::{
     client::{AuthedClient, RedditClient},
@@ -459,7 +462,7 @@ impl ActionData {
         self,
         is_debug: bool,
         webhook: Option<&mut WebhookClient>,
-        db: &MlapiDb,
+        db: &PgClient,
         post: &Submission,
         client: &RouxClient,
     ) -> anyhow::Result<()> {
@@ -513,16 +516,21 @@ impl ActionData {
             }
         };
 
-        db.set_analyzed(
+        db.update_item_monitor_state(
             post.name().full(),
-            self.analyser
-                .as_ref()
-                .map(|c| c.as_str())
-                .unwrap_or_default(),
-            reply_fullname.as_ref().map(|c| c.as_str()),
-            reported,
-            removed,
-        )?;
+            MonitorState::Acted {
+                analyzer: self
+                    .analyser
+                    .as_ref()
+                    .map(|c| c.clone())
+                    .unwrap_or_default(),
+                reply_fullname,
+                reported,
+                removed,
+                mistaken: false,
+            },
+        )
+        .await?;
 
         if let Some(webhook) = webhook {
             let msg = create_detection_message(

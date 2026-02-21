@@ -275,6 +275,7 @@ pub struct SubredditAiSlopConfig {
 
 #[derive(Clone, Deserialize)]
 pub struct GlobalSettings {
+    pub database_uri: String,
     pub webhook_url: Option<String>,
     pub reddit: RedditSettings,
     pub imgur: Option<ImgurSettings>,

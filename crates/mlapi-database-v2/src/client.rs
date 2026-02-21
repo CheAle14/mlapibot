@@ -1,5 +1,5 @@
 use tokio_postgres::{
-    Row, ToStatement, Transaction,
+    Row, Statement, ToStatement, Transaction,
     types::{FromSqlOwned, ToSql},
 };
 
@@ -7,6 +7,10 @@ use crate::errors::{DbError, DbResult};
 
 pub struct PgClient {
     client: tokio_postgres::Client,
+
+    /// Since we are going to do this a lot to check whether a post/comment is new,
+    /// we cache the query.
+    pub(crate) stmt_is_monitored: Statement,
 }
 
 impl PgClient {
@@ -19,7 +23,14 @@ impl PgClient {
             }
         });
 
-        Ok(Self { client })
+        let stmt_is_monitored = client
+            .prepare(crate::repos::monitor::IS_MONITORED_QUERY)
+            .await?;
+
+        Ok(Self {
+            client,
+            stmt_is_monitored,
+        })
     }
 
     pub async fn danger_delete_all_data(&self) -> DbResult<()> {
@@ -36,6 +47,10 @@ impl PgClient {
             .await?;
 
         Ok(())
+    }
+
+    pub(crate) async fn prepare(&self, query: &str) -> DbResult<Statement> {
+        self.client.prepare(query).await.map_err(DbError::from)
     }
 
     pub(crate) async fn execute<T>(

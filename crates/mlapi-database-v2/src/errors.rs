@@ -1,6 +1,5 @@
 use std::{
     backtrace::{Backtrace, BacktraceStatus},
-    borrow::Cow,
     error::Error,
 };
 

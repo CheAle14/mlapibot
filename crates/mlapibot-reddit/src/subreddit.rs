@@ -5,13 +5,11 @@ use std::{
 
 use anyhow::Context;
 use chrono::Utc;
-use mlapibot_datastore::{
-    MlapiDb,
-    incident_posts::{ResolvedIncidentPost, StickyState},
-};
+
+use mlapi_database_v2::repos::incidents::{IncidentRepo, ResolvedIncidentPost, StickyState};
 use roux::{
     api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
-    client::{RedditClient, SelectFlairData},
+    client::RedditClient,
     models::SubmissionStickySlot,
     util::{FeedOption, RouxError},
 };
@@ -85,9 +83,9 @@ impl Subreddit {
         &self.lower
     }
 
-    pub async fn sticky_incident_post(
+    pub async fn sticky_incident_post<DB: IncidentRepo>(
         &mut self,
-        db: &MlapiDb,
+        db: &DB,
         sticky: &StatusStickyConfig,
         submission: &Submission,
     ) -> anyhow::Result<()> {
@@ -114,7 +112,8 @@ impl Subreddit {
         let prior_id = prior_id.as_ref().map(|f| f.name().full());
         println!("Stickying with prior unsticky: {:?}", prior_id);
 
-        db.sticky_incident_post(submission.name().full(), prior_id)?;
+        db.sticky_incident_post(submission.name().full(), prior_id)
+            .await?;
 
         Ok(())
     }
@@ -145,9 +144,9 @@ impl Subreddit {
         true
     }
 
-    async fn send_incident_post(
+    async fn send_incident_post<DB: IncidentRepo>(
         &mut self,
-        db: &MlapiDb,
+        db: &DB,
         incident: &IncidentWithLive<'_>,
         reddit: &RouxClient,
         config: &SubredditStatusConfig,
@@ -168,11 +167,12 @@ impl Subreddit {
         let submission = reddit.submit(&self.lower.as_str(), &submission).await?;
         println!("Incident posted as {:?}", submission.name());
 
-        db.add_incident(
+        db.create_incident_post(
             self.lower.as_str(),
             &incident.incident.id,
             submission.name().full(),
-        )?;
+        )
+        .await?;
 
         if config.distinguish {
             submission
@@ -251,9 +251,9 @@ impl Subreddit {
         Ok(())
     }
 
-    pub async fn check_incident_sticky(
+    pub async fn check_incident_sticky<DB: IncidentRepo>(
         &mut self,
-        db: &MlapiDb,
+        db: &DB,
         post: ResolvedIncidentPost,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
@@ -292,7 +292,7 @@ impl Subreddit {
         if !submission.stickied() {
             // assume that a human mod has unstickied it manually.
             println!("Already unstickied");
-            db.set_incident_post_unstickied(thing.full())?;
+            db.unsticky_incident_post(thing.full(), Utc::now()).await?;
             Self::set_resolved_flair(&submission, config).await?;
             return Ok(());
         }
@@ -373,27 +373,27 @@ impl Subreddit {
             }
         }
 
-        db.set_incident_post_unstickied(thing.full())?;
+        db.unsticky_incident_post(thing.full(), Utc::now()).await?;
         Self::set_resolved_flair(&submission, config).await?;
 
         Ok(())
     }
 
-    async fn check_posts_for_unsticky(
+    async fn check_posts_for_unsticky<DB: IncidentRepo>(
         &mut self,
-        db: &MlapiDb,
+        db: &DB,
         config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
-        for post in db.get_incident_posts_waiting_unsticky()? {
+        for post in db.get_resolved_incidents_still_stickied().await? {
             self.check_incident_sticky(db, post, config).await?;
         }
 
         Ok(())
     }
 
-    pub async fn update_status(
+    pub async fn update_status<DB: IncidentRepo>(
         &mut self,
-        db: &MlapiDb,
+        db: &DB,
         reddit: &RouxClient,
         updated_incidents: &[IncidentWithLive<'_>],
         is_summary: bool,
@@ -404,12 +404,14 @@ impl Subreddit {
             .context("check unsticky")?;
 
         let mut unseen = db
-            .get_unresolved_incident_posts(self.lower.as_str())
+            .get_stickied_incident_posts(self.lower.as_str())
+            .await
             .context("get unresolved")?;
 
         for update in updated_incidents {
-            if let Some(_) =
-                db.get_incident_post(self.lower.as_str(), update.incident.id.as_str())?
+            if let Some(_) = db
+                .get_incident_post(self.lower.as_str(), update.incident.id.as_str())
+                .await?
             {
                 unseen.remove(&update.incident.id);
             } else if update.incident.impact >= config.min_impact {

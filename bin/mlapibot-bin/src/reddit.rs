@@ -29,13 +29,7 @@ pub struct RedditArgs {
 
 impl RedditArgs {
     pub fn get_global_settings(&self) -> anyhow::Result<GlobalSettings> {
-        let settings_file = self.scratch_dir.join("settings.toml");
-
-        let text = std::fs::read_to_string(&settings_file)
-            .with_context(|| format!("reading {settings_file:?}"))?;
-
-        let parsed = toml::from_str(&text)?;
-        Ok(parsed)
+        crate::get_global_settings(&self.scratch_dir)
     }
 
     pub fn get_subreddits_config(&self) -> anyhow::Result<SubredditsConfig> {
@@ -67,7 +61,6 @@ impl RedditArgs {
         let mut client = RedditClient::new(
             &analyzers,
             data_dir,
-            scratch_dir.join("database.db"),
             dry_run,
             status_webhook,
             admin,

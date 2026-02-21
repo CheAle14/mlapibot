@@ -1,5 +1,9 @@
-use crate::errors::{DbError, DbResult};
+use crate::{
+    client::PgClient,
+    errors::{DbError, DbResult},
+};
 use postgres_types::{FromSql, ToSql};
+use tokio_postgres::Statement;
 
 #[derive(Debug, FromSql, ToSql)]
 #[postgres(name = "monitorstate")]
@@ -28,8 +32,11 @@ pub enum MonitorState {
     },
 }
 
+pub(crate) const IS_MONITORED_QUERY: &str =
+    "SELECT EXISTS(SELECT 1 FROM monitored WHERE fullname=$1)";
+
 pub trait MonitorRepo {
-    type Error;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     async fn has_seen_item(&self, id: &str) -> Result<bool, Self::Error>;
     async fn delete_monitored(&self, id: &str) -> Result<bool, Self::Error>;
@@ -49,11 +56,7 @@ impl MonitorRepo for crate::client::PgClient {
     type Error = DbError;
 
     async fn has_seen_item(&self, id: &str) -> DbResult<bool> {
-        self.query_one_scalar(
-            "SELECT EXISTS(SELECT 1 FROM monitored WHERE fullname=$1)",
-            &[&id],
-        )
-        .await
+        self.query_one_scalar(&self.stmt_is_monitored, &[&id]).await
     }
 
     async fn delete_monitored(&self, id: &str) -> DbResult<bool> {

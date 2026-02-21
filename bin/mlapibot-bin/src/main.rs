@@ -1,5 +1,8 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::Context;
 use clap::Parser;
+use mlapibot_reddit::config::GlobalSettings;
 
 mod db;
 mod download;
@@ -21,8 +24,17 @@ pub enum MainCommands {
     /// Download the image to the tests folder
     Download(download::DownloadArgs),
     /// Perform manual operations against the database
-    #[command(subcommand)]
-    Db(db::DbCommands),
+    Db(db::DbArgs),
+}
+
+pub(crate) fn get_global_settings(scratch_dir: &Path) -> anyhow::Result<GlobalSettings> {
+    let settings_file = scratch_dir.join("settings.toml");
+
+    let text = std::fs::read_to_string(&settings_file)
+        .with_context(|| format!("reading {settings_file:?}"))?;
+
+    let parsed = toml::from_str(&text)?;
+    Ok(parsed)
 }
 
 fn main() -> anyhow::Result<()> {
