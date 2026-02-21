@@ -3,14 +3,16 @@ use tokio_postgres::{
     types::{FromSqlOwned, ToSql},
 };
 
-use crate::errors::{DbError, DbResult};
+use crate::{
+    errors::{DbError, DbResult},
+    migrations::apply_migrations,
+};
 
 pub struct PgClient {
     client: tokio_postgres::Client,
-
-    /// Since we are going to do this a lot to check whether a post/comment is new,
-    /// we cache the query.
-    pub(crate) stmt_is_monitored: Statement,
+    // Since we are going to do this a lot to check whether a post/comment is new,
+    // we cache the query.
+    // pub(crate) stmt_is_monitored: Statement,
 }
 
 impl PgClient {
@@ -23,13 +25,13 @@ impl PgClient {
             }
         });
 
-        let stmt_is_monitored = client
-            .prepare(crate::repos::monitor::IS_MONITORED_QUERY)
-            .await?;
+        // let stmt_is_monitored = client
+        //     .prepare(crate::repos::monitor::IS_MONITORED_QUERY)
+        //     .await?;
 
         Ok(Self {
             client,
-            stmt_is_monitored,
+            //stmt_is_monitored,
         })
     }
 

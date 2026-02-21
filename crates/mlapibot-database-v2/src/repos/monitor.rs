@@ -56,7 +56,7 @@ impl MonitorRepo for crate::client::PgClient {
     type Error = DbError;
 
     async fn has_seen_item(&self, id: &str) -> DbResult<bool> {
-        self.query_one_scalar(&self.stmt_is_monitored, &[&id]).await
+        self.query_one_scalar(IS_MONITORED_QUERY, &[&id]).await
     }
 
     async fn delete_monitored(&self, id: &str) -> DbResult<bool> {
