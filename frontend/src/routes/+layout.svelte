@@ -93,10 +93,8 @@
         </Sidebar.Content>
     </Sidebar.Root>
 
-    <main>
-        <Sidebar.Trigger />
+    <Sidebar.Trigger />
+    <main class="w-full py-1 px-2">
         {@render children()}
     </main>
 </Sidebar.Provider>
-
-{@render children()}
