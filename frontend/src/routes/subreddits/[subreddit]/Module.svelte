@@ -1,18 +1,41 @@
-<script lang="ts">
+<script lang="ts" generics="T extends keyof SubredditOptions">
     import * as Accordion from "$lib/components/ui/accordion";
     import { Switch } from "$lib/components/ui/switch";
     import { Label } from "$lib/components/ui/label";
-    import type { SubredditOptions } from "$lib/types/subreddit";
-    import type { WithChildren } from "bits-ui";
+    import type {
+        PendingSubredditOptions,
+        SubredditOptions,
+    } from "$lib/types/subreddit";
+    import type { Snippet } from "svelte";
 
-    interface ModuleProps extends WithChildren {
-        key: keyof SubredditOptions;
-        title: string;
-        description?: string;
-        enabled: boolean;
+    interface SnippetArgs<T extends keyof SubredditOptions> {
+        current: SubredditOptions[T];
+        pending: Partial<SubredditOptions[T]>;
+
+        onChange(update: Partial<SubredditOptions[T]>): void;
     }
 
-    let { key, title, children, enabled = $bindable() }: ModuleProps = $props();
+    interface ModuleProps<T extends keyof SubredditOptions> {
+        key: T;
+        title: string;
+        description?: string;
+
+        children?: Snippet<[SubredditOptions[T], Partial<SubredditOptions[T]>]>;
+
+        options: SubredditOptions;
+        changes: PendingSubredditOptions;
+    }
+
+    let {
+        key,
+        title,
+        options,
+        children,
+        changes = $bindable(),
+    }: ModuleProps<T> = $props();
+
+    let mcurrent = $derived(options[key]);
+    let mpending = $derived(changes[key]);
 </script>
 
 <Accordion.Item value={key}>
@@ -20,9 +43,9 @@
         {#snippet outside()}
             <Switch
                 id={key}
-                checked={enabled}
+                checked={mcurrent.enabled}
                 onclick={(e) => {
-                    enabled = !enabled;
+                    mpending.enabled = !mcurrent.enabled;
                     e.preventDefault();
                     e.stopPropagation();
                     return false;
@@ -34,7 +57,7 @@
 
     <Accordion.Content class="pl-2">
         {#if children}
-            {@render children()}
+            {@render children(mcurrent, mpending)}
         {:else}
             There are no options for this module.
         {/if}
