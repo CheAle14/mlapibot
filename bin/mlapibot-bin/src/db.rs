@@ -15,6 +15,9 @@ pub struct DbArgs {
 enum DbCommands {
     /// Removes the provided post from the Monitored table.
     Unmonitor { fullname: String },
+
+    /// Applies any outstanding migrations
+    Migrate,
 }
 
 impl DbArgs {
@@ -30,6 +33,11 @@ impl DbArgs {
                 } else {
                     println!("Hmm, {fullname:?} was not monitored?");
                 }
+            }
+
+            DbCommands::Migrate => {
+                // the client auto-migrates after connecting.
+                println!("Done!");
             }
         }
 
