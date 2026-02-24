@@ -7,13 +7,15 @@ edition = "2024"
 mlapibot-common = { path = "../mlapibot-common" }
 mlapibot-ocr = { path = "../mlapibot-ocr" }
 
+image = { workspace = true }
+futures = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
 ord-many = { workspace = true }
-image = { workspace = true }
 
 strsim = "0.11.1"
 hex_color = { version = "3.0.0", features = ["serde"] }

@@ -5,7 +5,7 @@ use mlapibot_ocr::image::{ImageSource, OcrImage};
 use crate::{
     error::AnalysisError,
     url::Url,
-    util::{download_file, extract_image_links},
+    util::{download_all_files, download_file, extract_image_links},
 };
 
 #[derive(Debug, Default)]
@@ -24,14 +24,17 @@ impl Context {
         warnings: &mut Vec<ContextWarning>,
     ) -> crate::error::Result<Self> {
         let mut images = Vec::with_capacity(urls.len());
-        for url in urls {
-            match download_file(&url).await {
-                Ok(Some(image)) => match OcrImage::new(image) {
-                    Ok(image) => images.push(image),
-                    Err(error) => warnings.push(ContextWarning(url, AnalysisError::OCR(error))),
-                },
-                Ok(None) => (),
-                Err(error) => warnings.push(ContextWarning(url, error)),
+
+        let result = download_all_files(urls).await;
+
+        for (url, error) in result.failures {
+            warnings.push(ContextWarning(url, AnalysisError::from(error)));
+        }
+
+        for (url, file) in result.success {
+            match OcrImage::new(ImageSource::DeleteOnDropFile(file)) {
+                Ok(image) => images.push(image),
+                Err(error) => warnings.push(ContextWarning(url, AnalysisError::OCR(error))),
             }
         }
 

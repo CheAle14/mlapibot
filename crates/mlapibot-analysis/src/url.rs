@@ -80,7 +80,7 @@ impl Url {
         if path.trim().len() == 0 {
             return None;
         }
-        let index = path.find('/').unwrap_or_else(|| path.find('\\').unwrap());
+        let index = path.rfind('/').unwrap_or_else(|| path.rfind('\\').unwrap());
         let filename = &path[index + 1..];
 
         Some(filename)

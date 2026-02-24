@@ -13,9 +13,10 @@ mlapibot-reddit = { path = "../../crates/mlapibot-reddit" }
 anyhow = { workspace = true }
 serde_json = { workspace = true }
 tera = { workspace = true }
-systemd_socket = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
+reqwest = { workspace = true }
+systemd_socket = { workspace = true }
 
 clap = { version = "4.5.9", default-features = false, features = [
     "std",
