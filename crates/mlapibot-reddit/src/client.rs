@@ -16,7 +16,7 @@ use mlapibot_database_v2::{
 };
 use octocrab::OctocrabBuilder;
 use roux::{
-    api::Distinguished,
+    api::{Distinguished, ThingFullname},
     client::{OAuthClient, RedditClient as RouxRedditClient},
     util::{SubmissionStream, now_utc},
 };
@@ -424,34 +424,54 @@ impl<'a> RedditClient<'a> {
                 continue;
             }
 
-            let comments = subreddit.data.latest_comments(None, None).await?;
+            let mut after_fullname: Option<ThingFullname> = None;
+            let mut limit = 25;
+            let mut seen_any = false;
+            let mut can_continue = true;
 
-            let mut view = make_view!(self);
-
-            for comment in comments {
-                if comment.author() == &self.own_name {
-                    continue;
-                }
-
-                if self.db.has_seen_item(comment.name().full()).await? {
-                    continue;
-                }
-
-                self.db
-                    .mark_item_seen(comment.name().full(), subreddit.name().as_str())
+            while can_continue && !seen_any {
+                let mut comments = subreddit
+                    .data
+                    .latest_comments(
+                        None,
+                        Some(std::cmp::min(limit, 100)),
+                        after_fullname.as_ref(),
+                    )
                     .await?;
 
-                for reg in &mut self.modules {
-                    if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
-                        let name = reg.module.name();
-                        reg.module
-                            .run_comment(&mut view, &comment)
-                            .await
-                            .with_context(|| {
-                                format!("{name}.run_comment({})", comment.name().full())
-                            })?;
+                can_continue = comments.after.is_some();
+                after_fullname = comments.after.take();
+
+                let mut view = make_view!(self);
+
+                for comment in comments {
+                    if comment.author() == &self.own_name {
+                        continue;
+                    }
+
+                    if self.db.has_seen_item(comment.name().full()).await? {
+                        seen_any = true;
+                        continue;
+                    }
+
+                    self.db
+                        .mark_item_seen(comment.name().full(), subreddit.name().as_str())
+                        .await?;
+
+                    for reg in &mut self.modules {
+                        if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
+                            let name = reg.module.name();
+                            reg.module
+                                .run_comment(&mut view, &comment)
+                                .await
+                                .with_context(|| {
+                                    format!("{name}.run_comment({})", comment.name().full())
+                                })?;
+                        }
                     }
                 }
+
+                limit = limit * 2;
             }
         }
 
