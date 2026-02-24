@@ -1,4 +1,5 @@
 <script lang="ts" generics="T extends keyof SubredditOptions">
+    import * as _ from "moderndash";
     import * as Accordion from "$lib/components/ui/accordion";
     import { Switch } from "$lib/components/ui/switch";
     import { Label } from "$lib/components/ui/label";
@@ -7,20 +8,20 @@
         SubredditOptions,
     } from "$lib/types/subreddit";
     import type { Snippet } from "svelte";
-
-    interface SnippetArgs<T extends keyof SubredditOptions> {
-        current: SubredditOptions[T];
-        pending: Partial<SubredditOptions[T]>;
-
-        onChange(update: Partial<SubredditOptions[T]>): void;
-    }
+    import { mergeObjectPendingChanges } from "$lib/mutate.svelte";
 
     interface ModuleProps<T extends keyof SubredditOptions> {
         key: T;
         title: string;
         description?: string;
 
-        children?: Snippet<[SubredditOptions[T], Partial<SubredditOptions[T]>]>;
+        children?: Snippet<
+            [
+                SubredditOptions[T],
+                PendingSubredditOptions[T],
+                SubredditOptions[T],
+            ]
+        >;
 
         options: SubredditOptions;
         changes: PendingSubredditOptions;
@@ -34,8 +35,12 @@
         changes = $bindable(),
     }: ModuleProps<T> = $props();
 
-    let mcurrent = $derived(options[key]);
-    let mpending = $derived(changes[key]);
+    let moriginal = $derived(options[key]);
+    let mpending = $derived(changes[key] as PendingSubredditOptions[T]);
+
+    let mcurrent = $derived(
+        mergeObjectPendingChanges(moriginal, mpending) as SubredditOptions[T],
+    );
 </script>
 
 <Accordion.Item value={key}>
@@ -57,7 +62,7 @@
 
     <Accordion.Content class="pl-2">
         {#if children}
-            {@render children(mcurrent, mpending)}
+            {@render children(mcurrent, mpending, moriginal)}
         {:else}
             There are no options for this module.
         {/if}

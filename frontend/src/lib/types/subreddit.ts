@@ -1,4 +1,5 @@
 import type { PartialDeep } from "type-fest";
+import type { Deletable } from "./deletable";
 
 export interface Subreddit {
   id: string;
@@ -9,7 +10,19 @@ export interface SubredditModule {
   enabled: boolean;
 }
 
-export interface ScamsModule extends SubredditModule {}
+export interface ScamInfo extends Deletable {
+  id: number;
+  name: string;
+  ocr?: string[];
+  title?: string[];
+
+  remove?: boolean;
+  report?: boolean;
+}
+
+export interface ScamsModule extends SubredditModule {
+  scams: ScamInfo[];
+}
 
 export interface StaffReplyModule extends SubredditModule {
   flair_id: string;
@@ -46,6 +59,14 @@ export interface SubredditOptions {
   related_title: SubredditModule;
 }
 
+export type PartialExceptKey<T, K extends keyof T> = Partial<T> & Pick<T, K>;
+
 export type PendingSubredditOptions = {
-  [P in keyof SubredditOptions]: Partial<SubredditOptions[P]>;
+  scams: Partial<Omit<ScamsModule, "scams">> & {
+    scams?: PartialExceptKey<ScamInfo, "id">[];
+  };
+  ai_slop: Partial<SubredditModule>;
+  staff_reply: Partial<StaffReplyModule>;
+  status: Partial<StatusModule>;
+  related_title: Partial<SubredditModule>;
 };

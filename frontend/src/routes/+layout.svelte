@@ -1,5 +1,6 @@
 <script lang="ts">
     import "./layout.css";
+    import { Toaster } from "$lib/components/ui/sonner/index.js";
 
     import favicon from "$lib/assets/favicon.svg";
     import type { LayoutProps } from "./$types";
@@ -11,6 +12,8 @@
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
+
+<Toaster />
 
 <Sidebar.Provider>
     <Sidebar.Root>

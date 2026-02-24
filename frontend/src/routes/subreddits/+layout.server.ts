@@ -1,4 +1,4 @@
-import { getUserModSubreddits } from "$lib/server/database";
+import { getAllSubreddits, getUserModSubreddits } from "$lib/server/database";
 import { redirect, type ServerLoad } from "@sveltejs/kit";
 
 export const load: ServerLoad = async ({ locals }) => {
@@ -6,7 +6,9 @@ export const load: ServerLoad = async ({ locals }) => {
     redirect(307, "/auth");
   }
 
-  const subs = await getUserModSubreddits(locals.user.id);
+  const subs = locals.user.admin
+    ? await getAllSubreddits()
+    : await getUserModSubreddits(locals.user.id);
 
   return {
     subs,

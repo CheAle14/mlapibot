@@ -10,7 +10,7 @@
     let { title, value, spaces }: JsonProps = $props();
 </script>
 
-<Item.Root variant="outline" class="w-3/4">
+<Item.Root variant="outline" class="w-auto m-2">
     <Item.Content>
         {#if title}
             <Item.Title>{title}</Item.Title>

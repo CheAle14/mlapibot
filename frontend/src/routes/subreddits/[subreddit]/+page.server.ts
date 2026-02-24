@@ -6,6 +6,28 @@ function makeTestData(): SubredditOptions {
   return {
     scams: {
       enabled: false,
+      scams: [
+        {
+          id: 1,
+          name: "Free Things",
+          ocr: ["free nitro", "free boost"],
+          report: true,
+          remove: true,
+        },
+        {
+          id: 2,
+          name: "Account report",
+          ocr: ["reported your account"],
+          title: ["reported my account"],
+          remove: true,
+        },
+        {
+          id: 3,
+          name: "Join server",
+          title: ["join my server"],
+          report: true,
+        },
+      ],
     },
     ai_slop: {
       enabled: true,
@@ -22,7 +44,7 @@ function makeTestData(): SubredditOptions {
       sticky: {
         min_impact: "major",
         delay_minor_mins: 15,
-        comment_threshold: 10,
+        comment_threshold: 999,
         delay_major_mins: 180,
       },
     },

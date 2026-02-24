@@ -49,6 +49,15 @@ export async function isUserModeratorOf(subreddit_id: string, user_id: string) {
   return result.length === 1 && result[0][0] === 1;
 }
 
+export async function getAllSubreddits() {
+  const results = await sql<Subreddit[]>`
+    SELECT sub.id, sub.name
+    FROM subreddits sub
+    `;
+
+  return results;
+}
+
 export async function getUserModSubreddits(user_id: string) {
   const results = await sql<Subreddit[]>`
     SELECT sub.id, sub.name

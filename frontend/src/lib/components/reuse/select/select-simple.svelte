@@ -1,7 +1,5 @@
 <script lang="ts" generics="T extends {id: string}">
-    import { Json } from "$lib/components/ui/json";
     import * as Select from "$lib/components/ui/select";
-    import type { StatusIncidentImpact } from "$lib/types/subreddit";
     import type { Snippet } from "svelte";
 
     interface Props<T> {

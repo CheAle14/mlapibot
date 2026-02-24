@@ -8,12 +8,14 @@
     import { Switch } from "$lib/components/ui/switch";
     import {
         type PendingSubredditOptions,
+        type ScamInfo,
         type SubredditOptions,
     } from "$lib/types/subreddit";
-    import { Json } from "$lib/components/ui/json";
+    import { Json, JsonMany } from "$lib/components/ui/json";
     import Module from "./Module.svelte";
     import { SelectIncidentImpact } from "$lib/components/reuse/select";
     import { Button } from "$lib/components/ui/button";
+    import ScamsTable from "./ScamsTable.svelte";
 
     const { params, data }: PageProps = $props();
 
@@ -41,9 +43,10 @@
     });
 
     const toggleSticky = (v: boolean) => {
+        console.log("set toggle:", v);
         if (v) {
             changes.status.sticky = {
-                comment_threshold: 10,
+                comment_threshold: 666,
                 delay_major_mins: 15,
                 delay_minor_mins: 180,
             };
@@ -58,7 +61,7 @@
         }
     };
 
-    let options = $derived(_.merge(data.subdata, changes) as SubredditOptions);
+    let options = $derived(data.subdata);
 </script>
 
 <h2>/r/{params.subreddit}</h2>
@@ -77,10 +80,44 @@
         >
     </div>
 
-    <Json value={changes} title="Pending Changes" />
+    <div class="flex flex-row gap-1">
+        <Json value={changes} title="Pending Changes" />
+    </div>
 
     <Accordion.Root type="multiple" class="">
-        <Module key="scams" title="OCR" {options} bind:changes />
+        <Module key="scams" title="OCR" {options} bind:changes>
+            {#snippet children(current, pending, original)}
+                <JsonMany
+                    items={[current, pending, original]}
+                    titles={["current", "pending", "original"]}
+                />
+
+                <ScamsTable
+                    scams={current.scams}
+                    updateScam={(id, changes) => {
+                        if (pending.scams) {
+                            const idx = pending.scams.findIndex(
+                                (s) => s.id === id,
+                            );
+
+                            if (idx !== -1) {
+                                pending.scams[idx] = {
+                                    ...pending.scams[idx],
+                                    ...changes,
+                                };
+                            } else {
+                                pending.scams.push({
+                                    id,
+                                    ...changes,
+                                });
+                            }
+                        } else {
+                            pending.scams = [{ id, ...changes }];
+                        }
+                    }}
+                />
+            {/snippet}
+        </Module>
 
         <Module
             key="status"
@@ -250,12 +287,13 @@
                                             () =>
                                                 current.sticky
                                                     ?.delay_major_mins ?? 0,
-                                            (v) =>
+                                            (v) => {
                                                 _.set(
                                                     pending,
                                                     "sticky.delay_major_mins",
                                                     v,
-                                                )
+                                                );
+                                            }
                                         }
                                     />
                                 </Field.Field>
