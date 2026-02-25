@@ -175,7 +175,8 @@ impl StaffReplyRepo for PgClient {
             "
             SELECT comment_id, author_name, content, last_updated, created_at
             FROM staff_replies
-            WHERE post_id=$1",
+            WHERE post_id=$1
+            ORDER BY created_at",
             &[&post_id],
             |r| {
                 Ok(StaffReply {
