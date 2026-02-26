@@ -3,10 +3,10 @@
     import { Json } from "$lib/components/ui/json";
     import * as Select from "$lib/components/ui/select";
     import SelectGroupHeading from "$lib/components/ui/select/select-group-heading.svelte";
-    import type { ScamInfo, StatusIncidentImpact } from "$lib/types/subreddit";
+    import type { CreateOrUpdateScamInfo } from "$lib/types/subreddit";
 
     interface Props {
-        scam?: ScamInfo;
+        scam?: CreateOrUpdateScamInfo;
     }
 
     interface Opt {

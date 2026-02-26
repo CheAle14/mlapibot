@@ -2,13 +2,12 @@
     import * as Dialog from "$lib/components/ui/dialog";
     import { Input } from "$lib/components/ui/input";
     import * as Select from "$lib/components/reuse/select";
-    import type { ScamInfo } from "$lib/types/subreddit";
+    import type { CreateOrUpdateScamInfo } from "$lib/types/subreddit";
     import { Button } from "$lib/components/ui/button";
 
     interface Props {
-        item: ScamInfo;
-
-        onSubmit(updates: ScamInfo): void;
+        item: CreateOrUpdateScamInfo;
+        onSubmit(updates: CreateOrUpdateScamInfo): void;
     }
 
     let { item = $bindable(), onSubmit }: Props = $props();

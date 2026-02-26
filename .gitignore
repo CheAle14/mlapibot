@@ -1,10 +1,10 @@
 /target
 /.vs
 *.png
-*.json
-*.txt
 *.db
 
 !tests/**/*.png
-!*.test.txt
+
+credentials.json
+subreddits.json
 settings.toml

@@ -9,20 +9,37 @@ export function mergeArrayPendingChanges<T>(
   if (depth !== undefined && depth < 3) {
     $inspect("mergeArr", original, pending);
   }
+
+  const isObjArray =
+    _.isPlainObject(original[0]) || (pending && _.isPlainObject(pending[0]));
+
   if (pending && pending.length > 0) {
-    const arr = original.map((item) => {
-      const p = pending.find((other) => other[key] === item[key]);
-      return p ? { ...item, ...p } : item;
-    });
+    if (isObjArray) {
+      const arr = original.map((item) => {
+        const p = pending.find((other) => other[key] === item[key]);
+        return p ? { ...item, ...p } : item;
+      });
 
-    for (const pend of pending) {
-      if (!pending.some((other) => other[key] === pend[key])) {
-        // assume that we've pushed a new item.
-        arr.push(pend as T);
+      for (const pend of pending) {
+        if (!arr.some((other) => other[key] === pend[key])) {
+          // assume that we've pushed a new item.
+          arr.push(pend as T);
+        }
       }
-    }
 
-    return arr;
+      return arr;
+    } else {
+      const arr = [...original];
+
+      for (const pend of pending) {
+        if (!arr.some((other) => other === pend)) {
+          // assume that we've pushed a new item.
+          arr.push(pend as T);
+        }
+      }
+
+      return arr;
+    }
   } else {
     return [...original];
   }

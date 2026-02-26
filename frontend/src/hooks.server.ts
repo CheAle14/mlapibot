@@ -8,6 +8,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.user = await db.getUserByCookie(cookie);
   }
 
+  console.log(event.request.method, event.url.pathname, event.locals.user);
+
   const response = await resolve(event);
   return response;
 };

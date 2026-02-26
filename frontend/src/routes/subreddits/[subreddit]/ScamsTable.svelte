@@ -1,35 +1,63 @@
 <script lang="ts">
     import { Json } from "$lib/components/ui/json";
-    import type { ScamInfo } from "$lib/types/subreddit";
+    import type {
+        CreateOrUpdateScamInfo,
+        CreateScamInfo,
+        ScamInfo,
+        UpdateScamInfo,
+    } from "$lib/types/subreddit";
     import * as Table from "$lib/components/ui/table";
     import { Button } from "$lib/components/ui/button";
     import { Badge } from "$lib/components/ui/badge";
     import { toast } from "svelte-sonner";
     import * as Dialog from "$lib/components/ui/dialog";
     import ScamModalContent from "./ScamModalContent.svelte";
-    import {
-        isDeleted,
-        stingifyDropDelete,
-        SYM_DELETE,
-    } from "$lib/types/deletable";
-    import { Trash2 } from "@lucide/svelte";
+    import { Plus, Trash2 } from "@lucide/svelte";
+    import * as Spinner from "$lib/components/ui/spinner";
+    import { createQuery } from "@tanstack/svelte-query";
+    import { fetchSubredditScams } from "$lib/queries/subreddits";
+    import { id } from "zod/locales";
 
     interface ScamsTableProps {
-        scams: ScamInfo[];
+        subreddit_id: string;
 
-        updateScam(id: number, scam: Partial<ScamInfo>): void;
+        updates: UpdateScamInfo[];
+        creates: CreateScamInfo[];
+        deletes: number[];
+
+        createScam(scam: CreateScamInfo): void;
+        updateScam(scam: UpdateScamInfo): void;
+        deleteScam(id: number): void;
+
+        uncreateScam(id: string): void;
+        undeleteScam(id: number): void;
     }
 
-    let modalItem = $state<ScamInfo | null>(null);
-    let { scams, updateScam }: ScamsTableProps = $props();
+    let modalItem = $state<CreateOrUpdateScamInfo | null>(null);
+    let {
+        subreddit_id,
+        updates,
+        creates,
+        deletes,
+        createScam,
+        updateScam,
+        deleteScam,
+        uncreateScam,
+        undeleteScam,
+    }: ScamsTableProps = $props();
+
+    const fetchScams = createQuery(() => ({
+        queryKey: ["subreddits", subreddit_id, "scams"],
+        queryFn: () => fetchSubredditScams(subreddit_id),
+    }));
 
     let copyToClipboard = () => {
         const data = {
             v: 1,
-            scams,
+            scams: fetchScams.data,
         };
 
-        const text = btoa(stingifyDropDelete(data));
+        const text = btoa(JSON.stringify(data));
         navigator.clipboard.writeText(text);
 
         toast.success(`Copied ${text.length} bytes`);
@@ -45,6 +73,24 @@
             toast.error("Unrecognised paste data");
         }
     };
+
+    function mergeScamUpdates(
+        scam: ScamInfo,
+        updates: UpdateScamInfo[],
+    ): [boolean, ScamInfo] {
+        const update = updates.find((u) => u.id === scam.id);
+        if (update) {
+            return [
+                true,
+                {
+                    ...scam,
+                    ...update,
+                },
+            ];
+        } else {
+            return [false, scam];
+        }
+    }
 </script>
 
 {#if modalItem}
@@ -52,7 +98,11 @@
         <ScamModalContent
             bind:item={modalItem}
             onSubmit={(i) => {
-                updateScam(i.id, i);
+                if (typeof i.id === "string") {
+                    createScam(i as CreateScamInfo);
+                } else {
+                    updateScam(i as UpdateScamInfo);
+                }
                 modalItem = null;
             }}
         />
@@ -68,10 +118,27 @@
         </Table.Row>
     </Table.Header>
     <Table.Body>
-        {#each scams as scam (scam.id)}
-            <Table.Row class={[scam[SYM_DELETE] && "line-through"]}>
+        {#if fetchScams.isFetching}
+            <Table.Row>
+                <Table.Cell colspan={3}>
+                    <Spinner.Badge>Fetching rules</Spinner.Badge>
+                </Table.Cell>
+            </Table.Row>
+        {/if}
+
+        {#each fetchScams.data as original (original.id)}
+            {@const isDeleted =
+                original.id && deletes.indexOf(original.id) !== -1}
+            {@const [isUpdated, scam] = mergeScamUpdates(original, updates)}
+
+            <Table.Row
+                class={[isDeleted && "line-through"]}
+                data-id={original.id}
+                data-deleted={isDeleted}
+                data-deletes={JSON.stringify(deletes)}
+            >
                 <Table.Cell class="flex flex-row">
-                    {#if scam[SYM_DELETE]}
+                    {#if isDeleted}
                         <Trash2 />
                     {/if}
                     {scam.name}
@@ -100,13 +167,11 @@
                     </div>
                 </Table.Cell>
                 <Table.Cell>
-                    {#if scam[SYM_DELETE]}
+                    {#if isDeleted}
                         <Button
                             variant="outline"
                             onclick={() => {
-                                updateScam(scam.id, {
-                                    [SYM_DELETE]: undefined,
-                                });
+                                undeleteScam(scam.id);
                             }}>Restore</Button
                         >
                     {:else}
@@ -115,12 +180,48 @@
                         <Button
                             variant="destructive"
                             onclick={() => {
-                                updateScam(scam.id, {
-                                    [SYM_DELETE]: true,
-                                });
+                                deleteScam(scam.id);
                             }}>Delete</Button
                         >
                     {/if}
+                </Table.Cell>
+            </Table.Row>
+        {/each}
+
+        {#each creates as scam (scam.id)}
+            <Table.Row>
+                <Table.Cell class="flex flex-row">
+                    <Plus />
+                    {scam.name}
+                </Table.Cell>
+                <Table.Cell>
+                    <div class="float-start">
+                        {#if scam.report && scam.remove}
+                            <Badge variant="secondary">Filter</Badge>
+                        {:else if scam.report}
+                            <Badge>Report</Badge>
+                        {:else if scam.remove}
+                            <Badge variant="destructive">Remove</Badge>
+                        {:else}
+                            <!-- no action -->
+                        {/if}
+                    </div>
+
+                    <div class="float-end">
+                        {#if scam.ocr}
+                            <Badge>OCR</Badge>
+                        {/if}
+
+                        {#if scam.title}
+                            <Badge>Title</Badge>
+                        {/if}
+                    </div>
+                </Table.Cell>
+                <Table.Cell>
+                    <Button
+                        variant="destructive"
+                        onclick={() => uncreateScam(scam.id)}>Cancel</Button
+                    >
                 </Table.Cell>
             </Table.Row>
         {/each}
@@ -130,10 +231,20 @@
             <Table.Cell colspan={3}>
                 <Button onclick={copyToClipboard}>Copy</Button>
 
-                <Button class="float-end">New</Button>
+                <Button
+                    class="float-end"
+                    onclick={() =>
+                        (modalItem = {
+                            id: crypto.randomUUID(),
+                            name: "",
+                            ocr: null,
+                            title: null,
+                            remove: false,
+                            report: false,
+                        })}>New</Button
+                >
             </Table.Cell>
         </Table.Row>
     </Table.Footer>
 </Table.Root>
-
-<Json value={scams} title="Scams" />
+<Json value={fetchScams.data} title="Scams" />

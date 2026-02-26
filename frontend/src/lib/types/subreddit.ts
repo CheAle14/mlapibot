@@ -1,72 +1,145 @@
 import type { PartialDeep } from "type-fest";
-import type { Deletable } from "./deletable";
 
-export interface Subreddit {
-  id: string;
-  name: string;
-}
+import * as z from "zod";
 
-export interface SubredditModule {
-  enabled: boolean;
-}
+const DbScamInfo = z.object({
+  id: z.int32(),
+  name: z.string(),
+  ocr: z.array(z.string()).nullable(),
+  title: z.array(z.string()).nullable(),
 
-export interface ScamInfo extends Deletable {
-  id: number;
-  name: string;
-  ocr?: string[];
-  title?: string[];
+  remove: z.boolean(),
+  report: z.boolean(),
+});
 
-  remove?: boolean;
-  report?: boolean;
-}
+const BaseModule = z.object({
+  enabled: z.boolean(),
+});
 
-export interface ScamsModule extends SubredditModule {
-  scams: ScamInfo[];
-}
+const DbModuleScams = BaseModule.extend({});
 
-export interface StaffReplyModule extends SubredditModule {
-  flair_id: string;
-  css_class?: string;
-}
+const DbModuleAiSlop = BaseModule.extend({});
 
-export type StatusIncidentImpact =
-  | "none"
-  | "maintenance"
-  | "minor"
-  | "major"
-  | "critical";
+const DbModuleStaffReply = BaseModule.extend({
+  flair_id: z.string(),
+  css_class: z.string().optional(),
+});
 
-export interface StatusStickyConfig {
-  replace_sticky?: string;
-  comment_threshold: number;
-  delay_minor_mins: number;
-  delay_major_mins: number;
-  min_impact?: StatusIncidentImpact;
-  only_for?: string[];
-}
+const StatusIncidentImpact = z.enum([
+  "none",
+  "maintenance",
+  "minor",
+  "major",
+  "critical",
+]);
 
-export interface StatusModule extends SubredditModule {
-  min_impact: StatusIncidentImpact;
-  sticky?: StatusStickyConfig;
-  distinguish: boolean;
-}
+const StatusStickyConfig = z.object({
+  replace_sticky: z.string().optional(),
+  comment_threshold: z.int32().min(0),
+  delay_minor_mins: z.int32().min(0),
+  delay_major_mins: z.int32().min(0),
+  min_impact: StatusIncidentImpact.optional(),
+  only_for: z.array(z.string()).optional(),
+});
 
-export interface SubredditOptions {
-  scams: ScamsModule;
-  ai_slop: SubredditModule;
-  staff_reply: StaffReplyModule;
-  status: StatusModule;
-  related_title: SubredditModule;
-}
+const DbModuleStatus = BaseModule.extend({
+  min_impact: StatusIncidentImpact,
+  sticky: StatusStickyConfig.optional(),
+  distinguish: z.boolean(),
+});
 
-export type PartialExceptKey<T, K extends keyof T> = Partial<T> & Pick<T, K>;
+const DbModuleRelatedTitle = BaseModule.extend({});
 
-export type PendingSubredditOptions = {
-  scams: Partial<Omit<ScamsModule, "scams">> & {
-    scams?: PartialExceptKey<ScamInfo, "id">[];
-  };
-  ai_slop: Partial<SubredditModule>;
-  staff_reply: Partial<StaffReplyModule>;
-  status: Partial<StatusModule>;
-  related_title: Partial<SubredditModule>;
+const DbSubreddit = z.object({
+  id: z.string(),
+  name: z.string(),
+  last_sync: z.iso.datetime(),
+
+  seq_num: z.int32(),
+
+  mod_json_schema: z.int32(),
+
+  mod_scams: DbModuleScams,
+  mod_ai_slop: DbModuleAiSlop,
+  mod_staff_reply: DbModuleStaffReply,
+  mod_status: DbModuleStatus,
+  mod_related_title: DbModuleRelatedTitle,
+});
+
+const ApiScamInfo = DbScamInfo;
+
+const CreateScamInfo = ApiScamInfo.extend({ id: z.uuidv4() });
+
+const UpdateScamInfo = ApiScamInfo.partial({
+  name: true,
+  remove: true,
+  report: true,
+});
+
+const CreateOrUpdateScamInfo = z.discriminatedUnion("id", [
+  CreateScamInfo,
+  UpdateScamInfo,
+]);
+
+const ApiSubreddit = DbSubreddit.omit({ mod_json_schema: true });
+
+const ApiScamsModule = DbModuleScams.extend({
+  create: z.array(CreateScamInfo),
+  update: z.array(UpdateScamInfo),
+  deletes: z.array(z.int32()),
+});
+
+const SubredditOptions = z.object({
+  seq_num: z.int32(),
+  scams: ApiScamsModule,
+  ai_slop: DbModuleAiSlop,
+  staff_reply: DbModuleStaffReply,
+  status: DbModuleStatus,
+  related_title: DbModuleRelatedTitle,
+});
+
+const PendingSubredditModules = z.object({
+  scams: ApiScamsModule.partial(),
+  ai_slop: DbModuleAiSlop.partial(),
+  staff_reply: DbModuleStaffReply.partial(),
+  status: DbModuleStatus.partial(),
+  related_title: DbModuleRelatedTitle.partial(),
+});
+
+const ModuleKeyEnum = PendingSubredditModules.keyof();
+type ModuleKeys = z.infer<typeof ModuleKeyEnum>;
+export const ModuleKeys: ModuleKeys[] = [
+  "scams",
+  "ai_slop",
+  "staff_reply",
+  "status",
+  "related_title",
+] as const;
+
+const PendingSubredditOptions = PendingSubredditModules.extend({
+  seq_num: z.int32(),
+});
+
+type TDbSubreddit = z.infer<typeof DbSubreddit>;
+
+type TScamInfo = z.infer<typeof ApiScamInfo>;
+
+type TCreateScamInfo = z.infer<typeof CreateScamInfo>;
+type TUpdateScamInfo = z.infer<typeof UpdateScamInfo>;
+type TCreateOrUpdateScamInfo = z.infer<typeof CreateOrUpdateScamInfo>;
+type TSubredditOptions = z.infer<typeof SubredditOptions>;
+type TPendingSubredditModules = z.infer<typeof PendingSubredditModules>;
+type TPendingSubredditOptions = z.infer<typeof PendingSubredditOptions>;
+
+export type {
+  TDbSubreddit as DbSubreddit,
+  TSubredditOptions as SubredditOptions,
+  TScamInfo as ScamInfo,
+  TPendingSubredditModules as PendingSubredditModules,
+  TPendingSubredditOptions as PendingSubredditOptions,
+  TCreateOrUpdateScamInfo as CreateOrUpdateScamInfo,
+  TCreateScamInfo as CreateScamInfo,
+  TUpdateScamInfo as UpdateScamInfo,
 };
+
+export { PendingSubredditOptions as ZPendingSubredditOptions };

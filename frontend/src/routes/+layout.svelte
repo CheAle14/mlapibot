@@ -7,8 +7,20 @@
     import * as Sidebar from "$lib/components/ui/sidebar";
     import * as Collapsible from "$lib/components/ui/collapsible";
     import { ChevronDown } from "@lucide/svelte";
+    import { browser } from "$app/environment";
+    import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 
     let { children, data }: LayoutProps = $props();
+
+    const queryClient = new QueryClient({
+        defaultOptions: {
+            queries: {
+                enabled: browser,
+                retry: false,
+                refetchOnWindowFocus: false,
+            },
+        },
+    });
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -76,7 +88,8 @@
                                 <Sidebar.MenuButton>
                                     {#snippet child({ props })}
                                         <a href="/auth" {...props}>
-                                            /u/{data.me.name}
+                                            /u/{data?.me?.name ??
+                                                "<never undefined>"}
                                         </a>
                                     {/snippet}
                                 </Sidebar.MenuButton>
@@ -98,6 +111,8 @@
 
     <Sidebar.Trigger />
     <main class="w-full py-1 px-2">
-        {@render children()}
+        <QueryClientProvider client={queryClient}>
+            {@render children()}
+        </QueryClientProvider>
     </main>
 </Sidebar.Provider>

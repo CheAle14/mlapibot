@@ -8,16 +8,37 @@ impl super::Migration for AddFrontend {
                 id              TEXT        PRIMARY KEY NOT NULL,
                 name            TEXT        NOT NULL,
                 last_sync       TIMESTAMPTZ NOT NULL,
-                options         JSONB       NOT NULL
+
+                seq_num         INTEGER     NOT NULL DEFAULT 0,
+
+                mod_json_schema     INTEGER     NOT NULL DEFAULT 0,
+                mod_scams           JSONB       NOT NULL,
+                mod_ai_slop         JSONB       NOT NULL,
+                mod_staff_reply     JSONB       NOT NULL,
+                mod_status          JSONB       NOT NULL,
+                mod_related_title   JSONB       NOT NULL
             );
 
             CREATE TABLE subreddit_mods (
-                subreddit_id    TEXT        REFERENCES subreddits(id) NOT NULL ,
+                subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL ,
                 user_id         TEXT        NOT NULL,
 
                 PRIMARY KEY (subreddit_id, user_id)
             );
 
+            CREATE TABLE subreddit_scam_rules (
+                id              SERIAL      PRIMARY KEY NOT NULL,
+                subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL,
+                name            TEXT        NOT NULL,
+
+                ocr             JSONB       NULL,
+                title           JSONB       NULL,
+                body            JSONB       NULL,
+                title_or_body   JSONB       NULL,
+
+                remove          BOOLEAN     NOT NULL,
+                report          BOOLEAN     NOT NULL
+            );
 
             CREATE TABLE users (
                 id              TEXT        PRIMARY KEY NOT NULL,
@@ -35,7 +56,16 @@ impl super::Migration for AddFrontend {
     }
 
     async fn undo(conn: &tokio_postgres::Transaction<'_>) -> crate::errors::DbResult<()> {
-        conn.batch_execute("DROP TABLE frontend_users").await?;
+        conn.batch_execute(
+            "
+            DROP TABLE users;
+            DROP TABLE subreddit_scam_rules;
+            DROP TABLE subreddit_mods;
+            DROP TABLE subreddits;
+
+            ",
+        )
+        .await?;
 
         Ok(())
     }
