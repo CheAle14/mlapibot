@@ -18,12 +18,18 @@ enum DbCommands {
 
     /// Applies any outstanding migrations
     Migrate,
+
+    /// Removes the last `count` migrations.
+    Unmigrate {
+        #[clap(default_value_t = 1)]
+        count: usize,
+    },
 }
 
 impl DbArgs {
     pub async fn run(self) -> anyhow::Result<()> {
         let settings = crate::get_global_settings(&self.scratch_dir)?;
-        let db =
+        let mut db =
             mlapibot_database_v2::client::PgClient::connect(&settings.database_uri, true).await?;
 
         match self.cmd {
@@ -38,6 +44,10 @@ impl DbArgs {
             DbCommands::Migrate => {
                 // the client auto-migrates after connecting.
                 println!("Done!");
+            }
+
+            DbCommands::Unmigrate { count } => {
+                mlapibot_database_v2::migrations::drop_migrations(&mut db, count).await?
             }
         }
 
