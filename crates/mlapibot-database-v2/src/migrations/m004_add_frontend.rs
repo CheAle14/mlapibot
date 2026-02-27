@@ -11,12 +11,16 @@ impl super::Migration for AddFrontend {
 
                 seq_num         INTEGER     NOT NULL DEFAULT 0,
 
+                removal_reasons     JSONB       NOT NULL,
                 mod_json_schema     INTEGER     NOT NULL DEFAULT 0,
                 mod_scams           JSONB       NOT NULL,
                 mod_ai_slop         JSONB       NOT NULL,
                 mod_staff_reply     JSONB       NOT NULL,
                 mod_status          JSONB       NOT NULL,
-                mod_related_title   JSONB       NOT NULL
+                mod_related_title   JSONB       NOT NULL,
+                mod_complex_comments JSONB      NOT NULL,
+                mod_comments_code   JSONB       NOT NULL,
+                mod_comments_cdn    JSONB       NOT NULL
             );
 
             CREATE TABLE subreddit_mods (

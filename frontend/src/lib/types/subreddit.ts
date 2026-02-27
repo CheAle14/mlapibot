@@ -17,8 +17,11 @@ const BaseModule = z.object({
 });
 
 const DbModuleScams = BaseModule.extend({});
-
 const DbModuleAiSlop = BaseModule.extend({});
+const DbModuleRelatedTitle = BaseModule.extend({});
+const DbModuleComplexComments = BaseModule.extend({});
+const DbModuleCommentsCdn = BaseModule.extend({});
+const DbModuleCommentsCode = BaseModule.extend({});
 
 const DbModuleStaffReply = BaseModule.extend({
   flair_id: z.string(),
@@ -48,8 +51,6 @@ const DbModuleStatus = BaseModule.extend({
   distinguish: z.boolean(),
 });
 
-const DbModuleRelatedTitle = BaseModule.extend({});
-
 const DbSubreddit = z.object({
   id: z.string(),
   name: z.string(),
@@ -59,11 +60,15 @@ const DbSubreddit = z.object({
 
   mod_json_schema: z.int32(),
 
+  removal_reasons: z.record(z.string(), z.string()),
   mod_scams: DbModuleScams,
   mod_ai_slop: DbModuleAiSlop,
   mod_staff_reply: DbModuleStaffReply,
   mod_status: DbModuleStatus,
   mod_related_title: DbModuleRelatedTitle,
+  mod_complex_comments: DbModuleComplexComments,
+  mod_comments_code: DbModuleCommentsCode,
+  mod_comments_cdn: DbModuleCommentsCdn,
 });
 
 const ApiScamInfo = DbScamInfo;
@@ -91,11 +96,15 @@ const ApiScamsModule = DbModuleScams.extend({
 
 const SubredditOptions = z.object({
   seq_num: z.int32(),
+  removal_reasons: z.record(z.string(), z.string()),
   scams: ApiScamsModule,
   ai_slop: DbModuleAiSlop,
   staff_reply: DbModuleStaffReply,
   status: DbModuleStatus,
   related_title: DbModuleRelatedTitle,
+  complex_comments: DbModuleComplexComments,
+  comments_code: DbModuleCommentsCode,
+  comments_cdn: DbModuleCommentsCdn,
 });
 
 const PendingSubredditModules = z.object({
@@ -104,6 +113,9 @@ const PendingSubredditModules = z.object({
   staff_reply: DbModuleStaffReply.partial(),
   status: DbModuleStatus.partial(),
   related_title: DbModuleRelatedTitle.partial(),
+  complex_comments: DbModuleComplexComments.partial(),
+  comments_code: DbModuleCommentsCode.partial(),
+  comments_cdn: DbModuleCommentsCdn.partial(),
 });
 
 const ModuleKeyEnum = PendingSubredditModules.keyof();
@@ -114,10 +126,19 @@ export const ModuleKeys: ModuleKeys[] = [
   "staff_reply",
   "status",
   "related_title",
+  "complex_comments",
+  "comments_code",
+  "comments_cdn",
 ] as const;
 
 const PendingSubredditOptions = PendingSubredditModules.extend({
   seq_num: z.int32(),
+  removal_reasons: z
+    .object({
+      update: z.record(z.string(), z.string()),
+      remove: z.array(z.string()),
+    })
+    .partial(),
 });
 
 type TDbSubreddit = z.infer<typeof DbSubreddit>;

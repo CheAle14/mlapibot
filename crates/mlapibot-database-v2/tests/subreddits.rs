@@ -17,7 +17,7 @@ async fn make_db() -> PgClient {
 async fn insert_and_fetch_subreddits() -> DbResult<()> {
     let mut db = make_db().await;
 
-    let now = chrono::Utc::now();
+    let now = chrono::Utc::now().trunc_subsecs(4);
 
     let mods_ids = vec!["user01", "user02", "user33"];
 
@@ -27,6 +27,7 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
         last_sync: now,
         seq_num: 1,
         mod_json_schema: 0,
+        removal_reasons: RemovalReasonsMap::default().with("#repost", "abc-rule-123"),
         mod_scams: ScamsModule { enabled: true },
         mod_ai_slop: AiSlopModule { enabled: false },
         mod_staff_reply: StaffReplyModule {
@@ -41,6 +42,9 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
             distinguish: true,
         },
         mod_related_title: RelatedTitleModule { enabled: true },
+        mod_complex_comments: ComplexCommentsModule { enabled: true },
+        mod_comments_code: CommentsCodeModule { enabled: false },
+        mod_comments_cdn: CommentsCdnModule { enabled: false },
     };
 
     db.create_subreddit(&subreddit).await?;

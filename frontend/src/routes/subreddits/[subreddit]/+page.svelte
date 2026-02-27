@@ -28,6 +28,7 @@
         fetchSubredditScams,
     } from "$lib/queries/subreddits";
     import * as Spinner from "$lib/components/ui/spinner";
+    import RemovalReasons from "./RemovalReasons.svelte";
 
     const client = useQueryClient();
     const { params, data }: PageProps = $props();
@@ -45,11 +46,15 @@
     let open: string[] = $state([]);
     let changes = $state<PendingSubredditOptions>({
         seq_num: -1,
+        removal_reasons: {},
         ai_slop: {},
         staff_reply: {},
         status: {},
         scams: {},
         related_title: {},
+        complex_comments: {},
+        comments_code: {},
+        comments_cdn: {},
     });
 
     $effect(() => {
@@ -62,6 +67,7 @@
         for (const key of ModuleKeys) {
             changes[key] = {};
         }
+        changes.removal_reasons = {};
     };
 
     const savePendingChanges = createMutation(() => ({
@@ -88,6 +94,8 @@
                 return true;
             }
         }
+
+        if (!_.isEqual(changes.removal_reasons, {})) return true;
 
         return false;
     });
@@ -153,6 +161,18 @@
 
     {#if options}
         <Accordion.Root type="multiple" class="" bind:value={open}>
+            <Accordion.Item value="removal_reasons">
+                <Accordion.Trigger>Removal reasons map</Accordion.Trigger>
+
+                <Accordion.Content class="pl-2">
+                    <RemovalReasons
+                        reasons={options.removal_reasons}
+                        bind:updates={changes.removal_reasons.update}
+                        bind:deletes={changes.removal_reasons.remove}
+                    />
+                </Accordion.Content>
+            </Accordion.Item>
+
             <Module key="scams" title="OCR" {options} {open} bind:changes>
                 {#snippet children({ open, current, pending, original })}
                     <!-- <JsonMany
@@ -274,8 +294,7 @@
                                     <Switch
                                         id="sticky"
                                         bind:checked={
-                                            () => current.sticky !== undefined,
-                                            toggleSticky
+                                            () => !!current.sticky, toggleSticky
                                         }
                                     />
 
@@ -413,6 +432,30 @@
             <Module
                 key="related_title"
                 title="Remove posts with vague titles"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="complex_comments"
+                title="Remove comments based on post contents"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="comments_code"
+                title="Convert three-backtick code blocks to four-spaces"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="comments_cdn"
+                title="Warn users about posting temporary CDN links"
                 {options}
                 {open}
                 bind:changes

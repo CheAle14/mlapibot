@@ -69,11 +69,15 @@ export async function getAllSubreddits() {
 function mapDataToOptions(sub: DbSubreddit): SubredditOptions {
   return {
     seq_num: sub.seq_num,
+    removal_reasons: sub.removal_reasons,
     scams: { ...sub.mod_scams, create: [], deletes: [], update: [] },
     ai_slop: sub.mod_ai_slop,
     status: sub.mod_status,
     staff_reply: sub.mod_staff_reply,
     related_title: sub.mod_related_title,
+    comments_cdn: sub.mod_comments_cdn,
+    comments_code: sub.mod_comments_code,
+    complex_comments: sub.mod_complex_comments,
   };
 }
 
@@ -166,6 +170,19 @@ export async function tryApplyPendingChanges(
       };
     }
 
+    if (changes.removal_reasons) {
+      const reasons = {
+        ...subreddit.removal_reasons,
+        ...(changes.removal_reasons.update ?? {}),
+      };
+
+      for (const rem of changes.removal_reasons.remove ?? []) {
+        delete reasons[rem];
+      }
+
+      subreddit.removal_reasons = reasons;
+    }
+
     if (changes.ai_slop) {
       subreddit.mod_ai_slop = {
         ...subreddit.mod_ai_slop,
@@ -194,6 +211,27 @@ export async function tryApplyPendingChanges(
       };
     }
 
+    if (changes.complex_comments) {
+      subreddit.mod_complex_comments = {
+        ...subreddit.mod_complex_comments,
+        ...changes.complex_comments,
+      };
+    }
+
+    if (changes.comments_code) {
+      subreddit.mod_comments_code = {
+        ...subreddit.mod_comments_code,
+        ...changes.comments_code,
+      };
+    }
+
+    if (changes.comments_cdn) {
+      subreddit.mod_comments_cdn = {
+        ...subreddit.mod_comments_cdn,
+        ...changes.comments_cdn,
+      };
+    }
+
     const next_seq = subreddit.seq_num + 1;
 
     await sql`
@@ -204,7 +242,10 @@ export async function tryApplyPendingChanges(
         mod_ai_slop=${subreddit.mod_ai_slop},
         mod_staff_reply=${subreddit.mod_staff_reply},
         mod_status=${subreddit.mod_status},
-        mod_related_title=${subreddit.mod_related_title}
+        mod_related_title=${subreddit.mod_related_title},
+        mod_complex_comments=${subreddit.mod_complex_comments},
+        mod_comments_code=${subreddit.mod_comments_code},
+        mod_comments_cdn=${subreddit.mod_comments_cdn}
       WHERE id=${subreddit.id}
     `;
 
