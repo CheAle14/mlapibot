@@ -86,6 +86,12 @@ const CreateOrUpdateScamInfo = z.discriminatedUnion("id", [
   UpdateScamInfo,
 ]);
 
+export interface SidebarSubreddit {
+  id: string;
+  name: string;
+  is_mod: boolean;
+}
+
 const ApiSubreddit = DbSubreddit.omit({ mod_json_schema: true });
 
 const ApiScamsModule = DbModuleScams.extend({

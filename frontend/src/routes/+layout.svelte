@@ -6,7 +6,7 @@
     import type { LayoutProps } from "./$types";
     import * as Sidebar from "$lib/components/ui/sidebar";
     import * as Collapsible from "$lib/components/ui/collapsible";
-    import { ChevronDown } from "@lucide/svelte";
+    import { ChevronDown, Shield } from "@lucide/svelte";
     import { browser } from "$app/environment";
     import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 
@@ -61,6 +61,10 @@
                                                                 href={`/subreddits/${sub.name}`}
                                                                 {...props}
                                                             >
+                                                                {#if data.me?.admin && sub.is_mod}
+                                                                    <Shield />
+                                                                {/if}
+
                                                                 /r/{sub.name}
                                                             </a>
                                                         {/snippet}

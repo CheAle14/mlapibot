@@ -6,6 +6,7 @@ import {
   type UpdateScamInfo,
   type CreateScamInfo,
   type ScamInfo,
+  type SidebarSubreddit,
 } from "$lib/types/subreddit";
 import { type DbUser, type User } from "$lib/types/user";
 import { SubscriptIcon } from "@lucide/svelte";
@@ -57,15 +58,6 @@ export async function isUserModeratorOf(subreddit_id: string, user_id: string) {
   return result.length === 1 && result[0][0] === 1;
 }
 
-export async function getAllSubreddits() {
-  const results = await sql<DbSubreddit[]>`
-    SELECT *
-    FROM subreddits sub
-    `;
-
-  return results;
-}
-
 function mapDataToOptions(sub: DbSubreddit): SubredditOptions {
   return {
     seq_num: sub.seq_num,
@@ -97,16 +89,21 @@ export async function getSubredditData(
   }
 }
 
-export async function getUserModSubreddits(user_id: string) {
-  const results = await sql<DbSubreddit[]>`
-    SELECT sub.*
+export async function getSidebarSubreddits(
+  user_id: string,
+  is_admin: boolean,
+): Promise<SidebarSubreddit[]> {
+  const join = is_admin ? sql`LEFT JOIN` : sql`JOIN`;
+
+  const results = await sql<{ id: string; name: string; user_id?: string }[]>`
+    SELECT sub.id, sub.name, mods.user_id
     FROM subreddits sub
-    JOIN subreddit_mods mods
+    ${join} subreddit_mods mods
     ON sub.id = mods.subreddit_id
     WHERE mods.user_id=${user_id}
     `;
 
-  return results;
+  return results.map((item) => ({ ...item, is_mod: !!item.user_id }));
 }
 
 export async function getSubredditScamRules(subreddit_id: string) {

@@ -1,16 +1,15 @@
-import { getAllSubreddits, getUserModSubreddits } from "$lib/server/database";
+import type { SidebarSubreddit } from "$lib/types/subreddit";
+import { User } from "@lucide/svelte";
 import { redirect, type ServerLoad } from "@sveltejs/kit";
 
-export const load: ServerLoad = async ({ locals }) => {
+export const load: ServerLoad = async ({ locals, parent }) => {
   if (!locals.user) {
     redirect(307, "/auth");
   }
 
-  const subs = locals.user.admin
-    ? await getAllSubreddits()
-    : await getUserModSubreddits(locals.user.id);
-
+  const { me, subs } = await parent();
   return {
-    subs,
+    me: me as User | undefined,
+    subs: (subs ?? []) as SidebarSubreddit[],
   };
 };

@@ -32,6 +32,7 @@
 
     const client = useQueryClient();
     const { params, data }: PageProps = $props();
+
     const subreddit = $derived(
         data.subs.find((s) => s.name === params.subreddit)?.id ?? "???",
     );
@@ -104,7 +105,7 @@
         console.log("set toggle:", v);
         if (v) {
             changes.status.sticky = {
-                comment_threshold: 666,
+                comment_threshold: 10,
                 delay_major_mins: 15,
                 delay_minor_mins: 180,
             };
