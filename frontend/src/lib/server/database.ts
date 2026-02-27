@@ -141,7 +141,7 @@ export async function tryApplyPendingChanges(
     if (changes.scams) {
       const { create, deletes, update, ...rest } = changes.scams;
 
-      if (deletes) {
+      if (deletes && deletes.length > 0) {
         // TODO: figure out why dynamic 'where in' doesn't work.
 
         for (const id of deletes) {
@@ -149,7 +149,7 @@ export async function tryApplyPendingChanges(
         }
       }
 
-      if (create) {
+      if (create && create.length > 0) {
         const items = create.map((item) => ({
           ...item,
           ocr: item.ocr ?? null,
@@ -233,24 +233,21 @@ export async function tryApplyPendingChanges(
       };
     }
 
-    const next_seq = subreddit.seq_num + 1;
+    subreddit.seq_num += 1;
+
+    const { id: _id, ...update } = subreddit;
 
     await sql`
       UPDATE subreddits
       SET
-        seq_num=${next_seq},
-        mod_scams=${subreddit.mod_scams},
-        mod_ai_slop=${subreddit.mod_ai_slop},
-        mod_staff_reply=${subreddit.mod_staff_reply},
-        mod_status=${subreddit.mod_status},
-        mod_related_title=${subreddit.mod_related_title},
-        mod_complex_comments=${subreddit.mod_complex_comments},
-        mod_comments_code=${subreddit.mod_comments_code},
-        mod_comments_cdn=${subreddit.mod_comments_cdn}
+        ${sql(update)}
       WHERE id=${subreddit.id}
     `;
 
-    subreddit.seq_num = next_seq;
+    await sql.notify(
+      "mlapibot",
+      JSON.stringify({ type: "subreddit", id: subreddit.id }),
+    );
 
     return { ok: mapDataToOptions(subreddit) };
   });

@@ -5,6 +5,8 @@ import * as z from "zod";
 const DbScamInfo = z.object({
   id: z.int32(),
   name: z.string(),
+  enabled: z.boolean(),
+  self_post: z.boolean(),
 
   // Technically all of these are `IMatcher | null`, but
   // zod really did not like the recursive + discriminated union that is.
@@ -16,6 +18,7 @@ const DbScamInfo = z.object({
   body: z.json().optional(),
   title_or_body: z.json().optional(),
 
+  reason: z.string().optional(),
   template: z.string().optional(),
 
   remove: z.boolean(),
@@ -167,6 +170,7 @@ type TCreateOrUpdateScamInfo = z.infer<typeof CreateOrUpdateScamInfo>;
 type TSubredditOptions = z.infer<typeof SubredditOptions>;
 type TPendingSubredditModules = z.infer<typeof PendingSubredditModules>;
 type TPendingSubredditOptions = z.infer<typeof PendingSubredditOptions>;
+type TStatusIncidentImpact = z.infer<typeof StatusIncidentImpact>;
 
 export type {
   TDbSubreddit as DbSubreddit,
@@ -177,6 +181,7 @@ export type {
   TCreateOrUpdateScamInfo as CreateOrUpdateScamInfo,
   TCreateScamInfo as CreateScamInfo,
   TUpdateScamInfo as UpdateScamInfo,
+  TStatusIncidentImpact as StatusIncidentImpact,
 };
 
 export { PendingSubredditOptions as ZPendingSubredditOptions };

@@ -77,7 +77,7 @@
                 <Table.Cell>
                     {reason_id}
                 </Table.Cell>
-                <Table.Cell class="gap-1">
+                <Table.Cell class="flex justify-end  gap-2">
                     {#if isDeleted}
                         <Button
                             class="float-end"
@@ -87,18 +87,17 @@
                     {:else}
                         <Button
                             class="float-end"
+                            variant="destructive"
+                            onclick={() => deleteItem(alias)}>Delete</Button
+                        >
+                        <Button
+                            class="float-end"
                             onclick={() =>
                                 (modalItem = {
                                     adding: false,
                                     key: alias,
                                     value: reason_id,
                                 })}>Edit</Button
-                        >
-
-                        <Button
-                            class="float-end"
-                            variant="destructive"
-                            onclick={() => deleteItem(alias)}>Delete</Button
                         >
                     {/if}
                 </Table.Cell>

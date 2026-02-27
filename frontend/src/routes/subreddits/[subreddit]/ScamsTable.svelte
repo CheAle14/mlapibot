@@ -19,6 +19,8 @@
     interface ScamsTableProps {
         subreddit_id: string;
 
+        removal_reasons: Record<string, string>;
+
         updates: UpdateScamInfo[];
         creates: CreateScamInfo[];
         deletes: number[];
@@ -34,6 +36,7 @@
     let modalItem = $state<CreateOrUpdateScamInfo | null>(null);
     let {
         subreddit_id,
+        removal_reasons,
         updates,
         creates,
         deletes,
@@ -71,6 +74,7 @@
 {#if modalItem}
     <Dialog.Root bind:open={() => true, (v) => (modalItem = null)}>
         <ScamModalContent
+            {removal_reasons}
             bind:item={modalItem}
             onSubmit={(i) => {
                 if (typeof i.id === "string") {
@@ -120,6 +124,10 @@
                 </Table.Cell>
                 <Table.Cell>
                     <div class="float-start">
+                        {#if !scam.enabled}
+                            <Badge variant="outline">Disabled</Badge>
+                        {/if}
+
                         {#if scam.report && scam.remove}
                             <Badge variant="secondary">Filter</Badge>
                         {:else if scam.report}
@@ -175,6 +183,10 @@
                 </Table.Cell>
                 <Table.Cell>
                     <div class="float-start">
+                        {#if !scam.enabled}
+                            <Badge variant="outline">Disabled</Badge>
+                        {/if}
+
                         {#if scam.report && scam.remove}
                             <Badge variant="secondary">Filter</Badge>
                         {:else if scam.report}
@@ -218,6 +230,8 @@
                     onclick={() =>
                         (modalItem = {
                             id: crypto.randomUUID(),
+                            enabled: true,
+                            self_post: true,
                             name: "",
                             template: "default",
                             remove: false,
