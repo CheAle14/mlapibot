@@ -9,14 +9,12 @@
     import * as Table from "$lib/components/ui/table";
     import { Button } from "$lib/components/ui/button";
     import { Badge } from "$lib/components/ui/badge";
-    import { toast } from "svelte-sonner";
     import * as Dialog from "$lib/components/ui/dialog";
     import ScamModalContent from "./ScamModalContent.svelte";
     import { Plus, Trash2 } from "@lucide/svelte";
     import * as Spinner from "$lib/components/ui/spinner";
     import { createQuery } from "@tanstack/svelte-query";
     import { fetchSubredditScams } from "$lib/queries/subreddits";
-    import { id } from "zod/locales";
 
     interface ScamsTableProps {
         subreddit_id: string;
@@ -50,29 +48,6 @@
         queryKey: ["subreddits", subreddit_id, "scams"],
         queryFn: () => fetchSubredditScams(subreddit_id),
     }));
-
-    let copyToClipboard = () => {
-        const data = {
-            v: 1,
-            scams: fetchScams.data,
-        };
-
-        const text = btoa(JSON.stringify(data));
-        navigator.clipboard.writeText(text);
-
-        toast.success(`Copied ${text.length} bytes`);
-    };
-
-    let pasteFromClipboard = async () => {
-        const b64 = await navigator.clipboard.readText();
-        const text = atob(b64);
-        const data = JSON.parse(text);
-
-        if ("v" in data && data.v === 1) {
-        } else {
-            toast.error("Unrecognised paste data");
-        }
-    };
 
     function mergeScamUpdates(
         scam: ScamInfo,
@@ -161,8 +136,12 @@
                             <Badge>OCR</Badge>
                         {/if}
 
-                        {#if scam.title}
+                        {#if scam.title ?? scam.title_or_body}
                             <Badge>Title</Badge>
+                        {/if}
+
+                        {#if scam.body ?? scam.title_or_body}
+                            <Badge>Body</Badge>
                         {/if}
                     </div>
                 </Table.Cell>
@@ -212,8 +191,12 @@
                             <Badge>OCR</Badge>
                         {/if}
 
-                        {#if scam.title}
+                        {#if scam.title ?? scam.title_or_body}
                             <Badge>Title</Badge>
+                        {/if}
+
+                        {#if scam.body ?? scam.title_or_body}
+                            <Badge>Body</Badge>
                         {/if}
                     </div>
                 </Table.Cell>
@@ -229,16 +212,14 @@
     <Table.Footer>
         <Table.Row>
             <Table.Cell colspan={3}>
-                <Button onclick={copyToClipboard}>Copy</Button>
-
                 <Button
+                    size="sm"
                     class="float-end"
                     onclick={() =>
                         (modalItem = {
                             id: crypto.randomUUID(),
                             name: "",
-                            ocr: null,
-                            title: null,
+                            template: "default",
                             remove: false,
                             report: false,
                         })}>New</Button
@@ -247,4 +228,3 @@
         </Table.Row>
     </Table.Footer>
 </Table.Root>
-<Json value={fetchScams.data} title="Scams" />

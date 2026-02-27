@@ -174,7 +174,13 @@
                 </Accordion.Content>
             </Accordion.Item>
 
-            <Module key="scams" title="OCR" {options} {open} bind:changes>
+            <Module
+                key="scams"
+                title="Remove posts based on OCR or text content"
+                {options}
+                {open}
+                bind:changes
+            >
                 {#snippet children({ open, current, pending, original })}
                     <!-- <JsonMany
                         items={[current, pending, original]}
@@ -423,46 +429,6 @@
             </Module>
 
             <Module
-                key="ai_slop"
-                title="Scan repository links for AI slop"
-                {options}
-                {open}
-                bind:changes
-            />
-
-            <Module
-                key="related_title"
-                title="Remove posts with vague titles"
-                {options}
-                {open}
-                bind:changes
-            />
-
-            <Module
-                key="complex_comments"
-                title="Remove comments based on post contents"
-                {options}
-                {open}
-                bind:changes
-            />
-
-            <Module
-                key="comments_code"
-                title="Convert three-backtick code blocks to four-spaces"
-                {options}
-                {open}
-                bind:changes
-            />
-
-            <Module
-                key="comments_cdn"
-                title="Warn users about posting temporary CDN links"
-                {options}
-                {open}
-                bind:changes
-            />
-
-            <Module
                 key="staff_reply"
                 title="Collect staff replies in a stickied comment"
                 {options}
@@ -514,6 +480,46 @@
                     </div>
                 {/snippet}
             </Module>
+
+            <Module
+                key="ai_slop"
+                title="Scan repository links for AI slop"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="related_title"
+                title="Remove posts with vague titles"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="complex_comments"
+                title="Remove comments based on post contents"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="comments_code"
+                title="Convert three-backtick code blocks to four-spaces"
+                {options}
+                {open}
+                bind:changes
+            />
+
+            <Module
+                key="comments_cdn"
+                title="Warn users about posting temporary CDN links"
+                {options}
+                {open}
+                bind:changes
+            />
         </Accordion.Root>
     {/if}
 </main>

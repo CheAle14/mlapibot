@@ -5,8 +5,18 @@ import * as z from "zod";
 const DbScamInfo = z.object({
   id: z.int32(),
   name: z.string(),
-  ocr: z.array(z.string()).nullable(),
-  title: z.array(z.string()).nullable(),
+
+  // Technically all of these are `IMatcher | null`, but
+  // zod really did not like the recursive + discriminated union that is.
+  // So for now we just accept anything and hope that it is correct.
+  // Since it should only be modified via this frontend it shouldn't get out of
+  // sync, so there shouldn't be any issues.
+  ocr: z.json().optional(),
+  title: z.json().optional(),
+  body: z.json().optional(),
+  title_or_body: z.json().optional(),
+
+  template: z.string().optional(),
 
   remove: z.boolean(),
   report: z.boolean(),

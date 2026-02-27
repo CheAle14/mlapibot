@@ -152,9 +152,13 @@ export async function tryApplyPendingChanges(
       if (create) {
         const items = create.map((item) => ({
           ...item,
+          ocr: item.ocr ?? null,
+          title: item.title ?? null,
+          body: item.body ?? null,
+          title_or_body: item.title_or_body ?? null,
           subreddit_id: subreddit.id,
         }));
-        await sql`INSERT INTO subreddit_scam_rules ${sql(items, "subreddit_id", "name", "ocr", "title", "remove", "report")}`;
+        await sql`INSERT INTO subreddit_scam_rules ${sql(items, "subreddit_id", "name", "ocr", "title", "body", "title_or_body", "remove", "report")}`;
       }
 
       if (update) {

@@ -20,7 +20,6 @@
     const OPTIONS: Opt[] = [
         {
             id: "None",
-            description: "No mod action; just reply",
             report: false,
             remove: false,
         },
