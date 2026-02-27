@@ -1683,6 +1683,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "postgres-types",
+ "serde",
+ "statuspage",
  "thiserror 2.0.12",
  "tokio",
  "tokio-postgres",
@@ -2381,6 +2383,8 @@ dependencies = [
  "fallible-iterator 0.2.0",
  "postgres-derive",
  "postgres-protocol",
+ "serde_core",
+ "serde_json",
 ]
 
 [[package]]
@@ -3122,8 +3126,8 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "statuspage"
-version = "0.4.0"
-source = "git+https://github.com/CheAle14/statuspage.git#025ea572c268481aab54f329e18e0f6b4371f49b"
+version = "0.4.1"
+source = "git+https://github.com/CheAle14/statuspage.git#614b7757dc2565cb2adb0dd8dcdc3df048e60473"
 dependencies = [
  "chrono",
  "reqwest",

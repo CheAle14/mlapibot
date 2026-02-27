@@ -56,6 +56,10 @@ impl PgClient {
                 DELETE FROM staff_reply_threads;
                 DELETE FROM incident_sub_posts;
                 DELETE FROM status_incidents;
+                DELETE FROM subreddit_mods;
+                DELETE FROM subreddit_scam_rules;
+                DELETE FROM subreddits;
+                DELETE FROM users;
                 "#,
             )
             .await?;

@@ -1,7 +1,7 @@
 use mlapibot_database_v2::{client::PgClient, errors::DbResult, repos::staff_replies::*};
 
 async fn make_db() -> PgClient {
-    let db = PgClient::connect("postgres://postgres:postgres@localhost/mlapibot", true)
+    let db = PgClient::connect("postgres://postgres:postgres@localhost/mlapibotest", true)
         .await
         .expect("can connect");
 
