@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { getTemplateStubs } from "$lib/components/templates/templates.remote";
+    import { getTemplateStubs } from "$lib/api/templates.remote";
     import type { CreateOrStubTemplateInfo } from "$lib/types/templates";
     import * as MySelect from "$lib/components/reuse/select";
     import type { SubredditTemplateStub } from "$lib/types/subreddit";

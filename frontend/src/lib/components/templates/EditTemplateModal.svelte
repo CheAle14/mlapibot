@@ -3,7 +3,7 @@
     import * as Dialog from "../ui/dialog";
     import { Button } from "../ui/button";
     import TemplateModalContent from "./TemplateModalContent.svelte";
-    import { getTemplateInfo } from "./templates.remote";
+    import { getTemplateInfo } from "$lib/api/templates.remote";
     import type { EditTemplateInfo } from "$lib/types/templates";
     import { FormWrapped } from "../reuse/form";
 

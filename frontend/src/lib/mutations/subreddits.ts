@@ -1,4 +1,4 @@
-import { getTemplateStubs } from "$lib/components/templates/templates.remote";
+import { getTemplateStubs } from "$lib/api/templates.remote";
 import type { PendingSubredditOptions } from "$lib/types/subreddit";
 
 interface SyncPendingChangesArgs {

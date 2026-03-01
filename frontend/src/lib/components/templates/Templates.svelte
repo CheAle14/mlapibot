@@ -1,7 +1,7 @@
 <script lang="ts">
     import { Json } from "$lib/components/ui/json";
     import { Spinner } from "$lib/components/ui/spinner";
-    import { getTemplateStubs } from "./templates.remote";
+    import { getTemplateStubs } from "$lib/api/templates.remote";
     import * as Table from "$lib/components/ui/table";
     import { Button } from "$lib/components/ui/button";
     import { Dialog } from "bits-ui";
