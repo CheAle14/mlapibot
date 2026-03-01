@@ -271,6 +271,11 @@ pub fn substr_markdown_many<'md>(
         .collect();
 
     substrs.sort_unstable_by_key(|a| a.original.len());
+    
+    if substrs.len() == 0 {
+        eprintln!("For markdown substr: no inputs to cut down provided??");
+        return Vec::new();
+    }
 
     'item_max: for items_max in (0..=(max / substrs.len())).rev() {
         let total_items_max = items_max * substrs.len();
