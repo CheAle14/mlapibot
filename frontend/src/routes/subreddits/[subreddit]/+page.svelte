@@ -29,6 +29,7 @@
     } from "$lib/queries/subreddits";
     import * as Spinner from "$lib/components/ui/spinner";
     import RemovalReasons from "./RemovalReasons.svelte";
+    import Templates from "./Templates.svelte";
 
     const client = useQueryClient();
     const { params, data }: PageProps = $props();
@@ -47,6 +48,7 @@
     let open: string[] = $state([]);
     let changes = $state<PendingSubredditOptions>({
         seq_num: -1,
+        templates: {},
         removal_reasons: {},
         ai_slop: {},
         staff_reply: {},
@@ -191,6 +193,16 @@
                         bind:updates={changes.removal_reasons.update}
                         bind:deletes={changes.removal_reasons.remove}
                     />
+                </Accordion.Content>
+            </Accordion.Item>
+
+            <Accordion.Item value="templates">
+                <Accordion.Trigger>Post reply templates</Accordion.Trigger>
+
+                <Accordion.Content class="pl-2">
+                    {#if open.indexOf("templates") !== -1}
+                        <Templates />
+                    {/if}
                 </Accordion.Content>
             </Accordion.Item>
 

@@ -7,9 +7,6 @@ export const load: ServerLoad = async ({ cookies }) => {
   const me = cookie ? await db.getUserByCookie(cookie) : undefined;
   const subs = me ? await db.getSidebarSubreddits(me.id, me.admin) : undefined;
 
-  console.log("me:", me);
-  console.log("subs:", subs);
-
   return {
     me,
     subs,

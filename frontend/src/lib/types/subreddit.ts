@@ -25,6 +25,16 @@ const DbScamInfo = z.object({
   report: z.boolean(),
 });
 
+const DbSubredditTemplate = z.object({
+  id: z.int32(),
+  name: z.string(),
+  content: z.string(),
+});
+
+const SubredditTemplateStub = DbSubredditTemplate.omit({
+  content: true,
+});
+
 const BaseModule = z.object({
   enabled: z.boolean(),
 });
@@ -99,6 +109,22 @@ const CreateOrUpdateScamInfo = z.discriminatedUnion("id", [
   UpdateScamInfo,
 ]);
 
+const ApiSubredditTemplate = DbSubredditTemplate;
+
+const CreateSubredditTemplate = ApiSubredditTemplate.extend({
+  id: z.uuidv4(),
+});
+
+const UpdateSubredditTemplate = ApiSubredditTemplate.partial({
+  name: true,
+  content: true,
+});
+
+const CreateOrUpdateSubredditTemplate = z.discriminatedUnion("id", [
+  CreateSubredditTemplate,
+  UpdateSubredditTemplate,
+]);
+
 export interface SidebarSubreddit {
   id: string;
   name: string;
@@ -113,9 +139,16 @@ const ApiScamsModule = DbModuleScams.extend({
   deletes: z.array(z.int32()),
 });
 
+const TemplateOptions = z.object({
+  create: z.array(CreateSubredditTemplate),
+  update: z.array(UpdateSubredditTemplate),
+  deletes: z.array(z.int32()),
+});
+
 const SubredditOptions = z.object({
   seq_num: z.int32(),
   removal_reasons: z.record(z.string(), z.string()),
+  templates: TemplateOptions,
   scams: ApiScamsModule,
   ai_slop: DbModuleAiSlop,
   staff_reply: DbModuleStaffReply,
@@ -152,6 +185,7 @@ export const ModuleKeys: ModuleKeys[] = [
 
 const PendingSubredditOptions = PendingSubredditModules.extend({
   seq_num: z.int32(),
+  templates: TemplateOptions.partial(),
   removal_reasons: z
     .object({
       update: z.record(z.string(), z.string()),
@@ -161,26 +195,33 @@ const PendingSubredditOptions = PendingSubredditModules.extend({
 });
 
 type TDbSubreddit = z.infer<typeof DbSubreddit>;
-
 type TScamInfo = z.infer<typeof ApiScamInfo>;
+type TSubredditTemplate = z.infer<typeof ApiSubredditTemplate>;
+type TSubredditTemplateStub = z.infer<typeof SubredditTemplateStub>;
+type TSubredditOptions = z.infer<typeof SubredditOptions>;
+type TStatusIncidentImpact = z.infer<typeof StatusIncidentImpact>;
 
 type TCreateScamInfo = z.infer<typeof CreateScamInfo>;
 type TUpdateScamInfo = z.infer<typeof UpdateScamInfo>;
+type TCreateSubredditTemplate = z.infer<typeof CreateSubredditTemplate>;
+type TUpdateSubredditTemplate = z.infer<typeof UpdateSubredditTemplate>;
 type TCreateOrUpdateScamInfo = z.infer<typeof CreateOrUpdateScamInfo>;
-type TSubredditOptions = z.infer<typeof SubredditOptions>;
 type TPendingSubredditModules = z.infer<typeof PendingSubredditModules>;
 type TPendingSubredditOptions = z.infer<typeof PendingSubredditOptions>;
-type TStatusIncidentImpact = z.infer<typeof StatusIncidentImpact>;
 
 export type {
   TDbSubreddit as DbSubreddit,
   TSubredditOptions as SubredditOptions,
   TScamInfo as ScamInfo,
+  TSubredditTemplate as SubredditTemplate,
+  TSubredditTemplateStub as SubredditTemplateStub,
   TPendingSubredditModules as PendingSubredditModules,
   TPendingSubredditOptions as PendingSubredditOptions,
   TCreateOrUpdateScamInfo as CreateOrUpdateScamInfo,
   TCreateScamInfo as CreateScamInfo,
   TUpdateScamInfo as UpdateScamInfo,
+  TCreateSubredditTemplate as CreateSubredditTemplate,
+  TUpdateSubredditTemplate as UpdateSubredditTemplate,
   TStatusIncidentImpact as StatusIncidentImpact,
 };
 

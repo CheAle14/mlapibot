@@ -50,7 +50,7 @@
                                     </Collapsible.Trigger>
                                     <Collapsible.Content>
                                         <Sidebar.MenuSub>
-                                            {#each data.subs as sub}
+                                            {#each data.subs as sub (sub.id)}
                                                 <Sidebar.MenuSubItem>
                                                     <Sidebar.SidebarMenuSubButton
                                                     >

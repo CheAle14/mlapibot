@@ -58,10 +58,15 @@ export async function isUserModeratorOf(subreddit_id: string, user_id: string) {
   return result.length === 1 && result[0][0] === 1;
 }
 
+export async function createSubreddit(sub: DbSubreddit) {
+  await sql`INSERT INTO subreddits ${sql(sub)}`;
+}
+
 function mapDataToOptions(sub: DbSubreddit): SubredditOptions {
   return {
     seq_num: sub.seq_num,
     removal_reasons: sub.removal_reasons,
+    templates: { create: [], deletes: [], update: [] },
     scams: { ...sub.mod_scams, create: [], deletes: [], update: [] },
     ai_slop: sub.mod_ai_slop,
     status: sub.mod_status,
@@ -93,6 +98,30 @@ export async function getSidebarSubreddits(
   user_id: string,
   is_admin: boolean,
 ): Promise<SidebarSubreddit[]> {
+  const mod_subs = await sql<{ id: string; name: string }[]>`
+    SELECT sub.id, sub.name
+    FROM subreddits sub
+    JOIN subreddit_mods mods
+    ON sub.id = mods.subreddit_id
+    WHERE mods.user_id=${user_id}
+    `;
+
+  if (is_admin) {
+    const all_subs = await sql<{ id: string; name: string }[]>`
+      SELECT sub.id, sub.name
+      FROM subreddits sub`;
+
+    return all_subs.map((sub) => ({
+      ...sub,
+      is_mod: mod_subs.some((m) => m.id === sub.id),
+    }));
+  } else {
+    return mod_subs.map((sub) => ({
+      ...sub,
+      is_mod: true,
+    }));
+  }
+
   const join = is_admin ? sql`LEFT JOIN` : sql`JOIN`;
 
   const results = await sql<{ id: string; name: string; user_id?: string }[]>`

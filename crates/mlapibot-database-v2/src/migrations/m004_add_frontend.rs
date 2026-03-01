@@ -44,6 +44,13 @@ impl super::Migration for AddFrontend {
                 report          BOOLEAN     NOT NULL
             );
 
+            CREATE TABLE subreddit_templates (
+                id              SERIAL      PRIMARY KEY NOT NULL,
+                subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL,
+                name            TEXT        NOT NULL,
+                content         TEXT        NOT NULL
+            );
+
             CREATE TABLE users (
                 id              TEXT        PRIMARY KEY NOT NULL,
                 name            TEXT        NOT NULL,
