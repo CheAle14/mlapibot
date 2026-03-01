@@ -3,6 +3,7 @@
         addSubredditModerator,
         createSubreddit,
     } from "$lib/api/subreddits.remote.js";
+    import { Button } from "$lib/components/ui/button";
     import * as Field from "$lib/components/ui/field";
     import { Input } from "$lib/components/ui/input";
 
@@ -20,54 +21,65 @@
     });
 </script>
 
-<div class="w-full max-w-md">
-    <form {...createSubreddit}>
-        <Field.Group>
-            <Field.Set>
-                <Field.Legend>Create new subreddit</Field.Legend>
+<div class="flex justify-around">
+    <div class="w-full max-w-md">
+        <form {...createSubreddit}>
+            <Field.Group>
+                <Field.Set>
+                    <Field.Legend>Create new subreddit</Field.Legend>
 
-                <Field.Group>
-                    <Field.Field>
-                        <Field.Label>ID</Field.Label>
-                        <Input {...createSubreddit.fields.id.as("text")} />
-                    </Field.Field>
+                    <Field.Group>
+                        <Field.Field>
+                            <Field.Label>ID</Field.Label>
+                            <Input {...createSubreddit.fields.id.as("text")} />
+                        </Field.Field>
 
-                    <Field.Field>
-                        <Field.Label>Name</Field.Label>
-                        <Input {...createSubreddit.fields.name.as("text")} />
-                    </Field.Field>
-                </Field.Group>
-            </Field.Set>
-            <button type="submit">Submit</button>
-        </Field.Group>
-    </form>
-</div>
+                        <Field.Field>
+                            <Field.Label>Name</Field.Label>
+                            <Input
+                                {...createSubreddit.fields.name.as("text")}
+                            />
+                        </Field.Field>
+                    </Field.Group>
+                </Field.Set>
+                <Button type="submit" disabled={createSubreddit.pending > 0}
+                    >Submit</Button
+                >
+            </Field.Group>
+        </form>
+    </div>
 
-<div class="w-full max-w-md">
-    <form {...addSubredditModerator}>
-        <Field.Group>
-            <Field.Set>
-                <Field.Legend>Add subreddit moderator</Field.Legend>
+    <div class="w-full max-w-md">
+        <form {...addSubredditModerator}>
+            <Field.Group>
+                <Field.Set>
+                    <Field.Legend>Add subreddit moderator</Field.Legend>
 
-                <Field.Group>
-                    <Field.Field>
-                        <Field.Label>Subreddit ID</Field.Label>
-                        <Input
-                            {...addSubredditModerator.fields.subreddit_id.as(
-                                "text",
-                            )}
-                        />
-                    </Field.Field>
+                    <Field.Group>
+                        <Field.Field>
+                            <Field.Label>Subreddit ID</Field.Label>
+                            <Input
+                                {...addSubredditModerator.fields.subreddit_id.as(
+                                    "text",
+                                )}
+                            />
+                        </Field.Field>
 
-                    <Field.Field>
-                        <Field.Label>User ID</Field.Label>
-                        <Input
-                            {...addSubredditModerator.fields.user_id.as("text")}
-                        />
-                    </Field.Field>
-                </Field.Group>
-            </Field.Set>
-            <button type="submit">Submit</button>
-        </Field.Group>
-    </form>
+                        <Field.Field>
+                            <Field.Label>User ID</Field.Label>
+                            <Input
+                                {...addSubredditModerator.fields.user_id.as(
+                                    "text",
+                                )}
+                            />
+                        </Field.Field>
+                    </Field.Group>
+                </Field.Set>
+                <Button
+                    type="submit"
+                    disabled={addSubredditModerator.pending > 0}>Submit</Button
+                >
+            </Field.Group>
+        </form>
+    </div>
 </div>
