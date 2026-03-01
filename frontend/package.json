@@ -31,12 +31,9 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "@tanstack/svelte-query": "^6.0.18",
     "moderndash": "^4.0.0",
     "postgres": "3.4.7",
     "svelte-sonner": "^1.0.7",
-    "ts-deepmerge": "^7.0.3",
-    "type-fest": "^5.4.4",
     "zod": "^4.3.6"
   }
 }

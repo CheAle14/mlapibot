@@ -7,20 +7,8 @@
     import * as Sidebar from "$lib/components/ui/sidebar";
     import * as Collapsible from "$lib/components/ui/collapsible";
     import { ChevronDown, Shield } from "@lucide/svelte";
-    import { browser } from "$app/environment";
-    import { QueryClient, QueryClientProvider } from "@tanstack/svelte-query";
 
     let { children, data }: LayoutProps = $props();
-
-    const queryClient = new QueryClient({
-        defaultOptions: {
-            queries: {
-                enabled: browser,
-                retry: false,
-                refetchOnWindowFocus: false,
-            },
-        },
-    });
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -115,8 +103,6 @@
 
     <Sidebar.Trigger />
     <main class="w-full py-1 px-2">
-        <QueryClientProvider client={queryClient}>
-            {@render children()}
-        </QueryClientProvider>
+        {@render children()}
     </main>
 </Sidebar.Provider>

@@ -49,6 +49,13 @@ export async function getUserByCookie(cookie: string) {
   return result;
 }
 
+export async function addModerator(subreddit_id: string, user_id: string) {
+  await sql`
+    INSERT INTO subreddit_mods (subreddit_id, user_id)
+    VALUES (${subreddit_id}, ${user_id});
+    `;
+}
+
 export async function isUserModeratorOf(subreddit_id: string, user_id: string) {
   const result = await sql`
     SELECT COUNT(*) FROM subreddit_mods
@@ -150,7 +157,9 @@ export async function getSubredditTemplate(
   return result;
 }
 
-export async function getSubredditScamRules(subreddit_id: string) {
+export async function getSubredditScamRules(
+  subreddit_id: string,
+): Promise<ScamInfo[]> {
   const results = await sql<ScamInfo[]>`
     SELECT *
     FROM subreddit_scam_rules

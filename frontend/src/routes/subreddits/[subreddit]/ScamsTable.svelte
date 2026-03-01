@@ -13,8 +13,7 @@
     import ScamModalContent from "./ScamModalContent.svelte";
     import { Pencil, Plus, Trash2 } from "@lucide/svelte";
     import * as Spinner from "$lib/components/ui/spinner";
-    import { createQuery } from "@tanstack/svelte-query";
-    import { fetchSubredditScams } from "$lib/queries/subreddits";
+    import { getSubredditScams } from "$lib/api/scams.remote";
 
     interface ScamsTableProps {
         subreddit_id: string;
@@ -49,10 +48,7 @@
         undeleteScam,
     }: ScamsTableProps = $props();
 
-    const fetchScams = createQuery(() => ({
-        queryKey: ["subreddits", subreddit_id, "scams"],
-        queryFn: () => fetchSubredditScams(subreddit_id),
-    }));
+    const fetchScams = $derived(getSubredditScams(subreddit_id));
 
     function mergeScamUpdates(
         scam: ScamInfo,
@@ -102,7 +98,7 @@
         </Table.Row>
     </Table.Header>
     <Table.Body>
-        {#if fetchScams.isFetching}
+        {#if fetchScams.loading}
             <Table.Row>
                 <Table.Cell colspan={4}>
                     <Spinner.Badge>Fetching rules</Spinner.Badge>
@@ -110,7 +106,7 @@
             </Table.Row>
         {/if}
 
-        {#each fetchScams.data as original (original.id)}
+        {#each fetchScams.current as original (original.id)}
             {@const isDeleted =
                 original.id && deletes.indexOf(original.id) !== -1}
             {@const [isUpdated, scam] = mergeScamUpdates(original, updates)}

@@ -17,30 +17,23 @@
     import { SelectIncidentImpact } from "$lib/components/reuse/select";
     import { Button } from "$lib/components/ui/button";
     import ScamsTable from "./ScamsTable.svelte";
-    import {
-        createMutation,
-        createQuery,
-        useQueryClient,
-    } from "@tanstack/svelte-query";
-    import { syncPendingChanges } from "$lib/mutations/subreddits";
-    import { fetchSubredditOptions } from "$lib/queries/subreddits";
     import * as Spinner from "$lib/components/ui/spinner";
     import RemovalReasons from "./RemovalReasons.svelte";
     import Templates from "$lib/components/templates/Templates.svelte";
+    import { getSubredditOptions } from "$lib/api/options.remote";
+    import { savePendingChanges } from "$lib/api/changes.remote";
 
-    const client = useQueryClient();
     const { params, data }: PageProps = $props();
 
     const subreddit = $derived(
         data.subs.find((s) => s.name === params.subreddit)?.id ?? "???",
     );
 
-    const fetchQuery = createQuery(() => ({
-        queryKey: ["subreddits", subreddit],
-        queryFn: () => fetchSubredditOptions(subreddit),
-    }));
-
-    const { isFetching, error, data: options } = $derived(fetchQuery);
+    const {
+        loading: isFetching,
+        current: options,
+        error,
+    } = $derived(getSubredditOptions(subreddit));
 
     let open: string[] = $state([]);
     let changes = $state<PendingSubredditOptions>({
@@ -71,22 +64,20 @@
         changes.templates = {};
     };
 
-    const savePendingChanges = createMutation(() => ({
-        mutationFn: syncPendingChanges,
-        onSuccess: (data: SubredditOptions, vars) => {
-            client.setQueryData(
-                ["subreddits", vars.subreddit],
-                (old: SubredditOptions) => {
-                    console.log("update", data, old);
-                    return { ...old, ...data };
-                },
-            );
-            client.invalidateQueries({
-                queryKey: ["subreddits", subreddit, "scams"],
-            });
+    let isPendingSaving = $state(false);
+    let isPendingError = $state(false);
+
+    const sendPendingChanges = async () => {
+        isPendingSaving = true;
+        try {
+            isPendingError = false;
+            await savePendingChanges({ subreddit, changes });
             revertPendingChanges();
-        },
-    }));
+        } catch (err) {
+            isPendingError = true;
+        }
+        isPendingSaving = false;
+    };
 
     const hasChanges = $derived.by(() => {
         for (const key of ModuleKeys) {
@@ -150,14 +141,9 @@
     <div class="flex flex-row justify-around">
         <Button
             disabled={!hasChanges}
-            pending={savePendingChanges.isPending}
-            errored={savePendingChanges.isError}
-            onclick={() => {
-                savePendingChanges.mutate({
-                    subreddit,
-                    changes,
-                });
-            }}>Save changes</Button
+            pending={isPendingSaving}
+            errored={isPendingError}
+            onclick={sendPendingChanges}>Save changes</Button
         >
 
         <Button disabled={hasChanges} variant="destructive" onclick={disableAll}
