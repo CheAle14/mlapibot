@@ -30,6 +30,13 @@ impl super::Migration for AddFrontend {
                 PRIMARY KEY (subreddit_id, user_id)
             );
 
+            CREATE TABLE subreddit_templates (
+                id              SERIAL      PRIMARY KEY NOT NULL,
+                subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL,
+                name            TEXT        NOT NULL,
+                content         TEXT        NOT NULL
+            );
+
             CREATE TABLE subreddit_scam_rules (
                 id              SERIAL      PRIMARY KEY NOT NULL,
                 subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL,
@@ -40,15 +47,13 @@ impl super::Migration for AddFrontend {
                 body            JSONB       NULL,
                 title_or_body   JSONB       NULL,
 
+                reason          TEXT        NULL,
+                template        INTEGER     REFERENCES subreddit_templates(id) ON DELETE SET NULL,
+
+                enabled         BOOLEAN     NOT NULL,
+                self_post       BOOLEAN     NOT NULL,
                 remove          BOOLEAN     NOT NULL,
                 report          BOOLEAN     NOT NULL
-            );
-
-            CREATE TABLE subreddit_templates (
-                id              SERIAL      PRIMARY KEY NOT NULL,
-                subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL,
-                name            TEXT        NOT NULL,
-                content         TEXT        NOT NULL
             );
 
             CREATE TABLE users (
@@ -71,6 +76,7 @@ impl super::Migration for AddFrontend {
             "
             DROP TABLE users;
             DROP TABLE subreddit_scam_rules;
+            DROP TABLE subreddit_templates;
             DROP TABLE subreddit_mods;
             DROP TABLE subreddits;
 

@@ -1,6 +1,5 @@
-import type { PartialDeep } from "type-fest";
-
 import * as z from "zod";
+import { ZCreateTemplateInfo, ZEditTemplateInfo } from "./templates";
 
 const DbScamInfo = z.object({
   id: z.int32(),
@@ -19,7 +18,7 @@ const DbScamInfo = z.object({
   title_or_body: z.json().optional(),
 
   reason: z.string().optional(),
-  template: z.string().optional(),
+  template: z.int32().optional(),
 
   remove: z.boolean(),
   report: z.boolean(),
@@ -109,22 +108,6 @@ const CreateOrUpdateScamInfo = z.discriminatedUnion("id", [
   UpdateScamInfo,
 ]);
 
-const ApiSubredditTemplate = DbSubredditTemplate;
-
-const CreateSubredditTemplate = ApiSubredditTemplate.extend({
-  id: z.uuidv4(),
-});
-
-const UpdateSubredditTemplate = ApiSubredditTemplate.partial({
-  name: true,
-  content: true,
-});
-
-const CreateOrUpdateSubredditTemplate = z.discriminatedUnion("id", [
-  CreateSubredditTemplate,
-  UpdateSubredditTemplate,
-]);
-
 export interface SidebarSubreddit {
   id: string;
   name: string;
@@ -140,8 +123,8 @@ const ApiScamsModule = DbModuleScams.extend({
 });
 
 const TemplateOptions = z.object({
-  create: z.array(CreateSubredditTemplate),
-  update: z.array(UpdateSubredditTemplate),
+  creates: z.array(ZCreateTemplateInfo),
+  updates: z.array(ZEditTemplateInfo),
   deletes: z.array(z.int32()),
 });
 
@@ -196,15 +179,12 @@ const PendingSubredditOptions = PendingSubredditModules.extend({
 
 type TDbSubreddit = z.infer<typeof DbSubreddit>;
 type TScamInfo = z.infer<typeof ApiScamInfo>;
-type TSubredditTemplate = z.infer<typeof ApiSubredditTemplate>;
 type TSubredditTemplateStub = z.infer<typeof SubredditTemplateStub>;
 type TSubredditOptions = z.infer<typeof SubredditOptions>;
 type TStatusIncidentImpact = z.infer<typeof StatusIncidentImpact>;
 
 type TCreateScamInfo = z.infer<typeof CreateScamInfo>;
 type TUpdateScamInfo = z.infer<typeof UpdateScamInfo>;
-type TCreateSubredditTemplate = z.infer<typeof CreateSubredditTemplate>;
-type TUpdateSubredditTemplate = z.infer<typeof UpdateSubredditTemplate>;
 type TCreateOrUpdateScamInfo = z.infer<typeof CreateOrUpdateScamInfo>;
 type TPendingSubredditModules = z.infer<typeof PendingSubredditModules>;
 type TPendingSubredditOptions = z.infer<typeof PendingSubredditOptions>;
@@ -213,15 +193,12 @@ export type {
   TDbSubreddit as DbSubreddit,
   TSubredditOptions as SubredditOptions,
   TScamInfo as ScamInfo,
-  TSubredditTemplate as SubredditTemplate,
   TSubredditTemplateStub as SubredditTemplateStub,
   TPendingSubredditModules as PendingSubredditModules,
   TPendingSubredditOptions as PendingSubredditOptions,
   TCreateOrUpdateScamInfo as CreateOrUpdateScamInfo,
   TCreateScamInfo as CreateScamInfo,
   TUpdateScamInfo as UpdateScamInfo,
-  TCreateSubredditTemplate as CreateSubredditTemplate,
-  TUpdateSubredditTemplate as UpdateSubredditTemplate,
   TStatusIncidentImpact as StatusIncidentImpact,
 };
 

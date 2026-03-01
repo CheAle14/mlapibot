@@ -7,7 +7,9 @@ import {
   type CreateScamInfo,
   type ScamInfo,
   type SidebarSubreddit,
+  type SubredditTemplateStub,
 } from "$lib/types/subreddit";
+import type { TemplateInfo } from "$lib/types/templates";
 import { type DbUser, type User } from "$lib/types/user";
 import { SubscriptIcon } from "@lucide/svelte";
 import postgres from "postgres";
@@ -66,7 +68,7 @@ function mapDataToOptions(sub: DbSubreddit): SubredditOptions {
   return {
     seq_num: sub.seq_num,
     removal_reasons: sub.removal_reasons,
-    templates: { create: [], deletes: [], update: [] },
+    templates: { creates: [], deletes: [], updates: [] },
     scams: { ...sub.mod_scams, create: [], deletes: [], update: [] },
     ai_slop: sub.mod_ai_slop,
     status: sub.mod_status,
@@ -121,18 +123,31 @@ export async function getSidebarSubreddits(
       is_mod: true,
     }));
   }
+}
 
-  const join = is_admin ? sql`LEFT JOIN` : sql`JOIN`;
-
-  const results = await sql<{ id: string; name: string; user_id?: string }[]>`
-    SELECT sub.id, sub.name, mods.user_id
-    FROM subreddits sub
-    ${join} subreddit_mods mods
-    ON sub.id = mods.subreddit_id
-    WHERE mods.user_id=${user_id}
+export async function getSubredditTemplateStubs(
+  subreddit_id: string,
+): Promise<SubredditTemplateStub[]> {
+  const results = await sql<SubredditTemplateStub[]>`
+    SELECT id, name
+    FROM subreddit_templates
+    WHERE subreddit_id=${subreddit_id}
     `;
 
-  return results.map((item) => ({ ...item, is_mod: !!item.user_id }));
+  return results;
+}
+
+export async function getSubredditTemplate(
+  subreddit_id: string,
+  id: number,
+): Promise<TemplateInfo | undefined> {
+  const [result]: [TemplateInfo?] = await sql`
+    SELECT id, name, content
+    FROM subreddit_templates
+    WHERE subreddit_id=${subreddit_id} AND id=${id}
+    `;
+
+  return result;
 }
 
 export async function getSubredditScamRules(subreddit_id: string) {
@@ -178,6 +193,20 @@ export async function tryApplyPendingChanges(
         }
       }
 
+      const EDITABLE_COLUMNS: (keyof ScamInfo)[] = [
+        "name",
+        "enabled",
+        "self_post",
+        "remove",
+        "report",
+        "ocr",
+        "title",
+        "body",
+        "title_or_body",
+        "reason",
+        "template",
+      ];
+
       if (create && create.length > 0) {
         const items = create.map((item) => ({
           ...item,
@@ -185,19 +214,65 @@ export async function tryApplyPendingChanges(
           title: item.title ?? null,
           body: item.body ?? null,
           title_or_body: item.title_or_body ?? null,
+          reason: item.reason ?? null,
+          template: item.template ?? null,
           subreddit_id: subreddit.id,
         }));
-        await sql`INSERT INTO subreddit_scam_rules ${sql(items, "subreddit_id", "name", "ocr", "title", "body", "title_or_body", "remove", "report")}`;
+        await sql`INSERT INTO subreddit_scam_rules ${sql(items, "subreddit_id", ...EDITABLE_COLUMNS)}`;
       }
 
       if (update) {
-        console.warn("TODO: update scams:", update);
+        for (const item of update) {
+          const mapped = {
+            ...item,
+            ocr: item.ocr ?? null,
+            title: item.title ?? null,
+            body: item.body ?? null,
+            title_or_body: item.title_or_body ?? null,
+            reason: item.reason ?? null,
+            template: item.template ?? null,
+          };
+
+          await sql`
+            UPDATE subreddit_scam_rules SET ${sql(mapped, EDITABLE_COLUMNS)}
+            WHERE id=${item.id}
+            `;
+        }
       }
 
       subreddit.mod_scams = {
         ...subreddit.mod_scams,
         ...rest,
       };
+    }
+
+    if (changes.templates) {
+      const { creates, deletes, updates } = changes.templates;
+
+      if (deletes && deletes.length > 0) {
+        // TODO: figure out why dynamic 'where in' doesn't work.
+
+        for (const id of deletes) {
+          await sql`DELETE FROM subreddit_templates WHERE id=${id}`;
+        }
+      }
+
+      if (creates && creates.length > 0) {
+        const items = creates.map((item) => ({
+          ...item,
+          subreddit_id: subreddit.id,
+        }));
+
+        await sql`INSERT INTO subreddit_templates ${sql(items, "name", "content", "subreddit_id")}`;
+      }
+
+      if (updates) {
+        for (const item of updates) {
+          await sql`UPDATE subreddit_templates
+            SET name=${item.name}, content=${item.content}
+            WHERE id=${item.id}`;
+        }
+      }
     }
 
     if (changes.removal_reasons) {

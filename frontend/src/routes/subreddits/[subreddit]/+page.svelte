@@ -23,13 +23,10 @@
         useQueryClient,
     } from "@tanstack/svelte-query";
     import { syncPendingChanges } from "$lib/mutations/subreddits";
-    import {
-        fetchSubredditOptions,
-        fetchSubredditScams,
-    } from "$lib/queries/subreddits";
+    import { fetchSubredditOptions } from "$lib/queries/subreddits";
     import * as Spinner from "$lib/components/ui/spinner";
     import RemovalReasons from "./RemovalReasons.svelte";
-    import Templates from "./Templates.svelte";
+    import Templates from "$lib/components/templates/Templates.svelte";
 
     const client = useQueryClient();
     const { params, data }: PageProps = $props();
@@ -71,6 +68,7 @@
             changes[key] = {};
         }
         changes.removal_reasons = {};
+        changes.templates = {};
     };
 
     const savePendingChanges = createMutation(() => ({
@@ -99,6 +97,7 @@
         }
 
         if (!_.isEqual(changes.removal_reasons, {})) return true;
+        if (!_.isEqual(changes.templates, {})) return true;
 
         return false;
     });
@@ -201,7 +200,12 @@
 
                 <Accordion.Content class="pl-2">
                     {#if open.indexOf("templates") !== -1}
-                        <Templates />
+                        <Templates
+                            {subreddit}
+                            bind:updates={changes.templates.updates}
+                            bind:creates={changes.templates.creates}
+                            bind:deletes={changes.templates.deletes}
+                        />
                     {/if}
                 </Accordion.Content>
             </Accordion.Item>
@@ -222,6 +226,7 @@
                     {#if open}
                         <ScamsTable
                             {removal_reasons}
+                            deleted_templates={changes.templates.deletes}
                             updates={current.update}
                             creates={current.create}
                             deletes={current.deletes}

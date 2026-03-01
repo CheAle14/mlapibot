@@ -1,5 +1,8 @@
-<script lang="ts" generics="T extends {id: string}">
+<script lang="ts" generics="T extends {id: string | number}">
+    import { Button } from "$lib/components/ui/button";
+    import * as ButtonGroup from "$lib/components/ui/button-group";
     import * as Select from "$lib/components/ui/select";
+    import { X } from "@lucide/svelte";
     import type { Snippet } from "svelte";
 
     interface Props<T> {
@@ -8,6 +11,7 @@
         selected?: T;
         placeholder?: string;
 
+        clearable?: boolean;
         trigger?: Snippet<[T]>;
         item?: Snippet<[T]>;
     }
@@ -16,39 +20,59 @@
         selected = $bindable(),
         options,
         placeholder,
+        clearable,
         item,
         trigger,
     }: Props<T> = $props();
 </script>
 
-<Select.Root
-    type="single"
-    bind:value={
-        () => selected?.id, (v) => (selected = options.find((o) => o.id === v))
-    }
->
-    <Select.Trigger>
-        {#if selected}
-            {#if trigger}
-                {@render trigger(selected)}
-            {:else if item}
-                {@render item(selected)}
-            {:else}
-                {selected.id}
-            {/if}
-        {:else}
-            {placeholder ?? "Select item.."}
-        {/if}
-    </Select.Trigger>
-    <Select.Content>
-        {#each options as opt}
-            <Select.Item value={opt.id}>
-                {#if item}
-                    {@render item(opt)}
+{#snippet select()}
+    <Select.Root
+        type="single"
+        bind:value={
+            () => selected?.id?.toString(),
+            (v) => (selected = options.find((o) => o.id == v))
+        }
+    >
+        <Select.Trigger class="w-full">
+            {#if selected}
+                {#if trigger}
+                    {@render trigger(selected)}
+                {:else if item}
+                    {@render item(selected)}
                 {:else}
-                    {opt.id}
+                    {selected.id}
                 {/if}
-            </Select.Item>
-        {/each}
-    </Select.Content>
-</Select.Root>
+            {:else}
+                {placeholder ?? "Select item.."}
+            {/if}
+        </Select.Trigger>
+        <Select.Content>
+            {#each options as opt}
+                <Select.Item value={opt.id.toString()}>
+                    {#if item}
+                        {@render item(opt)}
+                    {:else}
+                        {opt.id}
+                    {/if}
+                </Select.Item>
+            {/each}
+        </Select.Content>
+    </Select.Root>
+{/snippet}
+
+{#if clearable}
+    <ButtonGroup.Root>
+        {@render select()}
+
+        <Button
+            size="icon"
+            variant="outline"
+            onclick={() => (selected = undefined)}
+        >
+            <X />
+        </Button>
+    </ButtonGroup.Root>
+{:else}
+    {@render select()}
+{/if}

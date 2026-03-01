@@ -1,3 +1,4 @@
+import { getTemplateStubs } from "$lib/components/templates/templates.remote";
 import type { PendingSubredditOptions } from "$lib/types/subreddit";
 
 interface SyncPendingChangesArgs {
@@ -18,6 +19,14 @@ export async function syncPendingChanges({
   });
 
   if (response.ok) {
+    if (
+      changes.templates.creates ||
+      changes.templates.updates ||
+      changes.templates.deletes
+    ) {
+      getTemplateStubs(subreddit).refresh();
+    }
+
     return await response.json();
   } else {
     throw response;

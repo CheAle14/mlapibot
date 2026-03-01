@@ -11,7 +11,7 @@
     import { Badge } from "$lib/components/ui/badge";
     import * as Dialog from "$lib/components/ui/dialog";
     import ScamModalContent from "./ScamModalContent.svelte";
-    import { Plus, Trash2 } from "@lucide/svelte";
+    import { Pencil, Plus, Trash2 } from "@lucide/svelte";
     import * as Spinner from "$lib/components/ui/spinner";
     import { createQuery } from "@tanstack/svelte-query";
     import { fetchSubredditScams } from "$lib/queries/subreddits";
@@ -20,6 +20,7 @@
         subreddit_id: string;
 
         removal_reasons: Record<string, string>;
+        deleted_templates?: number[];
 
         updates: UpdateScamInfo[];
         creates: CreateScamInfo[];
@@ -37,6 +38,7 @@
     let {
         subreddit_id,
         removal_reasons,
+        deleted_templates,
         updates,
         creates,
         deletes,
@@ -74,6 +76,8 @@
 {#if modalItem}
     <Dialog.Root bind:open={() => true, (v) => (modalItem = null)}>
         <ScamModalContent
+            subreddit={subreddit_id}
+            {deleted_templates}
             {removal_reasons}
             bind:item={modalItem}
             onSubmit={(i) => {
@@ -91,15 +95,16 @@
 <Table.Root>
     <Table.Header>
         <Table.Row>
+            <Table.Head class="w-1"></Table.Head>
             <Table.Head>Name</Table.Head>
             <Table.Head>Info</Table.Head>
-            <Table.Head>Actions</Table.Head>
+            <Table.Head class="w-1">Actions</Table.Head>
         </Table.Row>
     </Table.Header>
     <Table.Body>
         {#if fetchScams.isFetching}
             <Table.Row>
-                <Table.Cell colspan={3}>
+                <Table.Cell colspan={4}>
                     <Spinner.Badge>Fetching rules</Spinner.Badge>
                 </Table.Cell>
             </Table.Row>
@@ -110,16 +115,15 @@
                 original.id && deletes.indexOf(original.id) !== -1}
             {@const [isUpdated, scam] = mergeScamUpdates(original, updates)}
 
-            <Table.Row
-                class={[isDeleted && "line-through"]}
-                data-id={original.id}
-                data-deleted={isDeleted}
-                data-deletes={JSON.stringify(deletes)}
-            >
-                <Table.Cell class="flex flex-row">
+            <Table.Row class={[isDeleted && "line-through"]}>
+                <Table.Cell>
                     {#if isDeleted}
                         <Trash2 />
+                    {:else if isUpdated}
+                        <Pencil />
                     {/if}
+                </Table.Cell>
+                <Table.Cell class="flex flex-row">
                     {scam.name}
                 </Table.Cell>
                 <Table.Cell>
@@ -177,8 +181,10 @@
 
         {#each creates as scam (scam.id)}
             <Table.Row>
-                <Table.Cell class="flex flex-row">
+                <Table.Cell>
                     <Plus />
+                </Table.Cell>
+                <Table.Cell>
                     {scam.name}
                 </Table.Cell>
                 <Table.Cell>
@@ -233,7 +239,6 @@
                             enabled: true,
                             self_post: true,
                             name: "",
-                            template: "default",
                             remove: false,
                             report: false,
                         })}>New</Button

@@ -11,10 +11,19 @@
     import { type IMatcher } from "$lib/types/matcher";
     import { toast } from "svelte-sonner";
     import { ClipboardPaste, ClipboardCopy } from "@lucide/svelte";
-    import SelectRemovalReason from "$lib/components/reuse/select/select-removal-reason.svelte";
+    import {
+        SelectRemovalReason,
+        SelectReplyTemplate,
+    } from "$lib/components/reuse/select";
     import { Checkbox } from "$lib/components/ui/checkbox";
+    import { useId } from "bits-ui";
+    import { FormWrapped } from "$lib/components/reuse/form";
+
+    const formId = useId();
 
     interface Props {
+        subreddit: string;
+        deleted_templates?: number[];
         removal_reasons: Record<string, string>;
         item: CreateOrUpdateScamInfo;
         onSubmit(updates: CreateOrUpdateScamInfo): void;
@@ -52,7 +61,13 @@
         },
     ];
 
-    let { removal_reasons, item = $bindable(), onSubmit }: Props = $props();
+    let {
+        subreddit,
+        deleted_templates,
+        removal_reasons,
+        item = $bindable(),
+        onSubmit,
+    }: Props = $props();
 
     const BRAND = "mlapibot-scam";
     let copyToClipboard = () => {
@@ -82,114 +97,131 @@
     };
 </script>
 
-<Dialog.Content class="w-11/12 h-11/12">
+<Dialog.Content class="h-11/12" size="full">
     <Dialog.Header>
-        <Dialog.Title>Edit {item.name}</Dialog.Title>
+        <Dialog.Title
+            >{typeof item.id === "string" ? "Create" : "Edit"}
+            rule</Dialog.Title
+        >
     </Dialog.Header>
-    <Field.Group>
-        <Field.Set class="lg:grid lg:grid-cols-2 gap-4">
-            <Field.Field>
-                <Field.Label>Rule Name</Field.Label>
-                <Input type="text" bind:value={item.name} />
-            </Field.Field>
-
-            <Field.Field>
-                <Field.Label>Reply template</Field.Label>
-                <InputClearable type="text" bind:value={item.template} />
-                <Field.Description
-                    >If set, which template should be used to reply. If not set,
-                    no reply is sent</Field.Description
-                >
-            </Field.Field>
-
-            <Field.Group class="flex flex-row">
-                <Field.Group class="flex flex-col">
-                    <Field.Field orientation="horizontal">
-                        <Checkbox
-                            bind:checked={
-                                () => item.enabled ?? false,
-                                (v) => (item.enabled = v)
-                            }
-                        />
-
-                        <Field.Content>
-                            <Field.Label>Enabled</Field.Label>
-                            <Field.Description
-                                >If off, this rule is simply ignored</Field.Description
-                            >
-                        </Field.Content>
-                    </Field.Field>
-
-                    <Field.Field orientation="horizontal">
-                        <Checkbox
-                            bind:checked={
-                                () => item.self_post ?? false,
-                                (v) => (item.self_post = v)
-                            }
-                        />
-
-                        <Field.Content>
-                            <Field.Label>Run on text-only posts</Field.Label>
-                            <Field.Description
-                                >Should this rule apply to text-only (self
-                                posts)?</Field.Description
-                            >
-                        </Field.Content>
-                    </Field.Field>
-                </Field.Group>
-
+    <FormWrapped id={formId} onsubmit={() => onSubmit(item)}>
+        <Field.Group>
+            <Field.Set class="lg:grid lg:grid-cols-2 gap-4">
                 <Field.Field>
-                    <Field.Label>Mod Action</Field.Label>
-                    <Select.ScamAction bind:scam={item} />
-                    <Field.Description
-                        >If this rule matches, what moderator action should be
-                        performed.</Field.Description
-                    >
+                    <Field.Label>Rule Name</Field.Label>
+                    <Input required type="text" bind:value={item.name} />
                 </Field.Field>
-            </Field.Group>
 
-            {#if item.remove}
                 <Field.Field>
-                    <Field.Label>Removal reason</Field.Label>
+                    <Field.Label>Reply template</Field.Label>
 
-                    <SelectRemovalReason
-                        reasons={removal_reasons}
-                        bind:value={item.reason}
+                    <SelectReplyTemplate
+                        {subreddit}
+                        {deleted_templates}
+                        bind:value={item.template}
                     />
 
                     <Field.Description
-                        >This alias is looked up to map to a removal reason's
-                        ID. If we reply, the text of that removal reason is
-                        available for the above template to include.</Field.Description
+                        >If set, which template should be used to reply. If not
+                        set, no reply is sent</Field.Description
                     >
                 </Field.Field>
-            {/if}
-        </Field.Set>
-        <Field.Set>
-            <ScrollArea class="h-72 w-full">
-                <Accordion.Root type="single">
-                    {#each OPTIONS as option (option.key)}
-                        <Accordion.Item value={option.key}>
-                            <Accordion.Trigger>{option.name}</Accordion.Trigger>
-                            <Accordion.Content>
-                                <Field.Description
-                                    >{option.description}</Field.Description
-                                >
 
-                                <ScamMatcher
-                                    bind:value={
-                                        item[option.key] as IMatcher | undefined
-                                    }
-                                    deleteSelf={() =>
-                                        (item[option.key] = undefined)}
-                                />
-                            </Accordion.Content>
-                        </Accordion.Item>
-                    {/each}
-                </Accordion.Root>
-            </ScrollArea>
-        </Field.Set>
-    </Field.Group>
+                <Field.Group class="flex flex-row">
+                    <Field.Group class="flex flex-col">
+                        <Field.Field orientation="horizontal">
+                            <Checkbox
+                                bind:checked={
+                                    () => item.enabled ?? false,
+                                    (v) => (item.enabled = v)
+                                }
+                            />
+
+                            <Field.Content>
+                                <Field.Label>Enabled</Field.Label>
+                                <Field.Description
+                                    >If off, this rule is simply ignored</Field.Description
+                                >
+                            </Field.Content>
+                        </Field.Field>
+
+                        <Field.Field orientation="horizontal">
+                            <Checkbox
+                                bind:checked={
+                                    () => item.self_post ?? false,
+                                    (v) => (item.self_post = v)
+                                }
+                            />
+
+                            <Field.Content>
+                                <Field.Label>Run on text-only posts</Field.Label
+                                >
+                                <Field.Description
+                                    >Should this rule apply to text-only (self
+                                    posts)?</Field.Description
+                                >
+                            </Field.Content>
+                        </Field.Field>
+                    </Field.Group>
+
+                    <Field.Field>
+                        <Field.Label>Mod Action</Field.Label>
+                        <Select.ScamAction bind:scam={item} />
+                        <Field.Description
+                            >If this rule matches, what moderator action should
+                            be performed.</Field.Description
+                        >
+                    </Field.Field>
+                </Field.Group>
+
+                {#if item.remove}
+                    <Field.Field>
+                        <Field.Label>Removal reason</Field.Label>
+
+                        <SelectRemovalReason
+                            reasons={removal_reasons}
+                            bind:value={item.reason}
+                        />
+
+                        <Field.Description
+                            >This alias is looked up to map to a removal
+                            reason's ID. If we reply, the text of that removal
+                            reason is available for the above template to
+                            include.</Field.Description
+                        >
+                    </Field.Field>
+                {/if}
+            </Field.Set>
+            <Field.Set>
+                <ScrollArea class="h-72 w-full">
+                    <Accordion.Root type="single">
+                        {#each OPTIONS as option (option.key)}
+                            <Accordion.Item value={option.key}>
+                                <Accordion.Trigger
+                                    >{option.name}</Accordion.Trigger
+                                >
+                                <Accordion.Content>
+                                    <Field.Description
+                                        >{option.description}</Field.Description
+                                    >
+
+                                    <ScamMatcher
+                                        bind:value={
+                                            item[option.key] as
+                                                | IMatcher
+                                                | undefined
+                                        }
+                                        deleteSelf={() =>
+                                            (item[option.key] = undefined)}
+                                    />
+                                </Accordion.Content>
+                            </Accordion.Item>
+                        {/each}
+                    </Accordion.Root>
+                </ScrollArea>
+            </Field.Set>
+        </Field.Group>
+    </FormWrapped>
     <Dialog.Footer>
         {#if typeof item.id === "number"}
             <Button
@@ -208,8 +240,6 @@
             title="Paste data"><ClipboardPaste /></Button
         >
 
-        <Button type="submit" onclick={() => onSubmit(item)}
-            >Save changes</Button
-        >
+        <Button type="submit" form={formId}>Save changes</Button>
     </Dialog.Footer>
 </Dialog.Content>

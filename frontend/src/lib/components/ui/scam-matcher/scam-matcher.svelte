@@ -28,8 +28,6 @@
             value.children.splice(index, 1);
         }
     };
-
-    $inspect(value);
 </script>
 
 <div>
