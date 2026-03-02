@@ -4,20 +4,12 @@
     import { Input, InputClearable, InputList } from "$lib/components/ui/input";
     import type { StatusStickyConfig } from "$lib/types/subreddit";
 
-    interface Updater {
-        <K extends keyof StatusStickyConfig>(
-            key: K,
-            value: StatusStickyConfig[K],
-        ): void;
-    }
-
     interface Props {
         status_url: string;
         current: StatusStickyConfig;
-        update: Updater;
     }
 
-    let { status_url, current, update }: Props = $props();
+    let { status_url, current = $bindable() }: Props = $props();
 
     let components_link = $derived(status_url + "/components.json");
 </script>
@@ -28,9 +20,7 @@
         >Incidents below this impact will not be stickied</Field.Description
     >
 
-    <SelectIncidentImpact
-        bind:value={() => current.min_impact, (v) => update("min_impact", v)}
-    />
+    <SelectIncidentImpact bind:value={current.min_impact} />
 </Field.Field>
 
 <Field.Field>
@@ -41,9 +31,7 @@
     >
 
     <InputClearable
-        bind:value={
-            () => current.replace_sticky, (v) => update("replace_sticky", v)
-        }
+        bind:value={current.replace_sticky}
         placeholder="some-flair-id-here"
     />
 </Field.Field>
@@ -55,13 +43,7 @@
         the two following settings</Field.Description
     >
 
-    <Input
-        type="number"
-        bind:value={
-            () => current.comment_threshold,
-            (v) => update("comment_threshold", v)
-        }
-    />
+    <Input type="number" bind:value={current.comment_threshold} />
 </Field.Field>
 
 <Field.Field>
@@ -75,9 +57,7 @@
     <Input
         id="delay_minor_mins"
         type="number"
-        bind:value={
-            () => current.delay_minor_mins, (v) => update("delay_minor_mins", v)
-        }
+        bind:value={current.delay_minor_mins}
     />
 </Field.Field>
 
@@ -92,9 +72,7 @@
     <Input
         id="delay_major_mins"
         type="number"
-        bind:value={
-            () => current.delay_major_mins, (v) => update("delay_major_mins", v)
-        }
+        bind:value={current.delay_major_mins}
     />
 </Field.Field>
 
@@ -110,15 +88,8 @@
     >
 
     <InputList
-        noedit
         type="text"
         popoverClass="lg:w-md"
-        bind:value={
-            () => current.only_for,
-            (v) => {
-                console.log("yeet", v);
-                update("only_for", v);
-            }
-        }
+        bind:value={current.only_for}
     />
 </Field.Field>

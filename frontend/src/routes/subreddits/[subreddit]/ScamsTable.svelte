@@ -14,6 +14,12 @@
     import { Pencil, Plus, Trash2 } from "@lucide/svelte";
     import * as Spinner from "$lib/components/ui/spinner";
     import { getSubredditScams } from "$lib/api/scams.remote";
+    import {
+        removeFirstInArrayBy,
+        updateFirstInArrayBy,
+        updateOrInsertInArrayBy,
+    } from "$lib/mutate";
+    import TableChangesCell from "$lib/components/reuse/table/table-changes-cell.svelte";
 
     interface ScamsTableProps {
         subreddit_id: string;
@@ -24,13 +30,6 @@
         updates: UpdateScamInfo[];
         creates: CreateScamInfo[];
         deletes: number[];
-
-        createScam(scam: CreateScamInfo): void;
-        updateScam(scam: UpdateScamInfo): void;
-        deleteScam(id: number): void;
-
-        uncreateScam(id: string): void;
-        undeleteScam(id: number): void;
     }
 
     let modalItem = $state<CreateOrUpdateScamInfo | null>(null);
@@ -38,14 +37,9 @@
         subreddit_id,
         removal_reasons,
         deleted_templates,
-        updates,
-        creates,
-        deletes,
-        createScam,
-        updateScam,
-        deleteScam,
-        uncreateScam,
-        undeleteScam,
+        updates = $bindable(),
+        creates = $bindable(),
+        deletes = $bindable(),
     }: ScamsTableProps = $props();
 
     const fetchScams = $derived(getSubredditScams(subreddit_id));
@@ -67,6 +61,26 @@
             return [false, scam];
         }
     }
+
+    const deleteScam = (id: string | number) => {
+        if (typeof id === "string") {
+            removeFirstInArrayBy(creates, (s) => s.id === id);
+        } else {
+            deletes.push(id);
+        }
+    };
+
+    const undeleteScam = (id: number) => {
+        removeFirstInArrayBy(deletes, (v) => v === id);
+    };
+
+    const createScam = (scam: CreateScamInfo) => {
+        creates.push(scam);
+    };
+
+    const updateScam = (update: UpdateScamInfo) => {
+        updateOrInsertInArrayBy(updates, (s) => s.id === update.id, update);
+    };
 </script>
 
 {#if modalItem}
@@ -107,19 +121,12 @@
         {/if}
 
         {#each fetchScams.current as original (original.id)}
-            {@const isDeleted =
-                original.id && deletes.indexOf(original.id) !== -1}
-            {@const [isUpdated, scam] = mergeScamUpdates(original, updates)}
+            {@const deleted = deletes.indexOf(original.id) !== -1}
+            {@const [updated, scam] = mergeScamUpdates(original, updates)}
 
-            <Table.Row class={[isDeleted && "line-through"]}>
+            <Table.Row class={[deleted && "line-through"]}>
+                <TableChangesCell {deleted} {updated} />
                 <Table.Cell>
-                    {#if isDeleted}
-                        <Trash2 />
-                    {:else if isUpdated}
-                        <Pencil />
-                    {/if}
-                </Table.Cell>
-                <Table.Cell class="flex flex-row">
                     {scam.name}
                 </Table.Cell>
                 <Table.Cell>
@@ -154,7 +161,7 @@
                     </div>
                 </Table.Cell>
                 <Table.Cell>
-                    {#if isDeleted}
+                    {#if deleted}
                         <Button
                             variant="outline"
                             onclick={() => {
@@ -177,9 +184,7 @@
 
         {#each creates as scam (scam.id)}
             <Table.Row>
-                <Table.Cell>
-                    <Plus />
-                </Table.Cell>
+                <TableChangesCell created />
                 <Table.Cell>
                     {scam.name}
                 </Table.Cell>
@@ -217,7 +222,7 @@
                 <Table.Cell>
                     <Button
                         variant="destructive"
-                        onclick={() => uncreateScam(scam.id)}>Cancel</Button
+                        onclick={() => deleteScam(scam.id)}>Cancel</Button
                     >
                 </Table.Cell>
             </Table.Row>

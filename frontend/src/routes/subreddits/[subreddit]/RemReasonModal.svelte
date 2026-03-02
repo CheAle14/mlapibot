@@ -1,7 +1,6 @@
 <script lang="ts">
     import * as Dialog from "$lib/components/ui/dialog";
     import { Input } from "$lib/components/ui/input";
-    import type { CreateOrUpdateScamInfo } from "$lib/types/subreddit";
     import { Button } from "$lib/components/ui/button";
     import * as Field from "$lib/components/ui/field";
 

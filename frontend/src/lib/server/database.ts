@@ -1,8 +1,7 @@
 import { DATABASE_URI } from "$env/static/private";
 import {
-  type DbSubreddit,
-  type PendingSubredditOptions,
-  type SubredditOptions,
+  type Subreddit,
+  type ApiSubredditOptions,
   type UpdateScamInfo,
   type CreateScamInfo,
   type ScamInfo,
@@ -11,7 +10,6 @@ import {
 } from "$lib/types/subreddit";
 import type { TemplateInfo } from "$lib/types/templates";
 import { type DbUser, type User } from "$lib/types/user";
-import { SubscriptIcon } from "@lucide/svelte";
 import postgres from "postgres";
 
 const sql = postgres(DATABASE_URI);
@@ -67,11 +65,11 @@ export async function isUserModeratorOf(subreddit_id: string, user_id: string) {
   return result.length === 1 && result[0][0] === 1;
 }
 
-export async function createSubreddit(sub: DbSubreddit) {
+export async function createSubreddit(sub: Subreddit) {
   await sql`INSERT INTO subreddits ${sql(sub)}`;
 }
 
-function mapDataToOptions(sub: DbSubreddit): SubredditOptions {
+function mapDataToOptions(sub: Subreddit): ApiSubredditOptions {
   return {
     seq_num: sub.seq_num,
     removal_reasons: sub.removal_reasons,
@@ -89,8 +87,8 @@ function mapDataToOptions(sub: DbSubreddit): SubredditOptions {
 
 export async function getSubredditData(
   subreddit: string,
-): Promise<SubredditOptions | undefined> {
-  const [sub]: [DbSubreddit?] = await sql`
+): Promise<ApiSubredditOptions | undefined> {
+  const [sub]: [Subreddit?] = await sql`
     SELECT *
     FROM subreddits sub
     WHERE sub.id=${subreddit}
@@ -169,14 +167,14 @@ export async function getSubredditScamRules(
   return results;
 }
 
-type AppliedResult = { ok: SubredditOptions } | { error: string };
+type AppliedResult = { ok: ApiSubredditOptions } | { error: string };
 
 export async function tryApplyPendingChanges(
   id: string,
-  changes: PendingSubredditOptions,
+  changes: ApiSubredditOptions,
 ): Promise<AppliedResult> {
   return sql.begin(async (sql) => {
-    const [subreddit]: [DbSubreddit?] = await sql`
+    const [subreddit]: [Subreddit?] = await sql`
         SELECT *
         FROM subreddits
         WHERE id=${id}`;
@@ -285,16 +283,7 @@ export async function tryApplyPendingChanges(
     }
 
     if (changes.removal_reasons) {
-      const reasons = {
-        ...subreddit.removal_reasons,
-        ...(changes.removal_reasons.update ?? {}),
-      };
-
-      for (const rem of changes.removal_reasons.remove ?? []) {
-        delete reasons[rem];
-      }
-
-      subreddit.removal_reasons = reasons;
+      subreddit.removal_reasons = changes.removal_reasons;
     }
 
     if (changes.ai_slop) {

@@ -5,38 +5,30 @@
     import type { RemReasonItem } from "./RemReasonModal.svelte";
     import RemReasonModal from "./RemReasonModal.svelte";
     import * as Dialog from "$lib/components/ui/dialog";
+    import TableChangesCell from "$lib/components/reuse/table/table-changes-cell.svelte";
 
     interface Props {
-        reasons: Record<string, string>;
-        updates?: Record<string, string>;
-        deletes?: string[];
+        original: Record<string, string>;
+        current: Record<string, string>;
     }
 
-    let {
-        reasons,
-        updates = $bindable(),
-        deletes = $bindable(),
-    }: Props = $props();
+    let { original, current = $bindable() }: Props = $props();
 
     const deleteItem = (key: string) => {
-        if (deletes) {
-            deletes.push(key);
-        } else {
-            deletes = [key];
-        }
-
+        delete current[key];
         console.log("deleted", key);
     };
 
     const undeleteItem = (key: string) => {
-        if (deletes) {
-            deletes = deletes.filter((s) => s !== key);
-        }
+        current[key] = original[key];
     };
 
     let modalItem = $state<RemReasonItem | null>(null);
 
-    let current = $derived({ ...reasons, ...(updates ?? {}) });
+    const allKeys: Record<string, string> = $derived({
+        ...original,
+        ...current,
+    });
 </script>
 
 {#if modalItem}
@@ -44,11 +36,7 @@
         <RemReasonModal
             bind:item={modalItem}
             onSubmit={(i) => {
-                if (updates) {
-                    updates[i.key] = i.value;
-                } else {
-                    updates = { [i.key]: i.value };
-                }
+                current[i.key] = i.value;
                 modalItem = null;
             }}
         />
@@ -58,27 +46,27 @@
 <Table.Root>
     <Table.Header>
         <Table.Row>
+            <Table.Head class="w-1"></Table.Head>
             <Table.Head>Alias</Table.Head>
             <Table.Head>Reason UUID</Table.Head>
         </Table.Row>
     </Table.Header>
     <Table.Body>
-        {#each Object.entries(current) as [alias, reason_id]}
-            {@const isDeleted = deletes && deletes.indexOf(alias) !== -1}
+        {#each Object.entries(allKeys) as [alias, reason_id]}
+            {@const created = original[alias] === undefined}
+            {@const updated = original[alias] !== current[alias]}
+            {@const deleted = current[alias] === undefined}
 
-            <Table.Row class={[isDeleted && "line-through"]}>
+            <Table.Row class={[deleted && "line-through"]}>
+                <TableChangesCell {deleted} {updated} {created} />
                 <Table.Cell>
-                    {#if isDeleted}
-                        <Trash2 />
-                    {/if}
-
                     {alias}
                 </Table.Cell>
                 <Table.Cell>
                     {reason_id}
                 </Table.Cell>
                 <Table.Cell class="flex justify-end  gap-2">
-                    {#if isDeleted}
+                    {#if deleted}
                         <Button
                             class="float-end"
                             variant="outline"
@@ -106,7 +94,7 @@
     </Table.Body>
     <Table.Footer>
         <Table.Row>
-            <Table.Cell colspan={3}>
+            <Table.Cell colspan={4}>
                 <Button
                     size="sm"
                     class="float-end"

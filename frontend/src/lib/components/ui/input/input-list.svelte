@@ -36,14 +36,15 @@
     let pendingAddition = $state<any>();
 
     const onAdd = () => {
-        if (type === "text" && typeof pendingAddition === "string") {
-            value = [...(value ?? []), pendingAddition];
-            pendingAddition = undefined;
+        if (value) {
+            value.push(pendingAddition);
+        } else {
+            value = [pendingAddition];
         }
+        pendingAddition = undefined;
     };
 
     const onRemove = (idx: number) => {
-        console.log("onRemove", idx, value);
         if (value) value.splice(idx, 1);
     };
 </script>

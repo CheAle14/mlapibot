@@ -6,13 +6,7 @@
     import { Input, InputClearable, InputList } from "$lib/components/ui/input";
     import { Checkbox } from "$lib/components/ui/checkbox";
     import { Switch } from "$lib/components/ui/switch";
-    import {
-        ModuleKeys,
-        type PendingSubredditOptions,
-        type ScamInfo,
-        type StatusStickyConfig,
-        type SubredditOptions,
-    } from "$lib/types/subreddit";
+    import { ModuleKeys, type ApiSubredditOptions } from "$lib/types/subreddit";
     import { Json, JsonMany } from "$lib/components/ui/json";
     import Module from "./Module.svelte";
     import { SelectIncidentImpact } from "$lib/components/reuse/select";
@@ -24,6 +18,7 @@
     import { getSubredditOptions } from "$lib/api/options.remote";
     import { savePendingChanges } from "$lib/api/changes.remote";
     import StatusStickySettings from "./StatusStickySettings.svelte";
+    import { Check } from "@lucide/svelte";
 
     const STATUS_URL = "https://discordstatus.com/api/v2";
     const { params, data }: PageProps = $props();
@@ -39,64 +34,42 @@
     } = $derived(getSubredditOptions(subreddit));
 
     let open: string[] = $state([]);
-    let changes = $state<PendingSubredditOptions>({
-        seq_num: -1,
-        templates: {},
-        removal_reasons: {},
-        ai_slop: {},
-        staff_reply: {},
-        status: {},
-        scams: {},
-        related_title: {},
-        complex_comments: {},
-        comments_code: {},
-        comments_cdn: {},
-    });
+
+    let changes = $state<ApiSubredditOptions | undefined>();
 
     $effect(() => {
-        if (options) {
-            changes.seq_num = options.seq_num;
-        }
+        changes = options;
     });
 
     const revertPendingChanges = () => {
-        for (const key of ModuleKeys) {
-            changes[key] = {};
-        }
-        changes.removal_reasons = {};
-        changes.templates = {};
+        changes = options;
     };
 
-    let isPendingSaving = $state(false);
-    let isPendingError = $state(false);
+    let sendPendingState = $state<"idle" | "sending" | "error" | "success">(
+        "idle",
+    );
 
     const sendPendingChanges = async () => {
-        isPendingSaving = true;
+        sendPendingState = "sending";
         try {
-            isPendingError = false;
-            await savePendingChanges({ subreddit, changes });
-            revertPendingChanges();
+            if (changes) {
+                await savePendingChanges({ subreddit, changes });
+                sendPendingState = "success";
+                await _.sleep(2000);
+                sendPendingState = "idle";
+            }
         } catch (err) {
-            isPendingError = true;
+            sendPendingState = "error";
+            console.error(err);
         }
-        isPendingSaving = false;
     };
 
     const hasChanges = $derived.by(() => {
-        for (const key of ModuleKeys) {
-            const value = changes[key];
-            if (!_.isEqual(value, {})) {
-                return true;
-            }
-        }
-
-        if (!_.isEqual(changes.removal_reasons, {})) return true;
-        if (!_.isEqual(changes.templates, {})) return true;
-
-        return false;
+        return options !== undefined && !_.isEqual(options, changes);
     });
 
     const toggleSticky = (v: boolean) => {
+        if (!changes) return;
         console.log("set toggle:", v);
         if (v) {
             changes.status.sticky = {
@@ -110,30 +83,12 @@
     };
 
     const disableAll = () => {
+        if (!changes) return;
+
         for (const key of ModuleKeys) {
             changes[key].enabled = false;
         }
     };
-
-    const removal_reasons = $derived.by(() => {
-        if (options) {
-            const newreasons = {
-                ...options.removal_reasons,
-            };
-
-            for (const id of changes.removal_reasons.remove ?? []) {
-                delete newreasons[id];
-            }
-
-            for (const id in changes.removal_reasons.update) {
-                newreasons[id] = changes.removal_reasons.update[id];
-            }
-
-            return newreasons;
-        } else {
-            return {};
-        }
-    });
 </script>
 
 <h2>
@@ -144,10 +99,16 @@
     <div class="flex flex-row justify-around">
         <Button
             disabled={!hasChanges}
-            pending={isPendingSaving}
-            errored={isPendingError}
-            onclick={sendPendingChanges}>Save changes</Button
+            pending={sendPendingState === "sending"}
+            errored={sendPendingState === "error"}
+            onclick={sendPendingChanges}
         >
+            {#if sendPendingState === "success"}
+                <Check color="green" />
+            {/if}
+
+            Save changes
+        </Button>
 
         <Button disabled={hasChanges} variant="destructive" onclick={disableAll}
             >DISABLE ALL</Button
@@ -158,10 +119,6 @@
         >
     </div>
 
-    <div class="flex flex-row gap-1">
-        <Json value={changes} title="Pending Changes" />
-    </div>
-
     {#if isFetching}
         <Spinner.Badge>Fetching subreddit options</Spinner.Badge>
     {/if}
@@ -170,16 +127,15 @@
         <Json value={error} title="Error fetching data" />
     {/if}
 
-    {#if options}
+    {#if options && changes}
         <Accordion.Root type="multiple" class="" bind:value={open}>
             <Accordion.Item value="removal_reasons">
                 <Accordion.Trigger>Removal reasons map</Accordion.Trigger>
 
                 <Accordion.Content class="pl-2">
                     <RemovalReasons
-                        reasons={options.removal_reasons}
-                        bind:updates={changes.removal_reasons.update}
-                        bind:deletes={changes.removal_reasons.remove}
+                        original={options.removal_reasons}
+                        bind:current={changes.removal_reasons}
                     />
                 </Accordion.Content>
             </Accordion.Item>
@@ -202,67 +158,19 @@
             <Module
                 key="scams"
                 title="Remove posts based on OCR or text content"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             >
-                {#snippet children({ open, current, pending, original })}
-                    <!-- <JsonMany
-                        items={[current, pending, original]}
-                        titles={["current", "pending", "original"]}
-                    /> -->
-
+                {#snippet children({ open, current })}
                     {#if open}
                         <ScamsTable
-                            {removal_reasons}
-                            deleted_templates={changes.templates.deletes}
+                            removal_reasons={changes?.removal_reasons ?? {}}
+                            deleted_templates={changes?.templates.deletes}
                             updates={current.update}
                             creates={current.create}
                             deletes={current.deletes}
                             subreddit_id={subreddit}
-                            deleteScam={(id) => {
-                                pending.deletes = [
-                                    ...(pending.deletes ?? []),
-                                    id,
-                                ];
-                            }}
-                            undeleteScam={(id) => {
-                                pending.deletes = (
-                                    pending.deletes ?? []
-                                ).filter((s) => s !== id);
-                            }}
-                            uncreateScam={(id) => {
-                                pending.create = (pending.create ?? []).filter(
-                                    (s) => s.id !== id,
-                                );
-                            }}
-                            createScam={(scam) => {
-                                pending.create = [
-                                    ...(pending.create ?? []),
-                                    scam,
-                                ];
-                            }}
-                            updateScam={({ id, ...changes }) => {
-                                if (pending.update) {
-                                    const idx = pending.update.findIndex(
-                                        (s) => "id" in s && s.id === id,
-                                    );
-
-                                    if (idx !== -1) {
-                                        pending.update[idx] = {
-                                            ...pending.update[idx],
-                                            ...changes,
-                                        };
-                                    } else {
-                                        pending.update.push({
-                                            id,
-                                            ...changes,
-                                        });
-                                    }
-                                } else {
-                                    pending.update = [{ id, ...changes }];
-                                }
-                            }}
                         />
                     {/if}
                 {/snippet}
@@ -271,11 +179,11 @@
             <Module
                 key="status"
                 title="Discord status incidents"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             >
-                {#snippet children({ current, pending })}
+                {#snippet children({ current })}
                     <Field.Group class="flex flex-col lg:flex-row">
                         <Field.Set>
                             <Field.Legend>Incident post</Field.Legend>
@@ -310,19 +218,13 @@
                                 >
 
                                 <SelectIncidentImpact
-                                    bind:value={
-                                        () => current.min_impact,
-                                        (v) => (pending.min_impact = v)
-                                    }
+                                    bind:value={current.min_impact}
                                 />
                             </Field.Field>
                             <Field.Field orientation="horizontal">
                                 <Checkbox
                                     id="distinguish"
-                                    bind:checked={
-                                        () => current.distinguish,
-                                        (v) => (pending.distinguish = v)
-                                    }
+                                    bind:checked={current.distinguish}
                                 />
 
                                 <Field.Content>
@@ -360,17 +262,7 @@
                             {#if current.sticky}
                                 <StatusStickySettings
                                     status_url={STATUS_URL}
-                                    current={current.sticky as StatusStickyConfig}
-                                    update={(key, value) => {
-                                        if (pending.sticky) {
-                                            pending.sticky[key] = value;
-                                        } else {
-                                            pending.sticky = {
-                                                ...current.sticky,
-                                                [key]: value,
-                                            } as StatusStickyConfig;
-                                        }
-                                    }}
+                                    bind:current={current.sticky}
                                 />
                             {/if}
                         </Field.Set>
@@ -381,11 +273,11 @@
             <Module
                 key="staff_reply"
                 title="Collect staff replies in a stickied comment"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             >
-                {#snippet children({ current, pending })}
+                {#snippet children({ current })}
                     <div class="w-full max-w-md">
                         <Field.Set>
                             <Field.Group>
@@ -401,10 +293,7 @@
                                         id="flair_id"
                                         type="text"
                                         placeholder="28ccdbf7-1992-425b-8e8f-0d5ab9b2d4ad"
-                                        bind:value={
-                                            () => current.flair_id,
-                                            (v) => (pending.flair_id = v)
-                                        }
+                                        bind:value={current.flair_id}
                                     />
                                 </Field.Field>
                                 <Field.Field>
@@ -419,10 +308,7 @@
                                         id="css_class"
                                         type="text"
                                         placeholder="staff"
-                                        bind:value={
-                                            () => current.css_class,
-                                            (v) => (pending.css_class = v)
-                                        }
+                                        bind:value={current.css_class}
                                     />
                                 </Field.Field>
                                 <Field.Field>
@@ -439,13 +325,7 @@
                                         thingName="phrases"
                                         popoverClass="lg:w-md"
                                         bind:value={
-                                            () =>
-                                                current.ignore_post_title_contains,
-                                            (v) => {
-                                                console.log("wow", v);
-                                                pending.ignore_post_title_contains =
-                                                    v;
-                                            }
+                                            current.ignore_post_title_contains
                                         }
                                     />
                                 </Field.Field>
@@ -458,41 +338,41 @@
             <Module
                 key="ai_slop"
                 title="Scan repository links for AI slop"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             />
 
             <Module
                 key="related_title"
                 title="Remove posts with vague titles"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             />
 
             <Module
                 key="complex_comments"
                 title="Remove comments based on post contents"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             />
 
             <Module
                 key="comments_code"
                 title="Convert three-backtick code blocks to four-spaces"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             />
 
             <Module
                 key="comments_cdn"
                 title="Warn users about posting temporary CDN links"
-                {options}
                 {open}
-                bind:changes
+                bind:current={changes}
+                original={options}
             />
         </Accordion.Root>
     {/if}

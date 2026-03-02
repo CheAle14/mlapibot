@@ -1,24 +1,21 @@
-<script lang="ts" generics="T extends keyof PendingSubredditModules">
+<script lang="ts" generics="T extends keyof ApiSubredditModules">
     import * as _ from "moderndash";
     import * as Accordion from "$lib/components/ui/accordion";
     import { Switch } from "$lib/components/ui/switch";
     import { Label } from "$lib/components/ui/label";
     import type {
-        PendingSubredditModules,
-        PendingSubredditOptions,
-        SubredditOptions,
+        ApiSubredditModules,
+        ApiSubredditOptions,
     } from "$lib/types/subreddit";
     import type { Snippet } from "svelte";
-    import { mergeObjectPendingChanges } from "$lib/mutate.svelte";
 
-    interface SnippetArgs<T extends keyof PendingSubredditModules> {
-        current: SubredditOptions[T];
-        pending: PendingSubredditOptions[T];
-        original: SubredditOptions[T];
+    interface SnippetArgs<T extends keyof ApiSubredditModules> {
+        current: ApiSubredditOptions[T];
+        original: ApiSubredditOptions[T];
         open: boolean;
     }
 
-    interface ModuleProps<T extends keyof PendingSubredditModules> {
+    interface ModuleProps<T extends keyof ApiSubredditModules> {
         key: T;
         title: string;
         description?: string;
@@ -26,32 +23,21 @@
 
         children?: Snippet<[SnippetArgs<T>]>;
 
-        options: SubredditOptions;
-        changes: PendingSubredditOptions;
+        original: ApiSubredditOptions;
+        current: ApiSubredditOptions;
     }
 
     let {
         key,
         title,
         open,
-        options,
         children,
-        changes = $bindable(),
+        original,
+        current = $bindable(),
     }: ModuleProps<T> = $props();
 
-    let moriginal = $derived(options[key]);
-    let mpending = $derived(changes[key] as PendingSubredditModules[T]);
-
-    if (key === "scams") {
-        $inspect(moriginal, mpending);
-    }
-
-    let mcurrent = $derived(
-        mergeObjectPendingChanges(
-            moriginal,
-            mpending as any,
-        ) as SubredditOptions[T],
-    );
+    let moriginal = $derived(original[key]);
+    let mcurrent = $derived(current[key]);
 </script>
 
 <Accordion.Item value={key}>
@@ -61,7 +47,7 @@
                 id={key}
                 checked={mcurrent.enabled}
                 onclick={(e) => {
-                    mpending.enabled = !mcurrent.enabled;
+                    mcurrent.enabled = !mcurrent.enabled;
                     e.preventDefault();
                     e.stopPropagation();
                     return false;
@@ -75,7 +61,6 @@
         {#if children}
             {@render children({
                 current: mcurrent,
-                pending: mpending,
                 original: moriginal,
                 open: open?.some((s) => s === key),
             })}
