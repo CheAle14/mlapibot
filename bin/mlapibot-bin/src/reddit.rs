@@ -1,10 +1,7 @@
 use std::{fmt::Write, path::PathBuf};
 
-use anyhow::Context;
-use mlapibot_reddit::{
-    QuickStopError, RedditClient,
-    config::{GlobalSettings, SubredditsConfig},
-};
+use mlapibot_common::config::GlobalSettings;
+use mlapibot_reddit::{QuickStopError, RedditClient};
 use mlapibot_webhook::{WebhookClient, create_generic_error_message};
 
 #[derive(clap::Args)]
@@ -28,23 +25,7 @@ pub struct RedditArgs {
 }
 
 impl RedditArgs {
-    pub fn get_global_settings(&self) -> anyhow::Result<GlobalSettings> {
-        crate::get_global_settings(&self.scratch_dir)
-    }
-
-    pub fn get_subreddits_config(&self) -> anyhow::Result<SubredditsConfig> {
-        let config = self.scratch_dir.join("subreddits.json");
-        let mut file =
-            std::fs::File::open(&config).with_context(|| format!("reading {config:?}"))?;
-
-        let parsed = serde_json::from_reader(&mut file).context("subreddits.json config")?;
-        Ok(parsed)
-    }
-
     pub async fn run(self) -> anyhow::Result<()> {
-        let settings = self.get_global_settings()?;
-        let subreddits_config = self.get_subreddits_config()?;
-
         let Self {
             data_dir,
             scratch_dir,
@@ -53,6 +34,8 @@ impl RedditArgs {
             admin,
             release,
         } = self;
+
+        let settings = crate::get_global_settings(&scratch_dir)?;
 
         let analyzers = mlapibot_analysis::load_scams()?;
 
@@ -65,7 +48,6 @@ impl RedditArgs {
             status_webhook,
             admin,
             settings,
-            subreddits_config,
             !release,
         )
         .await?;

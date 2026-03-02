@@ -1,8 +1,13 @@
 use chrono::{SubsecRound, Utc};
-use mlapibot_database_v2::{client::PgClient, errors::DbResult, repos::subreddits::*};
+use mlapibot_database_v2::{
+    client::{PgClient, PgClientBuilder},
+    errors::DbResult,
+    repos::subreddits::*,
+};
 
 async fn make_db() -> PgClient {
-    let db = PgClient::connect("postgres://postgres:postgres@localhost/mlapibotest", true)
+    let db = PgClientBuilder::new("postgres://postgres:postgres@localhost/mlapibotest")
+        .connect()
         .await
         .expect("can connect");
 
@@ -24,16 +29,21 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
     let subreddit = Subreddit {
         id: "sub123".into(),
         name: "subreddit".into(),
+        enabled: true,
         last_sync: now,
         seq_num: 1,
         mod_json_schema: 0,
         removal_reasons: RemovalReasonsMap::default().with("#repost", "abc-rule-123"),
         mod_scams: ScamsModule { enabled: true },
-        mod_ai_slop: AiSlopModule { enabled: false },
+        mod_ai_slop: AiSlopModule {
+            enabled: false,
+            modmail_to: Some("sub456".into()),
+        },
         mod_staff_reply: StaffReplyModule {
             enabled: false,
             flair_id: String::new(),
             css_class: None,
+            ignore_post_title_contains: Vec::new(),
         },
         mod_status: StatusModule {
             enabled: true,
@@ -41,8 +51,14 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
             sticky: None,
             distinguish: true,
         },
-        mod_related_title: RelatedTitleModule { enabled: true },
-        mod_complex_comments: ComplexCommentsModule { enabled: true },
+        mod_related_title: RelatedTitleModule {
+            enabled: true,
+            reason: "#repost".into(),
+        },
+        mod_complex_comments: ComplexCommentsModule {
+            enabled: true,
+            items: Vec::new(),
+        },
         mod_comments_code: CommentsCodeModule { enabled: false },
         mod_comments_cdn: CommentsCdnModule { enabled: false },
     };

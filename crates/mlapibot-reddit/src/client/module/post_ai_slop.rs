@@ -1,5 +1,5 @@
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashMap, HashSet},
     ops::{ControlFlow, Range},
 };
 
@@ -99,13 +99,12 @@ impl super::Module for PostAiSlop {
         super::ModuleWants::POSTS
     }
 
-    impl_mask_subreddits!(ai_slop => posts);
+    impl_mask_subreddits!(mod_ai_slop => posts);
 
     async fn run_post<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
-        _subreddit: &mut crate::client::Subreddit,
-        config: Option<&crate::config::SubredditConfig>,
+        subreddit: &mut crate::client::Subreddit,
         post: &crate::Submission,
         has_seen: bool,
     ) -> anyhow::Result<super::PostAction> {
@@ -113,9 +112,16 @@ impl super::Module for PostAiSlop {
             return Ok(super::PostAction::Ignore);
         }
 
-        let Some(slopconf) = config.and_then(|v| v.ai_slop.as_ref()) else {
-            return Ok(super::PostAction::Ignore);
-        };
+        let config = &subreddit.db.mod_ai_slop;
+
+        let modmail_to = format!(
+            "/r/{}",
+            config
+                .modmail_to
+                .as_ref()
+                .map(|v| v.as_str())
+                .unwrap_or_else(|| post.subreddit())
+        );
 
         let Some(github) = client.github else {
             return Ok(super::PostAction::Ignore);
@@ -161,7 +167,7 @@ impl super::Module for PostAiSlop {
 
                     client
                         .client
-                        .compose_message(&slopconf.modmail_to, &subject, &body)
+                        .compose_message(&modmail_to, &subject, &body)
                         .await?;
                 }
                 Err(err) => {

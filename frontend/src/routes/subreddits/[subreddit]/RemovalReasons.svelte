@@ -75,17 +75,18 @@
                     {:else}
                         <Button
                             class="float-end"
-                            variant="destructive"
-                            onclick={() => deleteItem(alias)}>Delete</Button
-                        >
-                        <Button
-                            class="float-end"
                             onclick={() =>
                                 (modalItem = {
                                     adding: false,
                                     key: alias,
                                     value: reason_id,
                                 })}>Edit</Button
+                        >
+
+                        <Button
+                            class="float-end"
+                            variant="destructive"
+                            onclick={() => deleteItem(alias)}>Delete</Button
                         >
                     {/if}
                 </Table.Cell>

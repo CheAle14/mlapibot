@@ -1,10 +1,11 @@
-use std::{collections::HashMap, io::Read, str::FromStr, sync::mpsc::Sender};
+use std::{collections::HashMap, io::Read, str::FromStr};
 
 use anyhow::Context;
 use mlapibot_database_v2::repos::incidents::StatusIncident;
 use roux::builders::submission::SubmissionSubmitBuilder;
 use statuspage::{component::Component, incident::Incident};
 use tiny_http::Response;
+use tokio::sync::mpsc::Sender;
 
 use crate::utils::{BoO, clamp};
 
@@ -105,6 +106,7 @@ pub fn write_affected_components_list(
     Ok(())
 }
 
+#[derive(Debug)]
 pub enum WebhookEvent {
     IncidentUpdate(Box<Incident>),
     OtherUpdate,
@@ -142,7 +144,7 @@ pub fn start_webhook_listener_thread(
                 Err(err) => {
                     println!("[status-webhook] {err:?}");
                     // *something* has happened, so trigger a refresh anyway
-                    channel.send(WebhookEvent::OtherUpdate).unwrap();
+                    channel.blocking_send(WebhookEvent::OtherUpdate).unwrap();
                     let _ = request.respond(Response::empty(500));
                     continue;
                 }
@@ -155,7 +157,7 @@ pub fn start_webhook_listener_thread(
                 _ => WebhookEvent::OtherUpdate,
             };
 
-            channel.send(event).unwrap();
+            channel.blocking_send(event).unwrap();
             let _ = request.respond(Response::empty(204));
         }
 

@@ -2,7 +2,10 @@ use std::collections::HashSet;
 
 use mlapibot_common::Words;
 
-use crate::client::module::{ActionData, PostAction};
+use crate::{
+    client::module::{ActionData, PostAction},
+    subreddit::Subreddit,
+};
 
 pub struct PostVagueTitle;
 
@@ -23,13 +26,12 @@ impl super::Module for PostVagueTitle {
         super::ModuleWants::POSTS
     }
 
-    super::impl_mask_subreddits!(related_titles => posts);
+    super::impl_mask_subreddits!(mod_related_title => posts);
 
     async fn run_post<'client>(
         &mut self,
         _client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
-        config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
         has_seen: bool,
     ) -> anyhow::Result<PostAction> {
@@ -55,21 +57,23 @@ impl super::Module for PostVagueTitle {
             return Ok(PostAction::Ignore);
         }
 
-        let modconf = config.and_then(|c| c.moderate.as_ref());
-
-        let Some(modconf) = modconf else {
+        let Some(reason_id) = subreddit
+            .db
+            .removal_reasons
+            .get(&subreddit.db.mod_related_title.reason)
+        else {
+            eprintln!(
+                "related_title removal reason is invalid: {}",
+                subreddit.name()
+            );
             return Ok(PostAction::Ignore);
         };
 
-        let reason_id = modconf
-            .removal_reasons
-            .get("vague-title")
-            .map(String::as_str)
-            .unwrap_or_else(|| &modconf.default_removal_reason);
-
         let reason = subreddit
-            .get_removal_reason(reason_id)
+            .removal_reasons
+            .data(&subreddit.reddit)
             .await?
+            .get(reason_id)
             .map(|r| r.message.as_str())
             .unwrap_or("<error: removal reason not found>");
 

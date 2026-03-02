@@ -47,17 +47,20 @@ export async function getUserByCookie(cookie: string) {
   return result;
 }
 
-export async function addModerator(subreddit_id: string, user_id: string) {
+export async function addModerator(subreddit_id: string, username: string) {
   await sql`
-    INSERT INTO subreddit_mods (subreddit_id, user_id)
-    VALUES (${subreddit_id}, ${user_id});
+    INSERT INTO subreddit_mods (subreddit_id, username)
+    VALUES (${subreddit_id}, ${username});
     `;
 }
 
-export async function isUserModeratorOf(subreddit_id: string, user_id: string) {
+export async function isUserModeratorOf(
+  subreddit_id: string,
+  username: string,
+) {
   const result = await sql`
     SELECT COUNT(*) FROM subreddit_mods
-    WHERE subreddit_id=${subreddit_id} AND user_id=${user_id}
+    WHERE subreddit_id=${subreddit_id} AND username=${username}
   `;
 
   console.log(result);
@@ -102,7 +105,7 @@ export async function getSubredditData(
 }
 
 export async function getSidebarSubreddits(
-  user_id: string,
+  username: string,
   is_admin: boolean,
 ): Promise<SidebarSubreddit[]> {
   const mod_subs = await sql<{ id: string; name: string }[]>`
@@ -110,7 +113,7 @@ export async function getSidebarSubreddits(
     FROM subreddits sub
     JOIN subreddit_mods mods
     ON sub.id = mods.subreddit_id
-    WHERE mods.user_id=${user_id}
+    WHERE mods.username=${username}
     ORDER BY sub.name
     `;
 

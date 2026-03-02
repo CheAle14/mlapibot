@@ -16,7 +16,7 @@
         addSubredditModerator.fields.subreddit_id.set(random);
 
         if (data && data.me) {
-            addSubredditModerator.fields.user_id.set(data.me.id);
+            addSubredditModerator.fields.username.set(data.me.name);
         }
     });
 </script>
@@ -66,9 +66,9 @@
                         </Field.Field>
 
                         <Field.Field>
-                            <Field.Label>User ID</Field.Label>
+                            <Field.Label>Username</Field.Label>
                             <Input
-                                {...addSubredditModerator.fields.user_id.as(
+                                {...addSubredditModerator.fields.username.as(
                                     "text",
                                 )}
                             />

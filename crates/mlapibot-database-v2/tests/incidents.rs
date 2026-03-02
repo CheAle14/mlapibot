@@ -1,10 +1,13 @@
 use chrono::{SubsecRound, Utc};
 use mlapibot_database_v2::{
-    client::PgClient, errors::DbResult, migrations::apply_migrations, repos::incidents::*,
+    client::{PgClient, PgClientBuilder},
+    errors::DbResult,
+    repos::incidents::*,
 };
 
 async fn make_db() -> PgClient {
-    let db = PgClient::connect("postgres://postgres:postgres@localhost/mlapibotest", true)
+    let db = PgClientBuilder::new("postgres://postgres:postgres@localhost/mlapibotest")
+        .connect()
         .await
         .expect("can connect");
 

@@ -43,7 +43,7 @@
         the two following settings</Field.Description
     >
 
-    <Input type="number" bind:value={current.comment_threshold} />
+    <Input type="number" bind:value={current.comment_threshold} min={0} />
 </Field.Field>
 
 <Field.Field>
@@ -58,6 +58,7 @@
         id="delay_minor_mins"
         type="number"
         bind:value={current.delay_minor_mins}
+        min={0}
     />
 </Field.Field>
 
@@ -73,6 +74,7 @@
         id="delay_major_mins"
         type="number"
         bind:value={current.delay_major_mins}
+        min={0}
     />
 </Field.Field>
 

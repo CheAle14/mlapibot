@@ -11,10 +11,7 @@ use roux::{
 };
 
 use crate::{
-    RedditMessage, RouxClient, Submission,
-    client::ModuleRedditClient,
-    config::{SubredditConfig, SubredditsConfig},
-    subreddit::Subreddit,
+    RedditMessage, RouxClient, Submission, client::ModuleRedditClient, subreddit::Subreddit,
     webhook::create_detection_message,
 };
 
@@ -24,7 +21,6 @@ pub mod comment_complex;
 pub mod comment_staff_replies;
 pub mod inbox_commands;
 pub mod post_ai_slop;
-pub mod post_flairs;
 pub mod post_scams;
 pub mod post_vague_title;
 
@@ -34,7 +30,6 @@ pub use comment_complex::CommentComplex;
 pub use comment_staff_replies::CommentStaffReplies;
 pub use inbox_commands::InboxCommands;
 pub use post_ai_slop::PostAiSlop;
-pub use post_flairs::PostFlairs;
 pub use post_scams::PostScams;
 pub use post_vague_title::PostVagueTitle;
 
@@ -48,15 +43,14 @@ pub trait Module {
     fn name(&self) -> &'static str;
     fn wants(&self) -> ModuleWants;
 
-    fn mask_subreddits(&self, config: &SubredditsConfig, subreddits: &[Subreddit]) -> SplitSubMask {
+    fn mask_subreddits(&self, subreddits: &[Subreddit]) -> SplitSubMask {
         SplitSubMask::new()
     }
 
     async fn run_post<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
-        subreddit: &mut crate::client::Subreddit,
-        config: Option<&SubredditConfig>,
+        subreddit: &mut Subreddit,
         post: &Submission,
         has_seen: bool,
     ) -> anyhow::Result<PostAction> {
@@ -66,6 +60,7 @@ pub trait Module {
     async fn run_comment<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
+        subreddits: &mut Subreddit,
         comment: &LatestComment<AuthedClient>,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -96,10 +91,7 @@ pub struct RegisteredModule {
 }
 
 impl<'a> super::RedditClient<'a> {
-    pub(super) fn build_modules(
-        config: &SubredditsConfig,
-        subreddits: &[Subreddit],
-    ) -> (SplitSubMask, Vec<RegisteredModule>) {
+    pub(super) fn build_modules(subreddits: &[Subreddit]) -> (SplitSubMask, Vec<RegisteredModule>) {
         macro_rules! modules {
             ($($name:ident),* $(,)?) => {{
                 let mut sub_mask = SplitSubMask::new();
@@ -108,7 +100,7 @@ impl<'a> super::RedditClient<'a> {
 
                 $(
                     let mdl = <$name as Module>::new();
-                    let mask = Module::mask_subreddits(&mdl, config, subreddits);
+                    let mask = Module::mask_subreddits(&mdl, subreddits);
 
                     sub_mask |= mask;
 
@@ -125,7 +117,6 @@ impl<'a> super::RedditClient<'a> {
 
         modules!(
             PostScams,
-            PostFlairs,
             CommentCode,
             InboxCommands,
             PostVagueTitle,
@@ -137,8 +128,37 @@ impl<'a> super::RedditClient<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub struct ModuleWants(u8);
+
+impl std::fmt::Debug for ModuleWants {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ModuleWants(")?;
+
+        let mut any = false;
+
+        macro_rules! check {
+            ($name:ident) => {
+                if self.has(Self::$name) {
+                    if any {
+                        write!(f, "| ")?;
+                    }
+                    any = true;
+                    write!(f, stringify!($name))?;
+                }
+            };
+        }
+
+        check!(POSTS);
+        check!(COMMENTS);
+        check!(INBOX);
+        check!(TIMER);
+
+        let _ = any;
+
+        write!(f, ")")
+    }
+}
 
 impl ModuleWants {
     pub const POSTS: ModuleWants = ModuleWants(0b0001);
@@ -183,8 +203,14 @@ impl std::ops::BitAnd for ModuleWants {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SubMask(u32);
+
+impl std::fmt::Debug for SubMask {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SubMask({:b})", self.0)
+    }
+}
 
 impl SubMask {
     fn all(len: usize) -> Self {
@@ -193,6 +219,10 @@ impl SubMask {
 
     pub fn new() -> Self {
         Self(0)
+    }
+
+    pub fn has_any(&self) -> bool {
+        self.0 != 0
     }
 
     pub fn set(&mut self, idx: usize) {
@@ -250,15 +280,11 @@ macro_rules! impl_mask_subreddits {
     ) => {
         fn mask_subreddits(
             &self,
-            config: &crate::config::SubredditsConfig,
             subreddits: &[crate::subreddit::Subreddit],
         ) -> super::SplitSubMask {
             let mut sum = super::SplitSubMask::new();
             for (idx, sub) in subreddits.iter().enumerate() {
-                if config
-                    .get(sub.name())
-                    .map(|c| super::AsBool::as_bool(&c.$flag))
-                    .unwrap_or_default()
+                if  sub.db.$flag.enabled
                 {
                     $(
                         sum.$wants.set(idx);
@@ -272,28 +298,6 @@ macro_rules! impl_mask_subreddits {
 }
 
 pub(self) use impl_mask_subreddits;
-
-trait AsBool {
-    fn as_bool(&self) -> bool;
-}
-
-impl AsBool for bool {
-    fn as_bool(&self) -> bool {
-        *self
-    }
-}
-
-impl<T> AsBool for Option<T> {
-    fn as_bool(&self) -> bool {
-        self.is_some()
-    }
-}
-
-impl<T> AsBool for Vec<T> {
-    fn as_bool(&self) -> bool {
-        self.len() > 0
-    }
-}
 
 pub struct InboxMsg<'a> {
     inner: &'a RedditMessage,

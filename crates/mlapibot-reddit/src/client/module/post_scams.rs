@@ -1,5 +1,4 @@
 use anyhow::Context;
-use mlapibot_webhook::create_generic_error_message;
 
 use crate::{
     RedditClient,
@@ -27,13 +26,12 @@ impl super::Module for PostScams {
         super::ModuleWants::POSTS
     }
 
-    super::impl_mask_subreddits!(scams => posts);
+    super::impl_mask_subreddits!(mod_scams => posts);
 
     async fn run_post<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut crate::client::Subreddit,
-        config: Option<&crate::config::SubredditConfig>,
         post: &crate::Submission,
         has_seen: bool,
     ) -> anyhow::Result<PostAction> {
@@ -41,7 +39,7 @@ impl super::Module for PostScams {
             return Ok(PostAction::Ignore);
         }
 
-        let modconf = config.map(|c| c.moderate.as_ref()).flatten();
+        let removal_reasons = &subreddit.db.removal_reasons;
 
         let mut warnings = Vec::new();
         let ctx = mlapibot_analysis::Context::new_submission(
@@ -82,32 +80,24 @@ impl super::Module for PostScams {
 
             let mut template_context = tera::Context::new();
 
-            let should_remove = match (modconf, detected.remove) {
-                (Some(modconf), true) if post.moderation().is_some() => {
-                    let reason_id = modconf
-                        .removal_reasons
-                        .get(&detected.name)
-                        .map(String::as_str)
-                        .unwrap_or_else(|| &modconf.default_removal_reason);
+            let should_remove = if detected.remove && post.moderation().is_some() {
+                let reason_id = removal_reasons.get_or_default(&detected.name);
 
+                if let Some(reason_id) = reason_id {
                     let reason = subreddit
-                        .get_removal_reason(reason_id)
+                        .removal_reasons
+                        .data(&subreddit.reddit)
                         .await?
+                        .get(reason_id)
                         .map(|r| r.message.as_str())
                         .unwrap_or("<error: removal reason not found>");
 
                     template_context.insert("removal_reason", reason);
-                    true
                 }
-                _ => {
-                    println!(
-                        "Not modding post (mod config? {}, should remove = {} and can_mod is {}",
-                        modconf.is_some(),
-                        detected.remove,
-                        post.moderation().is_some()
-                    );
-                    false
-                }
+
+                true
+            } else {
+                false
             };
 
             let mut action = ActionData::new().analyser(&detected.name);

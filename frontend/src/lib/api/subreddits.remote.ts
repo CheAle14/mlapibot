@@ -3,7 +3,7 @@ import * as z from "zod";
 import * as db from "$lib/server/database";
 import { error } from "@sveltejs/kit";
 import { isAdmin, isModeratorOf } from "./auth.remote";
-import type { DbSubreddit } from "$lib/types/subreddit";
+import type { Subreddit } from "$lib/types/subreddit";
 
 export const createSubreddit = form(
   z.object({
@@ -13,7 +13,7 @@ export const createSubreddit = form(
   async ({ id, name }) => {
     if (!(await isAdmin())) return error(403);
 
-    const sub: DbSubreddit = {
+    const sub: Subreddit = {
       id,
       name,
       last_sync: new Date().toISOString(),
@@ -29,6 +29,7 @@ export const createSubreddit = form(
       mod_staff_reply: {
         enabled: false,
         flair_id: "",
+        ignore_post_title_contains: [],
       },
       mod_status: {
         enabled: false,
@@ -58,11 +59,11 @@ export const createSubreddit = form(
 export const addSubredditModerator = form(
   z.object({
     subreddit_id: z.string(),
-    user_id: z.string(),
+    username: z.string(),
   }),
-  async ({ subreddit_id, user_id }) => {
+  async ({ subreddit_id, username }) => {
     if (!(await isAdmin())) return error(403);
 
-    await db.addModerator(subreddit_id, user_id);
+    await db.addModerator(subreddit_id, username);
   },
 );

@@ -1682,6 +1682,7 @@ name = "mlapibot-database-v2"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "futures",
  "postgres-types",
  "serde",
  "statuspage",
@@ -2631,7 +2632,6 @@ dependencies = [
 [[package]]
 name = "roux"
 version = "2.3.49"
-source = "git+https://github.com/CheAle14/roux.git#129dcfe46d679c1d51d967a9abc4e868f023dadb"
 dependencies = [
  "html-escape",
  "maybe-async",

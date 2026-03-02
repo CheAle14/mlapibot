@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 chrono = { workspace = true }
+futures = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 statuspage = { workspace = true }
 thiserror = { workspace = true }

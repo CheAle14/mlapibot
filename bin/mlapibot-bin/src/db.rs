@@ -29,8 +29,9 @@ enum DbCommands {
 impl DbArgs {
     pub async fn run(self) -> anyhow::Result<()> {
         let settings = crate::get_global_settings(&self.scratch_dir)?;
-        let mut db =
-            mlapibot_database_v2::client::PgClient::connect(&settings.database_uri, true).await?;
+        let mut db = mlapibot_database_v2::client::PgClientBuilder::new(&settings.database_uri)
+            .connect()
+            .await?;
 
         match self.cmd {
             DbCommands::Unmonitor { fullname } => {

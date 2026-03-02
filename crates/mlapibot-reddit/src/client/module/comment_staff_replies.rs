@@ -384,20 +384,15 @@ impl super::Module for CommentStaffReplies {
         super::ModuleWants::COMMENTS | super::ModuleWants::TIMER
     }
 
-    impl_mask_subreddits!(comments_staff_reply => comments);
+    impl_mask_subreddits!(mod_staff_reply => comments);
 
     async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
+        subreddit: &mut crate::subreddit::Subreddit,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
-        let Some(config) = client.subreddits_config.get(comment.subreddit()) else {
-            return Ok(());
-        };
-
-        let Some(config) = config.comments_staff_reply.as_ref() else {
-            return Ok(());
-        };
+        let config = &subreddit.db.mod_staff_reply;
 
         if let Some(live) = client
             .db

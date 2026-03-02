@@ -12,11 +12,13 @@ pub trait SubredditsRepo {
     async fn fetch_all_subreddits(&self) -> Result<Vec<Subreddit>, Self::Error>;
     async fn create_subreddit(&self, sub: &Subreddit) -> Result<(), Self::Error>;
 
+    async fn set_subreddit_enabled(&self, id: &str, enabled: bool) -> Result<(), Self::Error>;
+
     async fn get_subreddit_moderators(&self, id: &str) -> Result<Vec<String>, Self::Error>;
     async fn set_subreddit_moderators(
         &mut self,
         id: &str,
-        user_ids: &[&str],
+        usernames: &[&str],
     ) -> Result<(), Self::Error>;
 }
 
@@ -38,6 +40,7 @@ impl SubredditsRepo for crate::client::PgClient {
         let Subreddit {
             id,
             name,
+            enabled,
             last_sync,
             seq_num,
             mod_json_schema,
@@ -56,16 +59,17 @@ impl SubredditsRepo for crate::client::PgClient {
             "
             INSERT INTO
             subreddits (
-                id, name, last_sync, seq_num, mod_json_schema, removal_reasons,
+                id, name, enabled, last_sync, seq_num, mod_json_schema, removal_reasons,
                 mod_scams, mod_ai_slop, mod_staff_reply, mod_status, mod_related_title,
                 mod_complex_comments,
                 mod_comments_code,
                 mod_comments_cdn
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
             &[
                 &id,
                 &name,
+                &enabled,
                 &last_sync,
                 &seq_num,
                 &mod_json_schema,
@@ -88,7 +92,7 @@ impl SubredditsRepo for crate::client::PgClient {
     async fn get_subreddit_moderators(&self, id: &str) -> Result<Vec<String>, Self::Error> {
         self.query_scalar(
             "
-            SELECT user_id
+            SELECT username
             FROM subreddit_mods
             WHERE subreddit_id=$1",
             &[&id],
@@ -99,7 +103,7 @@ impl SubredditsRepo for crate::client::PgClient {
     async fn set_subreddit_moderators(
         &mut self,
         id: &str,
-        user_ids: &[&str],
+        usernames: &[&str],
     ) -> Result<(), Self::Error> {
         use std::fmt::Write;
 
@@ -108,11 +112,11 @@ impl SubredditsRepo for crate::client::PgClient {
         db.execute("DELETE FROM subreddit_mods WHERE subreddit_id=$1", &[&id])
             .await?;
 
-        let mut query = String::from("INSERT INTO subreddit_mods (subreddit_id, user_id) VALUES ");
+        let mut query = String::from("INSERT INTO subreddit_mods (subreddit_id, username) VALUES ");
         let mut params: Vec<&(dyn postgres_types::ToSql + Sync)> = vec![&id];
 
-        for user_id in user_ids {
-            params.push(&*user_id);
+        for username in usernames {
+            params.push(&*username);
             let _ = writeln!(query, "($1, ${}),", params.len());
         }
 
@@ -120,7 +124,23 @@ impl SubredditsRepo for crate::client::PgClient {
 
         db.execute(&query, &params).await?;
 
+        db.execute(
+            "UPDATE subreddits SET last_sync=CURRENT_TIMESTAMP WHERE id=$1",
+            &[&id],
+        )
+        .await?;
+
         db.commit().await?;
+
+        Ok(())
+    }
+
+    async fn set_subreddit_enabled(&self, id: &str, enabled: bool) -> Result<(), Self::Error> {
+        self.execute(
+            "UPDATE subreddits SET enabled=$2 WHERE id=$1",
+            &[&id, &enabled],
+        )
+        .await?;
 
         Ok(())
     }
@@ -130,6 +150,8 @@ impl SubredditsRepo for crate::client::PgClient {
 pub struct Subreddit {
     pub id: String,
     pub name: String,
+    /// False if we are no longer a moderator of this subreddit.
+    pub enabled: bool,
     pub last_sync: DateTimeUtc,
     pub seq_num: i32,
     pub mod_json_schema: i32,
@@ -145,9 +167,30 @@ pub struct Subreddit {
 }
 
 impl Subreddit {
+    pub fn new(id: &str, name: &str) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            enabled: true,
+            last_sync: DateTimeUtc::UNIX_EPOCH,
+            seq_num: 0,
+            mod_json_schema: 0,
+            removal_reasons: RemovalReasonsMap::default(),
+            mod_scams: ScamsModule::default(),
+            mod_ai_slop: AiSlopModule::default(),
+            mod_staff_reply: StaffReplyModule::default(),
+            mod_status: StatusModule::default(),
+            mod_related_title: RelatedTitleModule::default(),
+            mod_complex_comments: ComplexCommentsModule::default(),
+            mod_comments_code: CommentsCodeModule::default(),
+            mod_comments_cdn: CommentsCdnModule::default(),
+        }
+    }
+
     fn from_row(row: Row) -> DbResult<Self> {
         let id = row.get("id");
         let name = row.get("name");
+        let enabled = row.get("enabled");
         let last_sync = row.get("last_sync");
         let seq_num = row.get("seq_num");
 
@@ -166,6 +209,7 @@ impl Subreddit {
         Ok(Self {
             id,
             name,
+            enabled,
             last_sync,
             seq_num,
             mod_json_schema,
@@ -193,6 +237,13 @@ impl RemovalReasonsMap {
         self.map.get(reason).map(|v| v.as_str())
     }
 
+    pub fn get_or_default(&self, reason: &str) -> Option<&str> {
+        match self.get(reason) {
+            Some(r) => Some(r),
+            None => self.get("#default"),
+        }
+    }
+
     pub fn insert(&mut self, key: impl Into<String>, mapped: impl Into<String>) {
         self.map.insert(key.into(), mapped.into());
     }
@@ -203,36 +254,89 @@ impl RemovalReasonsMap {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct StaffReplyModule {
     pub enabled: bool,
     pub flair_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub css_class: Option<String>,
+    pub ignore_post_title_contains: Vec<String>,
+}
+
+impl StaffReplyModule {
+    pub fn is_staff(&self, template_id: Option<&str>, css_class: Option<&str>) -> bool {
+        template_id.is_some_and(|id| id == self.flair_id)
+            || self.css_class.as_ref().map(|v| v.as_str()) == css_class
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct StatusModule {
     pub enabled: bool,
     pub min_impact: statuspage::incident::IncidentImpact,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sticky: Option<StatusStickyConfig>,
     pub distinguish: bool,
 }
 
+impl Default for StatusModule {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            min_impact: statuspage::incident::IncidentImpact::Critical,
+            sticky: None,
+            distinguish: false,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct StatusStickyConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub replace_sticky: Option<String>,
-    pub comment_threshold: i32,
-    pub delay_minor_mins: i32,
-    pub delay_major_mins: i32,
+    pub comment_threshold: u64,
+    pub delay_minor_mins: u64,
+    pub delay_major_mins: u64,
     pub min_impact: Option<statuspage::incident::IncidentImpact>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub only_for: Option<Vec<String>>,
+}
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct AiSlopModule {
+    pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modmail_to: Option<String>,
+}
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ComplexCommentRule {
+    pub name: String,
+    pub reason: String,
+    pub link_title: Vec<String>,
+    pub comment: Vec<String>,
+    #[serde(default)]
+    pub ignore_flairs: Vec<String>,
+}
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ComplexCommentsModule {
+    pub enabled: bool,
+    #[serde(default)]
+    pub items: Vec<ComplexCommentRule>,
+}
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RelatedTitleModule {
+    pub enabled: bool,
+    pub reason: String,
 }
 
 macro_rules! make_simple_module {
     ($($name:ident),* $(,)?) => {
         $(
 
-            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
             pub struct $name {
                 pub enabled: bool,
             }
@@ -240,11 +344,4 @@ macro_rules! make_simple_module {
     };
 }
 
-make_simple_module!(
-    ScamsModule,
-    AiSlopModule,
-    RelatedTitleModule,
-    ComplexCommentsModule,
-    CommentsCdnModule,
-    CommentsCodeModule
-);
+make_simple_module!(ScamsModule, CommentsCdnModule, CommentsCodeModule);

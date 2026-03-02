@@ -1,8 +1,8 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::Context;
 use clap::Parser;
-use mlapibot_reddit::config::GlobalSettings;
+use mlapibot_common::config::GlobalSettings;
 
 mod db;
 mod download;

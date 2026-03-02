@@ -7,6 +7,7 @@ impl super::Migration for AddFrontend {
             CREATE TABLE subreddits (
                 id              TEXT        PRIMARY KEY NOT NULL,
                 name            TEXT        NOT NULL,
+                enabled         BOOLEAN     NOT NULL DEFAULT TRUE,
                 last_sync       TIMESTAMPTZ NOT NULL,
 
                 seq_num         INTEGER     NOT NULL DEFAULT 0,
@@ -25,9 +26,9 @@ impl super::Migration for AddFrontend {
 
             CREATE TABLE subreddit_mods (
                 subreddit_id    TEXT        REFERENCES subreddits(id) ON DELETE CASCADE NOT NULL ,
-                user_id         TEXT        NOT NULL,
+                username       TEXT        NOT NULL,
 
-                PRIMARY KEY (subreddit_id, user_id)
+                PRIMARY KEY (subreddit_id, username)
             );
 
             CREATE TABLE subreddit_templates (

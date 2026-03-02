@@ -1,6 +1,8 @@
 use mlapibot_common::Words;
 use roux::{client::RemoveReason, util::error::RouxErrorKind};
 
+use crate::subreddit::Subreddit;
+
 pub struct CommentComplex;
 
 #[async_trait::async_trait(?Send)]
@@ -20,18 +22,17 @@ impl super::Module for CommentComplex {
         super::ModuleWants::COMMENTS
     }
 
-    super::impl_mask_subreddits!(comments_complex => comments);
+    super::impl_mask_subreddits!(mod_complex_comments => comments);
 
     async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
+        subreddit: &mut Subreddit,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
-        let Some(config) = client.subreddits_config.get(comment.subreddit()) else {
-            return Ok(());
-        };
+        let config = &subreddit.db.mod_complex_comments;
 
-        for complex in &config.comments_complex {
+        for complex in &config.items {
             if comment
                 .author_flair_css_class()
                 .is_some_and(|v| complex.ignore_flairs.iter().any(|f| f == v))
@@ -53,7 +54,7 @@ impl super::Module for CommentComplex {
             }
 
             comment
-                .remove_with_reason(false, RemoveReason::ReasonId(&complex.reason_id))
+                .remove_with_reason(false, RemoveReason::ReasonId(&complex.reason))
                 .await?;
         }
 
