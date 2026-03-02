@@ -31,7 +31,6 @@ export const savePendingChanges = command(
     const result = await db.tryApplyPendingChanges(subreddit, changes);
 
     if ("ok" in result) {
-      console.log("Refresh sub options");
       getSubredditOptions(subreddit).refresh();
 
       if (
