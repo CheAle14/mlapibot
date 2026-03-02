@@ -19,6 +19,7 @@
     import { savePendingChanges } from "$lib/api/changes.remote";
     import StatusStickySettings from "./StatusStickySettings.svelte";
     import { Check } from "@lucide/svelte";
+    import ComplexCommentsSettings from "./ComplexCommentsSettings.svelte";
 
     const STATUS_URL = "https://discordstatus.com/api/v2";
     const { params, data }: PageProps = $props();
@@ -133,6 +134,10 @@
                 <Accordion.Trigger>Removal reasons map</Accordion.Trigger>
 
                 <Accordion.Content class="pl-2">
+                    <p>
+                        These aliases are primarily to allow OCR rules to be
+                        copy-pasted between a test subreddit and this one
+                    </p>
                     <RemovalReasons
                         original={options.removal_reasons}
                         bind:current={changes.removal_reasons}
@@ -341,7 +346,35 @@
                 {open}
                 bind:current={changes}
                 original={options}
-            />
+            >
+                {#snippet children({ open, current })}
+                    <div class="w-full max-w-md">
+                        <Field.Group>
+                            <Field.Set>
+                                <Field.Field>
+                                    <Field.Label>Modmail recipient</Field.Label>
+                                    <Field.Description
+                                        ><p>
+                                            Slop reports for /r/{params.subreddit}
+                                            will be sent to this subreddit.
+                                        </p>
+
+                                        <p>
+                                            If absent, send it to /r/{params.subreddit}
+                                        </p></Field.Description
+                                    >
+
+                                    <InputClearable
+                                        type="text"
+                                        bind:value={current.modmail_to}
+                                        placeholder={params.subreddit}
+                                    />
+                                </Field.Field>
+                            </Field.Set>
+                        </Field.Group>
+                    </div>
+                {/snippet}
+            </Module>
 
             <Module
                 key="related_title"
@@ -357,7 +390,15 @@
                 {open}
                 bind:current={changes}
                 original={options}
-            />
+            >
+                {#snippet children({ current, original })}
+                    <ComplexCommentsSettings
+                        removal_reasons={changes?.removal_reasons ?? {}}
+                        bind:current={current.items}
+                        original={original.items}
+                    />
+                {/snippet}
+            </Module>
 
             <Module
                 key="comments_code"

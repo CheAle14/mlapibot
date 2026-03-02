@@ -12,6 +12,12 @@ export function removeFirstInArrayBy<T>(
   }
 }
 
+export function removeAtIndex<T>(array: T[] | undefined, idx: number) {
+  if (array) {
+    array.splice(idx, 1);
+  }
+}
+
 export function updateFirstInArrayBy<T>(
   array: T[],
   predicate: (item: T) => boolean,

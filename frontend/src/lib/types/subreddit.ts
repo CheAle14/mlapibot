@@ -1,6 +1,8 @@
 import * as z from "zod";
 import { ZCreateTemplateInfo, ZEditTemplateInfo } from "./templates";
 
+const ZRemovalReason = z.string();
+
 export const ZScamInfo = z.object({
   id: z.int32(),
   name: z.string(),
@@ -17,7 +19,7 @@ export const ZScamInfo = z.object({
   body: z.json().optional(),
   title_or_body: z.json().optional(),
 
-  reason: z.string().optional(),
+  reason: ZRemovalReason.optional(),
   template: z.int32().optional(),
 
   remove: z.boolean(),
@@ -45,9 +47,29 @@ const BaseModule = z.object({
 });
 
 export const ZModuleScams = BaseModule.extend({});
-export const ZModuleAiSlop = BaseModule.extend({});
+export const ZModuleAiSlop = BaseModule.extend({
+  modmail_to: z.string().optional(),
+});
 export const ZModuleRelatedTitle = BaseModule.extend({});
-export const ZModuleComplexComments = BaseModule.extend({});
+
+export const ZComplexCommentInfo = z.object({
+  name: z.string(),
+  link_title: z.array(z.string()),
+  comment: z.array(z.string()),
+  ignore_flairs: z.array(z.string()).optional(),
+  reason: ZRemovalReason,
+});
+
+export type ComplexCommentInfo = z.infer<typeof ZComplexCommentInfo>;
+
+export interface ComplexCommentModalItem extends ComplexCommentInfo {
+  old_name?: string;
+}
+
+export const ZModuleComplexComments = BaseModule.extend({
+  items: z.array(ZComplexCommentInfo).optional(),
+});
+
 export const ZModuleCommentsCdn = BaseModule.extend({});
 export const ZModuleCommentsCode = BaseModule.extend({});
 

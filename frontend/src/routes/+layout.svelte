@@ -7,6 +7,7 @@
     import * as Sidebar from "$lib/components/ui/sidebar";
     import * as Collapsible from "$lib/components/ui/collapsible";
     import { ChevronDown, Shield } from "@lucide/svelte";
+    import { page } from "$app/state";
 
     let { children, data }: LayoutProps = $props();
 </script>
@@ -39,6 +40,9 @@
                                     <Collapsible.Content>
                                         <Sidebar.MenuSub>
                                             {#each data.subs as sub (sub.id)}
+                                                {@const href =
+                                                    "/subreddits/" + sub.name}
+
                                                 <Sidebar.MenuSubItem>
                                                     <Sidebar.SidebarMenuSubButton
                                                     >
@@ -46,14 +50,16 @@
                                                             props,
                                                         })}
                                                             <a
-                                                                href={`/subreddits/${sub.name}`}
+                                                                {href}
                                                                 {...props}
                                                             >
-                                                                {#if data.me?.admin && sub.is_mod}
-                                                                    <Shield />
-                                                                {/if}
-
                                                                 /r/{sub.name}
+
+                                                                {#if data.me?.admin && sub.is_mod}
+                                                                    <Shield
+                                                                        class="right-0 absolute"
+                                                                    />
+                                                                {/if}
                                                             </a>
                                                         {/snippet}
                                                     </Sidebar.SidebarMenuSubButton>

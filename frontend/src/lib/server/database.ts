@@ -111,12 +111,14 @@ export async function getSidebarSubreddits(
     JOIN subreddit_mods mods
     ON sub.id = mods.subreddit_id
     WHERE mods.user_id=${user_id}
+    ORDER BY sub.name
     `;
 
   if (is_admin) {
     const all_subs = await sql<{ id: string; name: string }[]>`
       SELECT sub.id, sub.name
-      FROM subreddits sub`;
+      FROM subreddits sub
+      ORDER BY sub.name`;
 
     return all_subs.map((sub) => ({
       ...sub,

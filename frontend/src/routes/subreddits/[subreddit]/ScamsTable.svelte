@@ -230,7 +230,7 @@
     </Table.Body>
     <Table.Footer>
         <Table.Row>
-            <Table.Cell colspan={3}>
+            <Table.Cell colspan={4}>
                 <Button
                     size="sm"
                     class="float-end"

@@ -2,17 +2,19 @@
     import * as MySelect from "$lib/components/reuse/select";
 
     interface Props {
+        required?: boolean;
         reasons: Record<string, string>;
         value?: string;
     }
 
-    let { reasons, value = $bindable() }: Props = $props();
+    let { required, reasons, value = $bindable() }: Props = $props();
     const options = $derived(
         Object.entries(reasons).map(([id, value]) => ({ id, value })),
     );
 </script>
 
 <MySelect.Simple
+    {required}
     {options}
     bind:selected={
         () => options.find((i) => i.id === value), (v) => (value = v?.id)

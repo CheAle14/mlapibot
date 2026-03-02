@@ -10,6 +10,7 @@
         options: T[];
         selected?: T;
         placeholder?: string;
+        required?: boolean;
 
         clearable?: boolean;
         trigger?: Snippet<[T]>;
@@ -23,6 +24,7 @@
         clearable,
         item,
         trigger,
+        ...selectProps
     }: Props<T> = $props();
 </script>
 
@@ -33,6 +35,7 @@
             () => selected?.id?.toString(),
             (v) => (selected = options.find((o) => o.id == v))
         }
+        {...selectProps}
     >
         <Select.Trigger class="w-full">
             {#if selected}
