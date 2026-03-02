@@ -69,6 +69,15 @@
         return options !== undefined && !_.isEqual(options, changes);
     });
 
+    const isAllDisabled = $derived.by(() => {
+        for (const key of ModuleKeys) {
+            if (changes && changes[key].enabled) {
+                return false;
+            }
+        }
+        return true;
+    });
+
     const toggleSticky = (v: boolean) => {
         if (!changes) return;
         console.log("set toggle:", v);
@@ -111,8 +120,10 @@
             Save changes
         </Button>
 
-        <Button disabled={hasChanges} variant="destructive" onclick={disableAll}
-            >DISABLE ALL</Button
+        <Button
+            disabled={isAllDisabled}
+            variant="destructive"
+            onclick={disableAll}>DISABLE ALL</Button
         >
 
         <Button disabled={!hasChanges} onclick={revertPendingChanges}
