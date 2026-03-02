@@ -48,6 +48,7 @@ const DbModuleCommentsCode = BaseModule.extend({});
 const DbModuleStaffReply = BaseModule.extend({
   flair_id: z.string(),
   css_class: z.string().optional(),
+  ignore_post_title_contains: z.array(z.string()),
 });
 
 const StatusIncidentImpact = z.enum([
@@ -58,7 +59,7 @@ const StatusIncidentImpact = z.enum([
   "critical",
 ]);
 
-const StatusStickyConfig = z.object({
+export const ZStatusStickyConfig = z.object({
   replace_sticky: z.string().optional(),
   comment_threshold: z.int32().min(0),
   delay_minor_mins: z.int32().min(0),
@@ -67,9 +68,11 @@ const StatusStickyConfig = z.object({
   only_for: z.array(z.string()).optional(),
 });
 
+export type StatusStickyConfig = z.infer<typeof ZStatusStickyConfig>;
+
 const DbModuleStatus = BaseModule.extend({
   min_impact: StatusIncidentImpact,
-  sticky: StatusStickyConfig.optional(),
+  sticky: ZStatusStickyConfig.optional(),
   distinguish: z.boolean(),
 });
 

@@ -21,7 +21,7 @@
     });
 </script>
 
-<div class="flex justify-around">
+<div class="flex flex-col lg:flex-row justify-around">
     <div class="w-full max-w-md">
         <form {...createSubreddit}>
             <Field.Group>

@@ -4,6 +4,7 @@
 
     type VariousProps = {
         type: "text" | "number";
+        placeholder?: string;
         value: string | number | undefined;
     };
 

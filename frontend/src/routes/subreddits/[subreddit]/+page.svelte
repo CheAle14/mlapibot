@@ -3,13 +3,14 @@
     import type { PageProps } from "./$types";
     import * as Accordion from "$lib/components/ui/accordion";
     import * as Field from "$lib/components/ui/field";
-    import { Input, InputClearable } from "$lib/components/ui/input";
+    import { Input, InputClearable, InputList } from "$lib/components/ui/input";
     import { Checkbox } from "$lib/components/ui/checkbox";
     import { Switch } from "$lib/components/ui/switch";
     import {
         ModuleKeys,
         type PendingSubredditOptions,
         type ScamInfo,
+        type StatusStickyConfig,
         type SubredditOptions,
     } from "$lib/types/subreddit";
     import { Json, JsonMany } from "$lib/components/ui/json";
@@ -22,7 +23,9 @@
     import Templates from "$lib/components/templates/Templates.svelte";
     import { getSubredditOptions } from "$lib/api/options.remote";
     import { savePendingChanges } from "$lib/api/changes.remote";
+    import StatusStickySettings from "./StatusStickySettings.svelte";
 
+    const STATUS_URL = "https://discordstatus.com/api/v2";
     const { params, data }: PageProps = $props();
 
     const subreddit = $derived(
@@ -280,6 +283,23 @@
                                 >Settings for when and how an incident post is
                                 made</Field.Description
                             >
+
+                            <Field.Field>
+                                <Field.Label for="api_url"
+                                    >Status API URL</Field.Label
+                                >
+                                <Field.Description
+                                    >The URL where the Atlassian StatusPage API
+                                    is located</Field.Description
+                                >
+
+                                <Input
+                                    type="text"
+                                    disabled
+                                    value={STATUS_URL}
+                                />
+                            </Field.Field>
+
                             <Field.Field>
                                 <Field.Label for="min_impact"
                                     >Minimum Impact</Field.Label
@@ -338,108 +358,20 @@
                             </Field.Field>
 
                             {#if current.sticky}
-                                <Field.Field>
-                                    <Field.Label for="sticky.min_impact"
-                                        >Minimum Impact</Field.Label
-                                    >
-                                    <Field.Description
-                                        >Incidents below this impact will not be
-                                        stickied</Field.Description
-                                    >
-
-                                    <SelectIncidentImpact
-                                        bind:value={
-                                            () =>
-                                                current.sticky?.min_impact ??
-                                                "none",
-                                            (v) =>
-                                                _.set(
-                                                    pending,
-                                                    "sticky.min_impact",
-                                                    v,
-                                                )
+                                <StatusStickySettings
+                                    status_url={STATUS_URL}
+                                    current={current.sticky as StatusStickyConfig}
+                                    update={(key, value) => {
+                                        if (pending.sticky) {
+                                            pending.sticky[key] = value;
+                                        } else {
+                                            pending.sticky = {
+                                                ...current.sticky,
+                                                [key]: value,
+                                            } as StatusStickyConfig;
                                         }
-                                    />
-                                </Field.Field>
-
-                                <Field.Field>
-                                    <Field.Label for="comment_threshold"
-                                        >Comment threshold</Field.Label
-                                    >
-                                    <Field.Description
-                                        >The threshold that determines whether a
-                                        post is 'minor' or 'major', for the two
-                                        following settings</Field.Description
-                                    >
-
-                                    <Input
-                                        type="number"
-                                        bind:value={
-                                            () =>
-                                                current.sticky
-                                                    ?.comment_threshold ?? 0,
-                                            (v) =>
-                                                _.set(
-                                                    pending,
-                                                    "sticky.comment_threshold",
-                                                    v,
-                                                )
-                                        }
-                                    />
-                                </Field.Field>
-
-                                <Field.Field>
-                                    <Field.Label for="delay_minor_mins"
-                                        >Delay for minor posts (mins)</Field.Label
-                                    >
-                                    <Field.Description
-                                        >How long after a 'minor' post is
-                                        resolved should it be unstickied</Field.Description
-                                    >
-
-                                    <Input
-                                        id="delay_minor_mins"
-                                        type="number"
-                                        bind:value={
-                                            () =>
-                                                current.sticky
-                                                    ?.delay_minor_mins ?? 0,
-                                            (v) =>
-                                                _.set(
-                                                    pending,
-                                                    "sticky.delay_minor_mins",
-                                                    v,
-                                                )
-                                        }
-                                    />
-                                </Field.Field>
-
-                                <Field.Field>
-                                    <Field.Label for="delay_major_mins"
-                                        >Delay for major posts (mins)</Field.Label
-                                    >
-                                    <Field.Description
-                                        >How long after a 'major' post is
-                                        resolved should it be unstickied</Field.Description
-                                    >
-
-                                    <Input
-                                        id="delay_major_mins"
-                                        type="number"
-                                        bind:value={
-                                            () =>
-                                                current.sticky
-                                                    ?.delay_major_mins ?? 0,
-                                            (v) => {
-                                                _.set(
-                                                    pending,
-                                                    "sticky.delay_major_mins",
-                                                    v,
-                                                );
-                                            }
-                                        }
-                                    />
-                                </Field.Field>
+                                    }}
+                                />
                             {/if}
                         </Field.Set>
                     </Field.Group>
@@ -490,6 +422,30 @@
                                         bind:value={
                                             () => current.css_class,
                                             (v) => (pending.css_class = v)
+                                        }
+                                    />
+                                </Field.Field>
+                                <Field.Field>
+                                    <Field.Label
+                                        >Post title exclusion</Field.Label
+                                    >
+                                    <Field.Description
+                                        >Ignore posts whose title contains this
+                                        text</Field.Description
+                                    >
+
+                                    <InputList
+                                        type="text"
+                                        thingName="phrases"
+                                        popoverClass="lg:w-md"
+                                        bind:value={
+                                            () =>
+                                                current.ignore_post_title_contains,
+                                            (v) => {
+                                                console.log("wow", v);
+                                                pending.ignore_post_title_contains =
+                                                    v;
+                                            }
                                         }
                                     />
                                 </Field.Field>
