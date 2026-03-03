@@ -178,7 +178,7 @@ export async function tryApplyPendingChanges(
   id: string,
   changes: ApiSubredditOptions,
 ): Promise<AppliedResult> {
-  return sql.begin(async (sql) => {
+  const result = await sql.begin(async (sql) => {
     const [subreddit]: [Subreddit?] = await sql`
         SELECT *
         FROM subreddits
@@ -351,11 +351,12 @@ export async function tryApplyPendingChanges(
       WHERE id=${subreddit.id}
     `;
 
-    await sql.notify(
-      "mlapibot",
-      JSON.stringify({ type: "subreddit", id: subreddit.id }),
-    );
-
     return { ok: mapDataToOptions(subreddit) };
   });
+
+  if (result.ok !== undefined) {
+    await sql.notify("mlapibot", JSON.stringify({ type: "subreddit", id }));
+  }
+
+  return result;
 }
