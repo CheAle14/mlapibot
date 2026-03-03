@@ -15,6 +15,7 @@ pub struct RedditSettings {
     pub client_secret: String,
     pub username: String,
     pub password: String,
+    pub user_agent: String,
 }
 
 #[derive(Clone, Deserialize)]

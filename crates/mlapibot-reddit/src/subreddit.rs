@@ -8,7 +8,9 @@ use chrono::Utc;
 
 use mlapibot_database_v2::repos::{
     incidents::{IncidentRepo, ResolvedIncidentPost, StickyState},
-    subreddits::{StatusModule, StatusStickyConfig},
+    subreddits::{
+        ReplyTemplate, ReplyTemplateId, Scam, ScamsModule, StatusModule, StatusStickyConfig,
+    },
 };
 use roux::{
     api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
@@ -19,7 +21,7 @@ use roux::{
 
 use mlapibot_common::{LazyCached, LowercaseString};
 
-use crate::{config::FlairSubBuilderExt, status_tracker::IncidentWithLive};
+use crate::{client::module::post_scams::ScamAnalyzer, status_tracker::IncidentWithLive};
 
 use super::{RouxClient, Submission};
 
@@ -35,6 +37,11 @@ pub struct Subreddit {
     // Cached in the database, periodically refreshed per
     // the `db.lasy_sync` time.
     moderators: HashSet<String>,
+
+    pub template_map: HashMap<ReplyTemplateId, String>,
+    pub templates: tera::Tera,
+    pub analyzers: Vec<ScamAnalyzer>,
+
     pub removal_reasons: SubCached<HashMap<String, RemovalReason>>,
 }
 
@@ -59,23 +66,42 @@ async fn fetch_removal_reasons(
 }
 
 impl Subreddit {
-    pub fn new(
+    pub async fn new(
         reddit: RouxSubreddit,
         db: DbSubreddit,
+        templates: Vec<ReplyTemplate>,
+        analyzers: Vec<Scam>,
         moderators: HashSet<String>,
         name: LowercaseString,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let removal_reasons = SubCached::new(Duration::from_secs(60 * 60), |c| {
             Box::pin(fetch_removal_reasons(c))
         });
 
-        Self {
+        let mut tera = tera::Tera::default();
+        let mut map = HashMap::new();
+
+        tera.add_raw_templates(
+            templates
+                .iter()
+                .map(|t| (t.name.as_str(), t.content.as_str())),
+        )
+        .with_context(|| format!("build tera templates for /r/{name}"))?;
+
+        for template in templates {
+            map.insert(template.id, template.name);
+        }
+
+        Ok(Self {
             reddit,
             db,
             lower: name,
+            templates: tera,
+            template_map: map,
+            analyzers: analyzers.into_iter().map(ScamAnalyzer).collect(),
             removal_reasons,
             moderators,
-        }
+        })
     }
 
     pub fn is_moderator(&mut self, username: &str) -> bool {
@@ -286,7 +312,7 @@ impl Subreddit {
             return Ok(());
         };
 
-        let submission = self
+        let submission: Submission = self
             .reddit
             .client
             .get_submissions(&[&thing])

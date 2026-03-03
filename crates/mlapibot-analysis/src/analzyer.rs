@@ -1,116 +1,90 @@
-use mlapibot_common::Detection;
-use serde::{Deserialize, Deserializer};
+use std::cell::LazyCell;
+
+use mlapibot_common::{Detection, Words, matchers::Matchers};
 
 use crate::{Context, matcher::Matcher};
 
-fn default_template() -> String {
-    String::from("default.md")
-}
+pub trait Analyzer {
+    fn name(&self) -> &str;
+    fn ocr(&self) -> Option<&Matchers>;
+    fn title(&self) -> Option<&Matchers>;
+    fn body(&self) -> Option<&Matchers>;
+    fn title_or_body(&self) -> Option<&Matchers>;
 
-fn default_true() -> bool {
-    true
-}
+    fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
+        let mut detection = Detection::new();
 
-// Any value that is present is considered Some value, including null.
-// https://github.com/serde-rs/serde/issues/984#issuecomment-314143738
-fn deserialize_some<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    T: Deserialize<'de>,
-    D: Deserializer<'de>,
-{
-    Deserialize::deserialize(deserializer).map(Some)
-}
+        let lazy_body = LazyCell::new(|| context.body.as_ref().map(Words::new));
+        let lazy_title = LazyCell::new(|| context.title.as_ref().map(Words::new));
 
-#[derive(Deserialize)]
-struct RawTemplateName {
-    #[serde(default, deserialize_with = "deserialize_some")]
-    template: Option<Option<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(from = "RawTemplateName")]
-pub struct TemplateName(Option<String>);
-
-impl From<RawTemplateName> for TemplateName {
-    fn from(value: RawTemplateName) -> Self {
-        match value.template {
-            Some(None) => Self(None),
-            None => Self(Some(default_template())),
-            Some(Some(text)) => Self(Some(format!("{text}.md"))),
-        }
-    }
-}
-
-impl TemplateName {
-    pub fn name(&self) -> Option<&str> {
-        self.0.as_ref().map(|s| s.as_str())
-    }
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Analyzer {
-    pub name: String,
-    #[serde(default)]
-    pub disabled: bool,
-    #[serde(default)]
-    pub report: bool,
-    #[serde(default)]
-    pub remove: bool,
-    #[serde(default = "default_true")]
-    pub ignore_self_posts: bool,
-    #[serde(flatten)]
-    pub template: TemplateName,
-    blacklist: Option<crate::matcher::MatcherKind>,
-    #[serde(flatten)]
-    kind: AnalyzerKind,
-}
-
-impl Analyzer {
-    pub fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
-        if self.disabled {
-            return Ok(None);
-        }
-
-        let result = self.kind.analyze(context)?;
-        if let Some(result) = result {
-            if let Some(blacklist) = &self.blacklist {
-                if blacklist.any_matches(context) {
-                    return Ok(None);
+        if let Some(ocr) = self.ocr() {
+            for (idx, image) in context.images.iter().enumerate() {
+                let words = image.words();
+                if context.debug {
+                    println!("OCR Image {idx}:");
+                }
+                if let Some(result) = ocr.best_match(&words, context.debug) {
+                    detection.add_image(idx, result);
                 }
             }
-
-            Ok(Some(result))
-        } else {
-            Ok(None)
         }
+
+        for title in [self.title(), self.title_or_body()] {
+            if let Some(title) = title {
+                if let Some(words) = &*lazy_title {
+                    let words = words.as_words();
+                    if let Some(value) = title.best_match(&words, context.debug) {
+                        println!("min-max: {:?}", value.min_max_word_indexes());
+                        detection.set_title(value);
+                    }
+                }
+            }
+        }
+
+        for body in [self.body(), self.title_or_body()] {
+            if let Some(body) = body {
+                if let Some(words) = &*lazy_body {
+                    let words = words.as_words();
+                    if let Some(value) = body.best_match(&words, context.debug) {
+                        detection.set_body(value);
+                    }
+                }
+            }
+        }
+
+        Ok(detection.finish())
     }
 }
 
-mod pattern;
-mod solid_colour;
-mod string;
-
-pub use pattern::*;
-pub use solid_colour::*;
-pub use string::*;
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-pub enum AnalyzerKind {
-    #[serde(rename = "colour")]
-    SolidColour(solid_colour::SolidColourAnalyzer),
-    #[serde(rename = "img")]
-    Pattern(pattern::PatternAnalyzer),
-    #[serde(untagged)]
-    Text(string::StrAnalzyer),
+#[cfg(test)]
+#[derive(Default)]
+pub struct TestAnalyzer {
+    pub name: &'static str,
+    pub ocr: Option<Matchers>,
+    pub title: Option<Matchers>,
+    pub body: Option<Matchers>,
+    pub title_or_body: Option<Matchers>,
 }
 
-impl AnalyzerKind {
-    fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
-        match self {
-            AnalyzerKind::SolidColour(v) => v.analyze(context),
-            AnalyzerKind::Text(v) => v.analyze(context),
-            AnalyzerKind::Pattern(v) => v.analyze(context),
-        }
+#[cfg(test)]
+impl Analyzer for TestAnalyzer {
+    fn name(&self) -> &str {
+        self.name
+    }
+
+    fn ocr(&self) -> Option<&Matchers> {
+        self.ocr.as_ref()
+    }
+
+    fn title(&self) -> Option<&Matchers> {
+        self.title.as_ref()
+    }
+
+    fn body(&self) -> Option<&Matchers> {
+        self.body.as_ref()
+    }
+
+    fn title_or_body(&self) -> Option<&Matchers> {
+        self.title_or_body.as_ref()
     }
 }

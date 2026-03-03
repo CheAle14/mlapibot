@@ -1,6 +1,5 @@
 use std::{fmt::Write, path::PathBuf};
 
-use mlapibot_common::config::GlobalSettings;
 use mlapibot_reddit::{QuickStopError, RedditClient};
 use mlapibot_webhook::{WebhookClient, create_generic_error_message};
 
@@ -37,20 +36,10 @@ impl RedditArgs {
 
         let settings = crate::get_global_settings(&scratch_dir)?;
 
-        let analyzers = mlapibot_analysis::load_scams()?;
-
         let panic_webhook = settings.webhook_url.clone();
 
-        let mut client = RedditClient::new(
-            &analyzers,
-            data_dir,
-            dry_run,
-            status_webhook,
-            admin,
-            settings,
-            !release,
-        )
-        .await?;
+        let mut client =
+            RedditClient::new(data_dir, dry_run, status_webhook, admin, settings, !release).await?;
 
         match client.run().await {
             Ok(()) => Ok(()),

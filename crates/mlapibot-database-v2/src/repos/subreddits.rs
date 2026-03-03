@@ -1,8 +1,10 @@
-use std::collections::HashMap;
+use std::{borrow::Borrow, collections::HashMap};
 
 use postgres_types::Json;
 use serde::{Deserialize, Serialize};
 use tokio_postgres::Row;
+
+use mlapibot_common::matchers::Matchers;
 
 use crate::{DateTimeUtc, errors::DbResult};
 
@@ -20,6 +22,9 @@ pub trait SubredditsRepo {
         id: &str,
         usernames: &[&str],
     ) -> Result<(), Self::Error>;
+
+    async fn get_subreddit_templates(&self, id: &str) -> Result<Vec<ReplyTemplate>, Self::Error>;
+    async fn get_subreddit_scams(&self, id: &str) -> Result<Vec<Scam>, Self::Error>;
 }
 
 impl SubredditsRepo for crate::client::PgClient {
@@ -144,6 +149,28 @@ impl SubredditsRepo for crate::client::PgClient {
 
         Ok(())
     }
+
+    async fn get_subreddit_templates(&self, id: &str) -> Result<Vec<ReplyTemplate>, Self::Error> {
+        self.query_map(
+            "
+            SELECT * FROM subreddit_templates
+            WHERE subreddit_id=$1",
+            &[&id],
+            ReplyTemplate::from_row,
+        )
+        .await
+    }
+
+    async fn get_subreddit_scams(&self, id: &str) -> Result<Vec<Scam>, Self::Error> {
+        self.query_map(
+            "
+            SELECT * FROM subreddit_scam_rules
+            WHERE subreddit_id=$1",
+            &[&id],
+            Scam::from_row,
+        )
+        .await
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -226,31 +253,64 @@ impl Subreddit {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Hash)]
+#[serde(transparent)]
+pub struct RemovalReasonKey(String);
+
+impl std::fmt::Display for RemovalReasonKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl RemovalReasonKey {
+    pub fn new(key: impl Into<String>) -> Self {
+        Self(key.into())
+    }
+}
+
+super::impl_sql_fwd!(RemovalReasonKey as String);
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Default)]
 #[serde(transparent)]
 pub struct RemovalReasonsMap {
-    map: HashMap<String, String>,
+    map: HashMap<RemovalReasonKey, String>,
+}
+
+impl Borrow<str> for RemovalReasonKey {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
 }
 
 impl RemovalReasonsMap {
-    pub fn get(&self, reason: &str) -> Option<&str> {
+    pub fn get(&self, reason: &RemovalReasonKey) -> Option<&str> {
         self.map.get(reason).map(|v| v.as_str())
     }
 
-    pub fn get_or_default(&self, reason: &str) -> Option<&str> {
+    pub fn get_or_default(&self, reason: &RemovalReasonKey) -> Option<&str> {
         match self.get(reason) {
             Some(r) => Some(r),
-            None => self.get("#default"),
+            None => self.map.get("#default").map(|v| v.as_str()),
         }
     }
 
     pub fn insert(&mut self, key: impl Into<String>, mapped: impl Into<String>) {
-        self.map.insert(key.into(), mapped.into());
+        self.map.insert(RemovalReasonKey(key.into()), mapped.into());
     }
 
     pub fn with(mut self, key: impl Into<String>, mapped: impl Into<String>) -> Self {
         self.insert(key, mapped);
         self
+    }
+}
+
+impl<'a> IntoIterator for &'a RemovalReasonsMap {
+    type Item = (&'a RemovalReasonKey, &'a String);
+    type IntoIter = std::collections::hash_map::Iter<'a, RemovalReasonKey, String>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.map).into_iter()
     }
 }
 
@@ -329,7 +389,7 @@ pub struct ComplexCommentsModule {
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RelatedTitleModule {
     pub enabled: bool,
-    pub reason: String,
+    pub reason: RemovalReasonKey,
 }
 
 macro_rules! make_simple_module {
@@ -345,3 +405,104 @@ macro_rules! make_simple_module {
 }
 
 make_simple_module!(ScamsModule, CommentsCdnModule, CommentsCodeModule);
+
+super::make_newtype_id!(ReplyTemplateId, ScamId);
+
+#[derive(Debug)]
+pub struct ReplyTemplate {
+    pub id: ReplyTemplateId,
+    pub name: String,
+    pub content: String,
+}
+
+impl ReplyTemplate {
+    pub(crate) fn from_row(row: Row) -> DbResult<Self> {
+        let id = row.get("id");
+        let name = row.get("name");
+        let content = row.get("content");
+
+        Ok(Self { id, name, content })
+    }
+}
+
+#[derive(Debug)]
+pub struct Scam {
+    pub id: ScamId,
+    pub name: String,
+    pub enabled: bool,
+    pub self_post: bool,
+    pub remove: bool,
+    pub report: bool,
+
+    pub ocr: Option<Matchers>,
+    pub title: Option<Matchers>,
+    pub body: Option<Matchers>,
+    pub title_or_body: Option<Matchers>,
+
+    pub reason: Option<RemovalReasonKey>,
+    pub template: Option<ReplyTemplateId>,
+}
+
+impl Scam {
+    pub(crate) fn from_row(row: Row) -> DbResult<Self> {
+        let id = row.get("id");
+        let name = row.get("name");
+        let enabled = row.get("enabled");
+        let self_post = row.get("self_post");
+        let remove = row.get("remove");
+        let report = row.get("report");
+        let ocr: Option<Json<Matchers>> = row.get("ocr");
+        let title: Option<Json<Matchers>> = row.get("title");
+        let body: Option<Json<Matchers>> = row.get("body");
+        let title_or_body: Option<Json<Matchers>> = row.get("title_or_body");
+        let reason = row.get("reason");
+        let template = row.get("template");
+
+        Ok(Self {
+            id,
+            name,
+            enabled,
+            self_post,
+            remove,
+            report,
+            ocr: ocr.map(|v| v.0),
+            title: title.map(|v| v.0),
+            body: body.map(|v| v.0),
+            title_or_body: title_or_body.map(|v| v.0),
+            reason,
+            template,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{client::PgClientBuilder, errors::DbResult, repos::subreddits::SubredditsRepo};
+
+    #[tokio::test]
+    async fn dothething() -> DbResult<()> {
+        let pg = PgClientBuilder::new("postgres://postgres:postgres@localhost/mlapibot")
+            .connect()
+            .await?;
+
+        let subs = pg.fetch_all_subreddits().await?;
+
+        for sub in subs {
+            println!("/r/{}", sub.name);
+
+            let templates = pg.get_subreddit_templates(&sub.id).await?;
+
+            for t in templates {
+                println!("  # {t:?}");
+            }
+
+            let scams = pg.get_subreddit_scams(&sub.id).await?;
+
+            for s in scams {
+                println!("  > {s:?}");
+            }
+        }
+
+        Ok(())
+    }
+}

@@ -119,7 +119,7 @@ impl super::Module for PostAiSlop {
             config
                 .modmail_to
                 .as_ref()
-                .map(|v| v.as_str())
+                .map(|v: &String| v.as_str())
                 .unwrap_or_else(|| post.subreddit())
         );
 

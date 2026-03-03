@@ -1,4 +1,6 @@
 use anyhow::Context;
+use mlapibot_analysis::analzyer::Analyzer;
+use mlapibot_database_v2::repos::subreddits::Scam;
 
 use crate::{
     RedditClient,
@@ -59,7 +61,7 @@ impl super::Module for PostScams {
             .await?;
         }
 
-        let result = match mlapibot_analysis::get_best_analysis(&ctx, client.analzyers) {
+        let result = match mlapibot_analysis::get_best_analysis(&ctx, &subreddit.analyzers) {
             Ok(result) => result,
             Err(err) => {
                 eprintln!("Error whilst analyising {}: {err:?}", post.id());
@@ -71,7 +73,8 @@ impl super::Module for PostScams {
             }
         };
 
-        if let Some((detection, detected)) = result {
+        if let Some((_detection, detected)) = result {
+            let detected = &detected.0;
             println!(
                 "Triggered on post {:?} by /u/{}",
                 post.title(),
@@ -81,16 +84,35 @@ impl super::Module for PostScams {
             let mut template_context = tera::Context::new();
 
             let should_remove = if detected.remove && post.moderation().is_some() {
-                let reason_id = removal_reasons.get_or_default(&detected.name);
+                let reason_id = detected
+                    .reason
+                    .as_ref()
+                    .and_then(|key| removal_reasons.get(key));
 
                 if let Some(reason_id) = reason_id {
-                    let reason = subreddit
-                        .removal_reasons
-                        .data(&subreddit.reddit)
-                        .await?
-                        .get(reason_id)
-                        .map(|r| r.message.as_str())
-                        .unwrap_or("<error: removal reason not found>");
+                    let all_reasons = subreddit.removal_reasons.data(&subreddit.reddit).await?;
+
+                    let reason = match all_reasons.get(reason_id).map(|r| r.message.as_str()) {
+                        Some(reason) => reason,
+                        None => {
+                            eprintln!(
+                                "failed to get removal reason {reason_id:?} from {:?}",
+                                detected.reason
+                            );
+
+                            eprintln!("reddit has:");
+                            for (id, reason) in all_reasons {
+                                eprintln!("- {} = {}", id, reason.title);
+                            }
+
+                            eprintln!("\nour map is:");
+                            for (key, mapping) in removal_reasons {
+                                eprintln!("- {key} -> {mapping}");
+                            }
+
+                            "<error: removal reason not found>"
+                        }
+                    };
 
                     template_context.insert("removal_reason", reason);
                 }
@@ -136,11 +158,15 @@ impl super::Module for PostScams {
                 (_, _, _) => None,
             };
 
-            match detected.template.name() {
-                Some(text) => {
-                    let template = client
+            match detected
+                .template
+                .as_ref()
+                .and_then(|id| subreddit.template_map.get(id))
+            {
+                Some(template) => {
+                    let template = subreddit
                         .templates
-                        .render(text, &template_context)
+                        .render(&template, &template_context)
                         .with_context(|| {
                             format!("rendering to template {:?}", detected.template)
                         })?;
@@ -168,5 +194,35 @@ impl super::Module for PostScams {
         } else {
             Ok(PostAction::Ignore)
         }
+    }
+}
+
+pub struct ScamAnalyzer(pub Scam);
+
+impl std::fmt::Debug for ScamAnalyzer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Analyzer for ScamAnalyzer {
+    fn name(&self) -> &str {
+        &self.0.name
+    }
+
+    fn ocr(&self) -> Option<&mlapibot_common::matchers::Matchers> {
+        self.0.ocr.as_ref()
+    }
+
+    fn title(&self) -> Option<&mlapibot_common::matchers::Matchers> {
+        self.0.title.as_ref()
+    }
+
+    fn body(&self) -> Option<&mlapibot_common::matchers::Matchers> {
+        self.0.body.as_ref()
+    }
+
+    fn title_or_body(&self) -> Option<&mlapibot_common::matchers::Matchers> {
+        self.0.title_or_body.as_ref()
     }
 }

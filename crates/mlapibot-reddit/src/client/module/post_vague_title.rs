@@ -2,10 +2,7 @@ use std::collections::HashSet;
 
 use mlapibot_common::Words;
 
-use crate::{
-    client::module::{ActionData, PostAction},
-    subreddit::Subreddit,
-};
+use crate::client::module::{ActionData, PostAction};
 
 pub struct PostVagueTitle;
 

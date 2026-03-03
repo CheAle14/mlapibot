@@ -90,7 +90,7 @@ pub struct RegisteredModule {
     pub next_timer: Instant,
 }
 
-impl<'a> super::RedditClient<'a> {
+impl super::RedditClient {
     pub(super) fn build_modules(subreddits: &[Subreddit]) -> (SplitSubMask, Vec<RegisteredModule>) {
         macro_rules! modules {
             ($($name:ident),* $(,)?) => {{

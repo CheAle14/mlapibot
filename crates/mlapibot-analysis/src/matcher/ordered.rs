@@ -1,37 +1,15 @@
 use std::collections::HashSet;
 
-use mlapibot_common::DetectedItem;
-use serde::Deserialize;
+use mlapibot_common::{
+    DetectedItem,
+    matchers::{Matchers, OrderedMatcher},
+};
 
-use super::{Matcher, MatcherKind};
-
-#[derive(Debug, PartialEq, Clone, Deserialize)]
-pub struct OrderedMatcher {
-    children: Vec<MatcherKind>,
-    /// The maximum number of words permitted between each consecutive item.
-    #[serde(default)]
-    max_steps: Option<usize>,
-}
-
-impl OrderedMatcher {
-    pub fn new(children: Vec<MatcherKind>) -> Self {
-        Self {
-            children,
-            max_steps: None,
-        }
-    }
-
-    pub fn new_with_steps(children: Vec<MatcherKind>, max_steps: usize) -> Self {
-        Self {
-            children,
-            max_steps: Some(max_steps),
-        }
-    }
-}
+use super::Matcher;
 
 fn recursive_matches(
     words: &[&str],
-    matchers: &[MatcherKind],
+    matchers: &[Matchers],
     max_steps: usize,
     debug: bool,
     depth: usize,
@@ -120,17 +98,20 @@ impl Matcher for OrderedMatcher {
 
 #[cfg(test)]
 mod tests {
-    use mlapibot_common::{DetectedItem, Words};
+    use mlapibot_common::{
+        DetectedItem, Words,
+        matchers::{Matchers, PhraseMatcher},
+    };
 
-    use crate::matcher::{Matcher, MatcherKind, PhraseMatcher};
+    use crate::matcher::Matcher;
 
     use super::OrderedMatcher;
 
     #[test]
     pub fn test_multi_match() {
         let ordered = OrderedMatcher::new(vec![
-            MatcherKind::Phrase(PhraseMatcher::new("hello")),
-            MatcherKind::Phrase(PhraseMatcher::new("world")),
+            Matchers::Phrase(PhraseMatcher::new("hello")),
+            Matchers::Phrase(PhraseMatcher::new("world")),
         ]);
 
         let text = Words::new("hello there hello some other world");
@@ -167,10 +148,10 @@ mod tests {
     #[test]
     pub fn test_sorting() {
         let ordered = OrderedMatcher::new(vec![
-            MatcherKind::Phrase(PhraseMatcher::new("discords")),
-            MatcherKind::Phrase(PhraseMatcher::new("email")),
-            MatcherKind::Phrase(PhraseMatcher::new("service")),
-            MatcherKind::Phrase(PhraseMatcher::new("compromised")),
+            Matchers::Phrase(PhraseMatcher::new("discords")),
+            Matchers::Phrase(PhraseMatcher::new("email")),
+            Matchers::Phrase(PhraseMatcher::new("service")),
+            Matchers::Phrase(PhraseMatcher::new("compromised")),
         ]);
 
         let text = Words::new("apparently discords official email servers have been compromised and hackers are using it to sendout phishing links in officiallooking emails if you get an email from discord claiming your account has been disabled due to violating the tos but it still works when you log in do not click any of the links in the email copied from another server if you received an email from discordcom saying your account is disabled for a tos violation but the account is still functional do not click links in the email even though the email is considered valid by your email client
@@ -195,8 +176,8 @@ desktop yes this means that official discord emails cannot be trusted right now 
     #[test]
     pub fn test_matches() {
         let ordered = OrderedMatcher::new(vec![
-            MatcherKind::Phrase(PhraseMatcher::new("hello")),
-            MatcherKind::Phrase(PhraseMatcher::new("world")),
+            Matchers::Phrase(PhraseMatcher::new("hello")),
+            Matchers::Phrase(PhraseMatcher::new("world")),
         ]);
 
         let text = Words::new("hello there some other world");
@@ -213,9 +194,9 @@ desktop yes this means that official discord emails cannot be trusted right now 
     #[test]
     pub fn test_no_match() {
         let ordered = OrderedMatcher::new(vec![
-            MatcherKind::Phrase(PhraseMatcher::new("hello")),
-            MatcherKind::Phrase(PhraseMatcher::new("world")),
-            MatcherKind::Phrase(PhraseMatcher::new("another")),
+            Matchers::Phrase(PhraseMatcher::new("hello")),
+            Matchers::Phrase(PhraseMatcher::new("world")),
+            Matchers::Phrase(PhraseMatcher::new("another")),
         ]);
 
         let text = Words::new("hello there some other world");
@@ -229,8 +210,8 @@ desktop yes this means that official discord emails cannot be trusted right now 
     #[test]
     pub fn test_follows_ordering() {
         let ordered = OrderedMatcher::new(vec![
-            MatcherKind::Phrase(PhraseMatcher::new("hello")),
-            MatcherKind::Phrase(PhraseMatcher::new("world")),
+            Matchers::Phrase(PhraseMatcher::new("hello")),
+            Matchers::Phrase(PhraseMatcher::new("world")),
         ]);
 
         let text = Words::new("world hello");
@@ -245,8 +226,8 @@ desktop yes this means that official discord emails cannot be trusted right now 
     pub fn test_max_skip() {
         let ordered = OrderedMatcher::new_with_steps(
             vec![
-                MatcherKind::Phrase(PhraseMatcher::new("hello")),
-                MatcherKind::Phrase(PhraseMatcher::new("world")),
+                Matchers::Phrase(PhraseMatcher::new("hello")),
+                Matchers::Phrase(PhraseMatcher::new("world")),
             ],
             1,
         );
@@ -269,8 +250,8 @@ desktop yes this means that official discord emails cannot be trusted right now 
     pub fn test_zero_max_skip() {
         let ordered = OrderedMatcher::new_with_steps(
             vec![
-                MatcherKind::Phrase(PhraseMatcher::new("hello")),
-                MatcherKind::Phrase(PhraseMatcher::new("world")),
+                Matchers::Phrase(PhraseMatcher::new("hello")),
+                Matchers::Phrase(PhraseMatcher::new("world")),
             ],
             0,
         );

@@ -4,12 +4,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use chrono::Utc;
-use mlapibot_common::{
-    Cached, LowercaseString,
-    config::{GlobalSettings, RedditSettings},
-};
+use mlapibot_common::{Cached, LowercaseString, config::GlobalSettings};
 use mlapibot_database_v2::{
     client::{PgClient, PgClientBuilder, PgNotification},
     repos::{
@@ -35,7 +32,7 @@ use tokio::sync::mpsc;
 use super::{RouxClient, Submission};
 
 use crate::{
-    client::module::{InboxAction, InboxMsg, Module, PostAction, RegisteredModule, SplitSubMask},
+    client::module::{InboxAction, InboxMsg, PostAction, RegisteredModule, SplitSubMask},
     exts::SubmissionExt,
     ratelimiter::Ratelimiter,
     status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
@@ -46,14 +43,12 @@ use crate::{
 
 pub mod module;
 
-pub struct RedditClient<'a> {
+pub struct RedditClient {
     // data_dir: PathBuf,
     db: PgClient,
-    analzyers: &'a [Analyzer],
     own_name: String,
     pub client: RouxClient,
     subreddits: Vec<Subreddit>,
-    templates: Tera,
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
     github: Option<octocrab::Octocrab>,
@@ -81,10 +76,8 @@ macro_rules! make_view {
     ($self:ident) => {
         ModuleRedditClient {
             db: &$self.db,
-            analzyers: &$self.analzyers,
             own_name: &$self.own_name,
             client: &$self.client,
-            templates: &$self.templates,
             webhook: &mut $self.webhook,
             imgur: &mut $self.imgur,
             github: &mut $self.github,
@@ -99,9 +92,7 @@ macro_rules! make_view {
     };
 }
 
-impl<'a> RedditClient<'a> {
-    const USER_AGENT: &'static str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
-
+impl RedditClient {
     async fn fetch_and_sync_subreddits(
         db: &mut PgClient,
         reddit: &RouxClient,
@@ -189,16 +180,28 @@ impl<'a> RedditClient<'a> {
                 .get_subreddit_moderators(&db_sub.id)
                 .await
                 .with_context(|| format!("get sub mods {}", db_sub.id))?;
+            let moderators: HashSet<String> = moderators.into_iter().collect();
 
-            let moderators = moderators.into_iter().collect();
+            let templates = db.get_subreddit_templates(&db_sub.id).await?;
+            let scams = db.get_subreddit_scams(&db_sub.id).await?;
 
             let name = LowercaseString::new(&db_sub.name);
-            subreddits.push(Subreddit::new(
+
+            let sub = Subreddit::new(
                 client.subreddit(&db_sub.name),
                 db_sub,
+                templates,
+                scams,
                 moderators,
                 name,
-            ));
+            );
+
+            match sub.await {
+                Ok(sub) => subreddits.push(sub),
+                Err(err) => {
+                    eprintln!("failed to create subreddit: {err}")
+                }
+            }
         }
 
         Ok(subreddits)
@@ -221,7 +224,6 @@ impl<'a> RedditClient<'a> {
     }
 
     pub async fn new(
-        analzyers: &'a [Analyzer],
         data_dir: PathBuf,
         dry_run: bool,
         status_webhook: Option<String>,
@@ -229,11 +231,6 @@ impl<'a> RedditClient<'a> {
         settings: GlobalSettings,
         debug: bool,
     ) -> anyhow::Result<Self> {
-        let templates_path = data_dir.join("templates").join("*.md");
-        let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
-        let found: Vec<_> = templates.get_template_names().collect();
-        assert!(found.len() > 0);
-
         let reddit = settings
             .reddit
             .as_ref()
@@ -247,9 +244,10 @@ impl<'a> RedditClient<'a> {
             .await
             .context("initialize db")?;
 
-        let config = roux::Config::new(Self::USER_AGENT, &reddit.client_id, &reddit.client_secret)
-            .username(&reddit.username)
-            .password(&reddit.password);
+        let config =
+            roux::Config::new(&reddit.user_agent, &reddit.client_id, &reddit.client_secret)
+                .username(&reddit.username)
+                .password(&reddit.password);
 
         let client = OAuthClient::new(config)?.login().await?;
 
@@ -314,9 +312,7 @@ impl<'a> RedditClient<'a> {
             own_name: reddit.username.clone(),
             client,
             subreddits,
-            analzyers,
             // data_dir: scratch_dir,
-            templates,
             webhook,
             imgur,
             github,
@@ -863,8 +859,6 @@ impl<'a> RedditClient<'a> {
             );
         }
 
-        dbg!(&overall_sub_mask);
-
         let wants = modules
             .iter()
             .map(|reg| reg.module.wants())
@@ -983,10 +977,8 @@ impl<'a> RedditClient<'a> {
 
 pub struct ModuleRedditClient<'client> {
     db: &'client PgClient,
-    analzyers: &'client [Analyzer],
     own_name: &'client String,
     client: &'client RouxClient,
-    templates: &'client Tera,
     webhook: &'client mut Option<WebhookClient>,
     imgur: &'client mut Option<ImgurClient>,
     github: &'client mut Option<octocrab::Octocrab>,

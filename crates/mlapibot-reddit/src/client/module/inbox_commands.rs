@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use mlapibot_common::Detection;
 use mlapibot_database_v2::repos::{incidents::IncidentRepo, staff_replies::StaffReplyRepo};
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
@@ -8,7 +9,7 @@ use roux::{
 };
 
 use crate::{
-    QuickStopError, Submission,
+    Submission,
     client::{
         ModuleRedditClient,
         module::{InboxAction, InboxMsg, Module},
@@ -211,36 +212,47 @@ impl<'client> ModuleRedditClient<'client> {
         self.send_warnings(warnings, "Warnings in inbox test")
             .await?;
 
-        match mlapibot_analysis::get_best_analysis(&ctx, &self.analzyers) {
-            Ok(Some((detection, detected))) => {
-                let text = detection.get_markdown(&ctx)?;
-                let text = text.join("\n\n\n> ");
-                let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
-                message.reply(&s).await?;
-            }
-            Ok(None) => {
-                let mut text = String::from("No scams were detected, text was:\r\n\r\n");
-                for img in &ctx.images {
-                    text.push_str("> ");
-                    text.push_str(&img.full_text());
-                    text.push_str("\n\n\n");
-                }
-                message.reply(&text).await?;
-            }
-            Err(err) => {
-                eprintln!(
-                    "Error whilst analyising message {:?}: {err:?}",
-                    message.subject
-                );
-                if let Some(webhook) = &mut self.webhook {
-                    let msg = create_error_processing_message(message.author, message.subject);
-                    webhook.send(&msg).await?;
-                }
-                message.reply(
-                    "An internal error occured whilst attempting to process your request. Sorry!",
-                ).await?;
-            }
-        };
+        let fake_detection = Detection::new();
+        let text = fake_detection.get_markdown(&ctx)?.join("\n\n\n> ");
+
+        message
+            .reply(&format!(
+                "Currently unable to run analysis text; saw:\r\n\r\n> {text}"
+            ))
+            .await?;
+
+        // match mlapibot_analysis::get_best_analysis(&ctx, &self.analzyers) {
+        //     Ok(Some((detection, detected))) => {
+        //         let text = detection.get_markdown(&ctx)?;
+        //         let text = text.join("\n\n\n> ");
+        //         let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
+        //         message.reply(&s).await?;
+        //     }
+        //     Ok(None) => {
+        //         let mut text = String::from("No scams were detected, text was:\r\n\r\n");
+        //         for img in &ctx.images {
+        //             text.push_str("> ");
+        //             text.push_str(&img.full_text());
+        //             text.push_str("\n\n\n");
+        //         }
+        //         message.reply(&text).await?;
+        //     }
+        //     Err(err) => {
+        //         eprintln!(
+        //             "Error whilst analyising message {:?}: {err:?}",
+        //             message.subject
+        //         );
+        //         if let Some(webhook) = &mut self.webhook {
+        //             let msg = create_error_processing_message(message.author, message.subject);
+        //             webhook.send(&msg).await?;
+        //         }
+        //         message.reply(
+        //             "An internal error occured whilst attempting to process your request. Sorry!",
+        //         ).await?;
+        //     }
+        // };
+        //
+        //
         Ok(())
     }
 

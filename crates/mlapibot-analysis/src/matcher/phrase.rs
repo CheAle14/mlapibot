@@ -1,25 +1,11 @@
-use mlapibot_common::{DetectedItem, Words};
+use mlapibot_common::{DetectedItem, matchers::PhraseMatcher};
 use ord_many::max_many;
-use serde::Deserialize;
 
 use super::Matcher;
 
-#[derive(Debug, PartialEq, Clone, Deserialize)]
-pub struct PhraseMatcher {
-    pub children: Words,
-}
-
-impl PhraseMatcher {
-    pub fn new(text: impl Into<String>) -> Self {
-        let text = text.into();
-        let words = Words::new(text);
-        Self { children: words }
-    }
-}
-
 impl Matcher for PhraseMatcher {
     fn matches(&self, haystack: &[&str], debug: bool) -> Vec<DetectedItem> {
-        let words = self.children.as_words();
+        let words = self.phrase.as_words();
 
         if words.len() == 1 {
             let word = words[0];
@@ -60,7 +46,7 @@ impl Matcher for PhraseMatcher {
         }
 
         if debug {
-            println!("  Looking for {:?}", self.children.full_text())
+            println!("  Looking for {:?}", self.phrase.full_text())
         }
 
         let alignment = needleman_wunsch(&words, haystack);
@@ -380,7 +366,12 @@ fn _pretty_print_matrix(twod: &Vec<Vec<i32>>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Context, analzyer::StrAnalzyer, matcher::MatcherKind};
+    use mlapibot_common::{Words, matchers::Matchers};
+
+    use crate::{
+        Context,
+        analzyer::{Analyzer, TestAnalyzer},
+    };
 
     use super::*;
 
@@ -396,12 +387,11 @@ mod tests {
         assert_eq!(match_or_mismatch("abcdf", "hello"), MISMATCH);
 
         let phrase = "the quick brown fox jumps over the lazy dog";
-        let analyzer = StrAnalzyer {
-            ocr: None,
-            title: Some(MatcherKind::Phrase(PhraseMatcher {
-                children: Words::new(phrase),
+        let analyzer = TestAnalyzer {
+            title: Some(Matchers::Phrase(PhraseMatcher {
+                phrase: Words::new(phrase),
             })),
-            body: None,
+            ..Default::default()
         };
 
         let ctx = Context {
@@ -421,12 +411,11 @@ mod tests {
     #[test]
     pub fn share_not_loaded() {
         let phrase = "message could not be loaded";
-        let analyzer = StrAnalzyer {
-            ocr: None,
-            title: Some(MatcherKind::Phrase(PhraseMatcher {
-                children: Words::new(phrase),
+        let analyzer = TestAnalyzer {
+            title: Some(Matchers::Phrase(PhraseMatcher {
+                phrase: Words::new(phrase),
             })),
-            body: None,
+            ..Default::default()
         };
 
         let ctx = Context {

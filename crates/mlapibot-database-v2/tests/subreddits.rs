@@ -53,7 +53,7 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
         },
         mod_related_title: RelatedTitleModule {
             enabled: true,
-            reason: "#repost".into(),
+            reason: RemovalReasonKey::new("#repost"),
         },
         mod_complex_comments: ComplexCommentsModule {
             enabled: true,
