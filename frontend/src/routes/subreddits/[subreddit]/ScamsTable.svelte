@@ -11,15 +11,15 @@
     import { Badge } from "$lib/components/ui/badge";
     import * as Dialog from "$lib/components/ui/dialog";
     import ScamModalContent from "./ScamModalContent.svelte";
-    import { Pencil, Plus, Trash2 } from "@lucide/svelte";
+    import { ClipboardCopy, ClipboardPaste } from "@lucide/svelte";
     import * as Spinner from "$lib/components/ui/spinner";
     import { getSubredditScams } from "$lib/api/scams.remote";
-    import {
-        removeFirstInArrayBy,
-        updateFirstInArrayBy,
-        updateOrInsertInArrayBy,
-    } from "$lib/mutate";
+    import { removeFirstInArrayBy, updateOrInsertInArrayBy } from "$lib/mutate";
     import TableChangesCell from "$lib/components/reuse/table/table-changes-cell.svelte";
+    import { completeTransfer, initiateTransfer } from "$lib/types/transfer";
+    import { toast } from "svelte-sonner";
+    import ScamTransferModal from "$lib/components/scams/ScamTransferModal.svelte";
+    import ScamInfoCell from "$lib/components/scams/ScamInfoCell.svelte";
 
     interface ScamsTableProps {
         subreddit_id: string;
@@ -33,6 +33,9 @@
     }
 
     let modalItem = $state<CreateOrUpdateScamInfo | null>(null);
+
+    let modalTransfer = $state<CreateScamInfo[] | null>(null);
+
     let {
         subreddit_id,
         removal_reasons,
@@ -81,6 +84,26 @@
     const updateScam = (update: UpdateScamInfo) => {
         updateOrInsertInArrayBy(updates, (s) => s.id === update.id, update);
     };
+
+    const onInitiateTransfer = () => {
+        const data = initiateTransfer(fetchScams.current ?? []);
+        navigator.clipboard.writeText(data);
+
+        toast.success(`Copied ${data.length} bytes`);
+    };
+
+    const onCompleteTransfer = async () => {
+        try {
+            const data = completeTransfer(await navigator.clipboard.readText());
+
+            modalTransfer = data.map((item) => ({
+                id: crypto.randomUUID(),
+                ...item,
+            }));
+        } catch {
+            toast.error("Failed to copy and/or parse data");
+        }
+    };
 </script>
 
 {#if modalItem}
@@ -99,6 +122,20 @@
                 modalItem = null;
             }}
         />
+    </Dialog.Root>
+{/if}
+
+{#if modalTransfer}
+    <Dialog.Root bind:open={() => true, (v) => (modalTransfer = null)}>
+        {#if modalTransfer && fetchScams.current}
+            <ScamTransferModal
+                bind:transferred={modalTransfer}
+                existing={fetchScams.current ?? []}
+                {updateScam}
+                {createScam}
+                onClose={() => (modalTransfer = null)}
+            />
+        {/if}
     </Dialog.Root>
 {/if}
 
@@ -129,37 +166,7 @@
                 <Table.Cell>
                     {scam.name}
                 </Table.Cell>
-                <Table.Cell>
-                    <div class="float-start">
-                        {#if !scam.enabled}
-                            <Badge variant="outline">Disabled</Badge>
-                        {/if}
-
-                        {#if scam.report && scam.remove}
-                            <Badge variant="secondary">Filter</Badge>
-                        {:else if scam.report}
-                            <Badge>Report</Badge>
-                        {:else if scam.remove}
-                            <Badge variant="destructive">Remove</Badge>
-                        {:else}
-                            <!-- no action -->
-                        {/if}
-                    </div>
-
-                    <div class="float-end">
-                        {#if scam.ocr}
-                            <Badge>OCR</Badge>
-                        {/if}
-
-                        {#if scam.title ?? scam.title_or_body}
-                            <Badge>Title</Badge>
-                        {/if}
-
-                        {#if scam.body ?? scam.title_or_body}
-                            <Badge>Body</Badge>
-                        {/if}
-                    </div>
-                </Table.Cell>
+                <ScamInfoCell {scam} />
                 <Table.Cell>
                     {#if deleted}
                         <Button
@@ -188,37 +195,7 @@
                 <Table.Cell>
                     {scam.name}
                 </Table.Cell>
-                <Table.Cell>
-                    <div class="float-start">
-                        {#if !scam.enabled}
-                            <Badge variant="outline">Disabled</Badge>
-                        {/if}
-
-                        {#if scam.report && scam.remove}
-                            <Badge variant="secondary">Filter</Badge>
-                        {:else if scam.report}
-                            <Badge>Report</Badge>
-                        {:else if scam.remove}
-                            <Badge variant="destructive">Remove</Badge>
-                        {:else}
-                            <!-- no action -->
-                        {/if}
-                    </div>
-
-                    <div class="float-end">
-                        {#if scam.ocr}
-                            <Badge>OCR</Badge>
-                        {/if}
-
-                        {#if scam.title ?? scam.title_or_body}
-                            <Badge>Title</Badge>
-                        {/if}
-
-                        {#if scam.body ?? scam.title_or_body}
-                            <Badge>Body</Badge>
-                        {/if}
-                    </div>
-                </Table.Cell>
+                <ScamInfoCell {scam} />
                 <Table.Cell>
                     <Button
                         variant="destructive"
@@ -231,6 +208,18 @@
     <Table.Footer>
         <Table.Row>
             <Table.Cell colspan={4}>
+                <Button
+                    size="icon-sm"
+                    onclick={onInitiateTransfer}
+                    title="Copy all scams"
+                    ><ClipboardCopy />
+                </Button>
+                <Button
+                    size="icon-sm"
+                    onclick={onCompleteTransfer}
+                    title="Paste all scams"><ClipboardPaste /></Button
+                >
+
                 <Button
                     size="sm"
                     class="float-end"
