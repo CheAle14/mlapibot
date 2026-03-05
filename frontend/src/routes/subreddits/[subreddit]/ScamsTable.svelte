@@ -20,6 +20,7 @@
     import { toast } from "svelte-sonner";
     import ScamTransferModal from "$lib/components/scams/ScamTransferModal.svelte";
     import ScamInfoCell from "$lib/components/scams/ScamInfoCell.svelte";
+    import TestScamModal from "$lib/components/scams/TestScamModal.svelte";
 
     interface ScamsTableProps {
         subreddit_id: string;
@@ -33,8 +34,8 @@
     }
 
     let modalItem = $state<CreateOrUpdateScamInfo | null>(null);
-
     let modalTransfer = $state<CreateScamInfo[] | null>(null);
+    let modalTest = $state(false);
 
     let {
         subreddit_id,
@@ -139,6 +140,12 @@
     </Dialog.Root>
 {/if}
 
+{#if modalTest}
+    <Dialog.Root bind:open={modalTest}>
+        <TestScamModal onClose={() => (modalTest = false)} {subreddit_id} />
+    </Dialog.Root>
+{/if}
+
 <Table.Root>
     <Table.Header>
         <Table.Row>
@@ -220,19 +227,24 @@
                     title="Paste all scams"><ClipboardPaste /></Button
                 >
 
-                <Button
-                    size="sm"
-                    class="float-end"
-                    onclick={() =>
-                        (modalItem = {
-                            id: crypto.randomUUID(),
-                            enabled: true,
-                            self_post: true,
-                            name: "",
-                            remove: false,
-                            report: false,
-                        })}>New</Button
-                >
+                <div class="float-end flex gap-1">
+                    <Button size="sm" onclick={() => (modalTest = true)}
+                        >Test</Button
+                    >
+
+                    <Button
+                        size="sm"
+                        onclick={() =>
+                            (modalItem = {
+                                id: crypto.randomUUID(),
+                                enabled: true,
+                                self_post: true,
+                                name: "",
+                                remove: false,
+                                report: false,
+                            })}>New</Button
+                    >
+                </div>
             </Table.Cell>
         </Table.Row>
     </Table.Footer>

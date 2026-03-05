@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+use mlapibot_common::action::{ActionData, ModAct, PostAction};
 use mlapibot_database_v2::{
     client::PgClient,
     repos::monitor::{MonitorRepo, MonitorState},
@@ -346,360 +347,89 @@ impl<'a> InboxMsg<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub enum PostAction {
-    #[default]
-    Ignore,
-    Action(ActionData),
-}
-
-impl PostAction {
-    pub fn with_module(self, name: &str) -> PostAction {
-        match self {
-            PostAction::Ignore => PostAction::Ignore,
-            PostAction::Action(mut data) => {
-                data.set_module(name);
-                PostAction::Action(data)
-            }
-        }
-    }
-
-    pub fn join(self, other: PostAction) -> PostAction {
-        match (self, other) {
-            (PostAction::Ignore, other) => other,
-            (this, PostAction::Ignore) => this,
-
-            (PostAction::Action(this_data), PostAction::Action(other_data)) => {
-                let data = match (this_data.moderate, other_data.moderate) {
-                    (ModAct::None, ModAct::None)
-                    | (ModAct::Report, ModAct::Report)
-                    | (ModAct::Remove, ModAct::Remove)
-                    | (ModAct::Filter, ModAct::Filter) => Self::merge(this_data, other_data),
-
-                    (ModAct::None, ModAct::Report) => other_data,
-                    (ModAct::None, ModAct::Remove) => other_data,
-                    (ModAct::None, ModAct::Filter) => other_data,
-
-                    (ModAct::Report, ModAct::None) => this_data,
-                    (ModAct::Report, ModAct::Remove) => other_data,
-                    (ModAct::Report, ModAct::Filter) => other_data,
-
-                    (ModAct::Remove, ModAct::None) => this_data,
-                    (ModAct::Remove, ModAct::Report) => this_data,
-                    (ModAct::Remove, ModAct::Filter) => other_data,
-
-                    (ModAct::Filter, ModAct::None) => this_data,
-                    (ModAct::Filter, ModAct::Report) => this_data,
-                    (ModAct::Filter, ModAct::Remove) => this_data,
-                };
-
-                PostAction::Action(data)
-            }
-        }
-    }
-
-    fn merge(this: ActionData, other: ActionData) -> ActionData {
-        let module = if this.module.len() == 0 {
-            other.module
-        } else {
-            this.module + "," + other.module.as_str()
-        };
-
-        let analyser = match (this.analyser, other.analyser) {
-            (None, None) => None,
-            (None, Some(t)) | (Some(t), None) => Some(t),
-            (Some(mut l), Some(r)) => {
-                l.push(',');
-                l.push_str(&r);
-                Some(l)
-            }
-        };
-
-        let reply = match (this.reply, other.reply) {
-            (None, None) => None,
-            (None, Some(reply)) | (Some(reply), None) => Some(reply),
-            (Some(mut this), Some(other)) => {
-                this.text.push_str("\n------\n");
-                this.text.push_str(&other.text);
-
-                this.distinguish = match (this.distinguish, other.distinguish) {
-                    (Distinguish::Special, _) | (_, Distinguish::Special) => Distinguish::Special,
-                    (Distinguish::Admin, _) | (_, Distinguish::Admin) => Distinguish::Admin,
-                    (Distinguish::Moderator, _) | (_, Distinguish::Moderator) => {
-                        Distinguish::Moderator
-                    }
-                    _ => Distinguish::None,
-                };
-
-                Some(this)
-            }
-        };
-
-        ActionData {
-            module,
-            analyser,
-            reply,
-            moderate: this.moderate,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ActionData {
-    analyser: Option<String>,
-    module: String,
-    reply: Option<PostReply>,
-    moderate: ModAct,
-}
-
-impl ActionData {
-    pub fn new() -> Self {
-        Self {
-            analyser: None,
-            module: String::new(),
-            reply: None,
-            moderate: ModAct::None,
-        }
-    }
-
-    pub async fn execute(
-        self,
-        is_debug: bool,
-        webhook: Option<&mut WebhookClient>,
-        db: &PgClient,
-        post: &Submission,
-        client: &RouxClient,
-    ) -> anyhow::Result<()> {
-        let reply_fullname = if let Some(reply) = self.reply {
-            let comment = post.comment(&reply.text).await?;
-            if reply.distinguish != Distinguish::None {
-                comment.distinguish(reply.distinguish, true).await?;
-            }
-
-            Some(comment.name().full().to_string())
-        } else {
-            None
-        };
-
-        let (reported, removed) = match self.moderate {
-            ModAct::None => (false, false),
-            ModAct::Report => {
-                if let Some(name) = self.analyser.as_ref() {
-                    post.report(&format!("Appears to be a common repost ({name})"))
-                        .await
-                } else {
-                    post.report("Appears to be a common report").await
-                }?;
-
-                (true, false)
-            }
-            ModAct::Remove => {
-                post.remove(false).await?;
-                (false, true)
-            }
-            ModAct::Filter => {
-                post.remove(false).await?;
-
-                let mut modmail = match self.analyser.as_ref() {
-                    Some(c) => format!("Filtered post for manual review, related to {c}"),
-                    None => format!("Filtered post for manual review"),
-                };
-
-                modmail.push_str("\n\nTitle:  \n>");
-                modmail.push_str(post.title());
-
-                modmail.push_str("\n\nLink: ");
-                modmail.push_str(post.permalink());
-
-                let sub = client.subreddit(&post.subreddit());
-
-                sub.compose_message(&format!("Filtered post by /u/{}", post.author()), &modmail)
-                    .await?;
-
-                (true, true)
-            }
-        };
-
-        db.update_item_monitor_state(
-            post.name().full(),
-            MonitorState::Acted {
-                analyzer: self
-                    .analyser
-                    .as_ref()
-                    .map(|c| c.clone())
-                    .unwrap_or_default(),
-                reply_fullname,
-                reported,
-                removed,
-                mistaken: false,
-            },
-        )
-        .await?;
-
-        if let Some(webhook) = webhook {
-            let msg = create_detection_message(
-                post,
-                &self.module,
-                self.analyser.as_ref().map(|c| c.as_str()),
-                is_debug,
-            );
-            webhook.send(&msg).await?;
+pub async fn execute(
+    action: ActionData,
+    is_debug: bool,
+    webhook: Option<&mut WebhookClient>,
+    db: &PgClient,
+    post: &Submission,
+    client: &RouxClient,
+) -> anyhow::Result<()> {
+    let reply_fullname = if let Some(reply) = action.reply {
+        let comment = post.comment(&reply.text).await?;
+        if reply.distinguish {
+            comment.distinguish(Distinguish::Moderator, true).await?;
         }
 
-        Ok(())
-    }
+        Some(comment.name().full().to_string())
+    } else {
+        None
+    };
 
-    fn set_module(&mut self, name: &str) -> &mut Self {
-        self.module = name.to_string();
-        self
-    }
-
-    pub fn module(mut self, name: &str) -> Self {
-        self.set_module(name);
-        self
-    }
-
-    pub fn analyser(mut self, name: &str) -> Self {
-        self.analyser = Some(name.to_string());
-        self
-    }
-
-    pub fn reply(mut self, text: String, distinguish: bool) -> Self {
-        self.set_reply(text, distinguish);
-        self
-    }
-
-    pub fn set_reply(&mut self, text: String, distinguish: bool) -> &mut Self {
-        self.reply = Some(PostReply {
-            text,
-            distinguish: if distinguish {
-                Distinguish::Moderator
+    let (reported, removed) = match action.moderate {
+        ModAct::None => (false, false),
+        ModAct::Report => {
+            if let Some(name) = action.analyser.as_ref() {
+                post.report(&format!("Appears to be a common repost ({name})"))
+                    .await
             } else {
-                Distinguish::None
-            },
-        });
-        self
-    }
+                post.report("Appears to be a common report").await
+            }?;
 
-    pub fn set_report(&mut self) -> &mut Self {
-        self.moderate = ModAct::Report;
-        self
-    }
+            (true, false)
+        }
+        ModAct::Remove => {
+            post.remove(false).await?;
+            (false, true)
+        }
+        ModAct::Filter => {
+            post.remove(false).await?;
 
-    pub fn report(mut self) -> Self {
-        self.set_report();
-        self
-    }
+            let mut modmail = match action.analyser.as_ref() {
+                Some(c) => format!("Filtered post for manual review, related to {c}"),
+                None => format!("Filtered post for manual review"),
+            };
 
-    pub fn set_remove(&mut self) -> &mut Self {
-        self.moderate = ModAct::Remove;
-        self
-    }
+            modmail.push_str("\n\nTitle:  \n>");
+            modmail.push_str(post.title());
 
-    pub fn remove(mut self) -> Self {
-        self.set_remove();
-        self
-    }
+            modmail.push_str("\n\nLink: ");
+            modmail.push_str(post.permalink());
 
-    pub fn set_filter(&mut self) -> &mut Self {
-        self.moderate = ModAct::Filter;
-        self
-    }
+            let sub = client.subreddit(&post.subreddit());
 
-    pub fn filter(mut self) -> Self {
-        self.set_filter();
-        self
-    }
-}
+            sub.compose_message(&format!("Filtered post by /u/{}", post.author()), &modmail)
+                .await?;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct PostReply {
-    text: String,
-    distinguish: Distinguish,
-}
+            (true, true)
+        }
+    };
 
-#[derive(Debug, Clone, PartialEq, Copy)]
-pub enum ModAct {
-    /// Take no moderation decisions
-    None,
-    /// Report the post
-    Report,
-    /// Remove the post
-    Remove,
-    /// Remove the post and send a message to the subreddit's modmail
-    Filter,
-}
+    db.update_item_monitor_state(
+        post.name().full(),
+        MonitorState::Acted {
+            analyzer: action
+                .analyser
+                .as_ref()
+                .map(|c| c.clone())
+                .unwrap_or_default(),
+            reply_fullname,
+            reported,
+            removed,
+            mistaken: false,
+        },
+    )
+    .await?;
 
-#[cfg(test)]
-mod tests {
-    use super::{ActionData, PostAction};
-
-    #[test]
-    pub fn test_ignore_overriden() {
-        let first = PostAction::Ignore;
-        let second = PostAction::Action(ActionData::new());
-
-        let result = first.clone().join(second.clone());
-        assert_eq!(result, second);
-
-        let result = second.clone().join(first.clone());
-        assert_eq!(result, second);
-    }
-
-    #[test]
-    pub fn test_action_remove_takes_precedence() {
-        let first = PostAction::Action(ActionData::new().analyser("first").remove());
-        let second = PostAction::Action(
-            ActionData::new()
-                .analyser("second")
-                .reply("second text".into(), true),
+    if let Some(webhook) = webhook {
+        let msg = create_detection_message(
+            post,
+            &action.module,
+            action.analyser.as_ref().map(|c| c.as_str()),
+            is_debug,
         );
-
-        let result = first.clone().join(second.clone());
-        assert_eq!(result, first);
-
-        let result = second.clone().join(first.clone());
-        assert_eq!(result, first);
+        webhook.send(&msg).await?;
     }
 
-    #[test]
-    pub fn test_merges_equal() {
-        let first = PostAction::Action(
-            ActionData::new()
-                .analyser("first")
-                .module("group")
-                .remove()
-                .reply("first text".into(), false),
-        );
-
-        let second = PostAction::Action(
-            ActionData::new()
-                .analyser("second")
-                .module("parent")
-                .remove()
-                .reply("second text".into(), true),
-        );
-
-        let expected = PostAction::Action(
-            ActionData::new()
-                .analyser("first,second")
-                .module("group,parent")
-                .remove()
-                .reply("first text\n------\nsecond text".into(), true),
-        );
-
-        let result = first.clone().join(second.clone());
-        assert_eq!(result, expected);
-
-        let expected = PostAction::Action(
-            ActionData::new()
-                .analyser("second,first")
-                .module("parent,group")
-                .remove()
-                .reply("second text\n------\nfirst text".into(), true),
-        );
-
-        let result = second.join(first);
-        assert_eq!(result, expected);
-    }
+    Ok(())
 }

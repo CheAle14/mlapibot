@@ -6,7 +6,13 @@ use std::{
 
 use anyhow::Context;
 use chrono::Utc;
-use mlapibot_common::{Cached, LowercaseString, config::GlobalSettings};
+use futures_util::stream::TryChunksError;
+use mlapibot_api::{ApiEvent, GotRedditPost};
+use mlapibot_common::{
+    Cached, LowercaseString,
+    action::PostAction,
+    config::{ApiSettings, GlobalSettings},
+};
 use mlapibot_database_v2::{
     client::{PgClient, PgClientBuilder, PgNotification},
     repos::{
@@ -17,14 +23,13 @@ use mlapibot_database_v2::{
 };
 use octocrab::OctocrabBuilder;
 use roux::{
-    api::{Distinguished, ThingFullname},
+    api::{Distinguished, ThingFullname, response::ApiError},
     client::{OAuthClient, RedditClient as RouxRedditClient},
     util::{SubmissionStream, now_utc},
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
-use tera::Tera;
 
-use mlapibot_analysis::{ContextWarning, analzyer::Analyzer};
+use mlapibot_analysis::{ContextWarning, Url};
 use mlapibot_imgur::ImgurClient;
 use mlapibot_webhook::{WebhookClient, create_multiple_error_message};
 use tokio::sync::mpsc;
@@ -32,10 +37,10 @@ use tokio::sync::mpsc;
 use super::{RouxClient, Submission};
 
 use crate::{
-    client::module::{InboxAction, InboxMsg, PostAction, RegisteredModule, SplitSubMask},
+    client::module::{InboxAction, InboxMsg, RegisteredModule, SplitSubMask},
     exts::SubmissionExt,
     ratelimiter::Ratelimiter,
-    status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
+    status_tracker::{IncidentWithLive, get_title, write_affected_components_list},
     subreddit::{DbSubreddit, Subreddit},
     utils::BoO,
     webhook::{create_deleted_downvoted_comment, create_inbox_message},
@@ -51,11 +56,11 @@ pub struct RedditClient {
     subreddits: Vec<Subreddit>,
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
+    api: Option<ApiSettings>,
     github: Option<octocrab::Octocrab>,
     status: StatusClient,
     last_status: StatusIndicator,
     dry_run: bool,
-    status_webhook: Option<String>,
     #[allow(unused)]
     admin: Option<String>,
     cached_status_components: StatusComponentCache,
@@ -84,7 +89,6 @@ macro_rules! make_view {
             status: &$self.status,
             last_status: &$self.last_status,
             dry_run: $self.dry_run,
-            status_webhook: &$self.status_webhook,
             admin: &$self.admin,
             cached_status_components: &$self.cached_status_components,
             debug: $self.debug,
@@ -226,7 +230,6 @@ impl RedditClient {
     pub async fn new(
         data_dir: PathBuf,
         dry_run: bool,
-        status_webhook: Option<String>,
         admin: Option<String>,
         settings: GlobalSettings,
         debug: bool,
@@ -315,10 +318,10 @@ impl RedditClient {
             // data_dir: scratch_dir,
             webhook,
             imgur,
+            api: settings.api,
             github,
             status,
             dry_run: dry_run,
-            status_webhook: status_webhook,
             admin: admin,
             last_status: StatusIndicator::None,
             cached_status_components,
@@ -797,20 +800,65 @@ impl RedditClient {
         Ok(Duration::from_secs(300))
     }
 
-    async fn handle_webhook_event(
+    async fn handle_api_event(
         &mut self,
-        event: WebhookEvent,
+        event: ApiEvent,
         ratelimiter: &mut Ratelimiter<Self>,
     ) -> anyhow::Result<()> {
         match event {
-            crate::status_tracker::WebhookEvent::IncidentUpdate(incident) => {
-                println!("[status-recv] got incident webhook");
-                let incident = *incident;
-                self.update_status_with(&[incident], false).await?;
+            ApiEvent::WebhookRecv { incident } => {
+                if let Some(incident) = incident {
+                    println!("[status-recv] got incident webhook");
+                    let incident = *incident;
+                    self.update_status_with(&[incident], false).await?;
+                } else {
+                    println!("[status-recv] got unknown webhook, scheduling status check to run");
+                    ratelimiter.run_immediately("check_status");
+                }
             }
-            _ => {
-                println!("[status-recv] got unknown webhook, scheduling status check to run");
-                ratelimiter.run_immediately("check_status");
+            ApiEvent::GetRedditPost { link, reply } => {
+                let Ok(post) = self.client.get_submission_by_link(&link).await else {
+                    // drops reply, returns an error.
+                    return Ok(());
+                };
+
+                let post = GotRedditPost {
+                    id: post.id().to_owned(),
+                    subreddit_id: post.subreddit_id().id().to_owned(),
+                    title: post.title().to_owned(),
+                    author: post.author().to_owned(),
+                    link: post.url().clone(),
+                    body: Some(post.selftext().clone()),
+                };
+
+                let _ = reply.send(post);
+            }
+            ApiEvent::AnalyzeInfo {
+                subreddit_id,
+                title,
+                link,
+                body,
+
+                reply,
+            } => {
+                let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.db.id == subreddit_id)
+                else {
+                    return Ok(());
+                };
+
+                let link = link.map(|s| Url::parse(&s).ok()).flatten();
+
+                let action = crate::client::module::post_scams::analyze_post(
+                    &mut (),
+                    subreddit,
+                    &title,
+                    link.into_iter(),
+                    body.as_ref().map(|v| v.as_str()).unwrap_or_default(),
+                    true,
+                )
+                .await?;
+
+                let _ = reply.send(action);
             }
         };
         Ok(())
@@ -909,10 +957,10 @@ impl RedditClient {
     pub async fn run(&mut self) -> anyhow::Result<()> {
         let (tx, mut rx) = mpsc::channel(32);
 
-        if let Some(addr) = &self.status_webhook {
-            println!("Starting status webhook at {addr}");
-            crate::status_tracker::start_webhook_listener_thread(tx, &addr)
-                .with_context(|| format!("status webhook at {addr}"))?;
+        if let Some(api) = &self.api {
+            println!("Starting status webhook at {}", api.bind_address);
+            mlapibot_api::start_web_connection(tx, &api)
+                .with_context(|| format!("start api @ {}", api.bind_address))?;
         }
 
         let mut ratelimiter = Ratelimiter::new();
@@ -920,7 +968,7 @@ impl RedditClient {
 
         loop {
             while let Ok(event) = rx.try_recv() {
-                self.handle_webhook_event(event, &mut ratelimiter).await?;
+                self.handle_api_event(event, &mut ratelimiter).await?;
             }
 
             let now = Instant::now();
@@ -930,7 +978,7 @@ impl RedditClient {
 
             let _ = tokio::select! {
                 Some(webhook) = rx.recv() => {
-                    println!("webhook msg: {webhook:?}");
+                    self.handle_api_event(webhook, &mut ratelimiter).await?;
                 }
                 Some(dbmsg) = self.dbrx.recv() => {
                     println!("db msg: {dbmsg:?}");
@@ -985,7 +1033,6 @@ pub struct ModuleRedditClient<'client> {
     status: &'client StatusClient,
     last_status: &'client StatusIndicator,
     dry_run: bool,
-    status_webhook: &'client Option<String>,
     #[allow(unused)]
     admin: &'client Option<String>,
     cached_status_components: &'client StatusComponentCache,
@@ -1028,7 +1075,8 @@ impl<'client> ModuleRedditClient<'client> {
 
         match action {
             PostAction::Action(data) if !self.dry_run => {
-                data.execute(
+                crate::client::module::execute(
+                    data,
                     self.debug,
                     self.webhook.as_mut(),
                     self.db,

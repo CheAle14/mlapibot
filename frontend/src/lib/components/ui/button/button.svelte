@@ -68,6 +68,8 @@
     const disabled = $derived(pending || propDisabled);
 </script>
 
+{#snippet status(pending: boolean, errored: boolean)}{/snippet}
+
 {#if href}
     <a
         bind:this={ref}
@@ -98,6 +100,8 @@
             <CircleX />
         {/if}
 
-        {@render children?.()}
+        {#if (!pending && !errored) || (size != "icon" && size != "icon-sm")}
+            {@render children?.()}
+        {/if}
     </button>
 {/if}

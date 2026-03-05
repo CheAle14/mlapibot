@@ -1,11 +1,8 @@
-use std::{collections::HashMap, io::Read, str::FromStr};
+use std::collections::HashMap;
 
-use anyhow::Context;
 use mlapibot_database_v2::repos::incidents::StatusIncident;
 use roux::builders::submission::SubmissionSubmitBuilder;
 use statuspage::{component::Component, incident::Incident};
-use tiny_http::Response;
-use tokio::sync::mpsc::Sender;
 
 use crate::utils::{BoO, clamp};
 
@@ -102,67 +99,6 @@ pub fn write_affected_components_list(
             writeln!(text, "  ")?;
         }
     }
-
-    Ok(())
-}
-
-#[derive(Debug)]
-pub enum WebhookEvent {
-    IncidentUpdate(Box<Incident>),
-    OtherUpdate,
-    Closed,
-}
-
-pub fn start_webhook_listener_thread(
-    channel: Sender<WebhookEvent>,
-    addr: &str,
-) -> anyhow::Result<()> {
-    let socket = systemd_socket::SocketAddr::from_str(addr).context("parse socket addr")?;
-    println!("Using socket: {socket:#?}");
-    let listener = socket.bind().context("create tcp listener")?;
-    println!("Webhook listener is: {listener:?}");
-
-    let server = tiny_http::Server::from_listener(listener, None)
-        .map_err(|e| anyhow::Error::from_boxed(e))
-        .context("create server")?;
-
-    std::thread::spawn(move || {
-        loop {
-            let mut request = match server.recv() {
-                Ok(r) => r,
-                Err(err) => {
-                    eprintln!("listen webhook err: {err}");
-                    break;
-                }
-            };
-            println!("[status-webhook] {} {}", request.method(), request.url());
-
-            let body = request.as_reader().take(1024 * 1024 * 10);
-
-            let parsed: statuspage::webhook::StatusWebhook = match serde_json::from_reader(body) {
-                Ok(value) => value,
-                Err(err) => {
-                    println!("[status-webhook] {err:?}");
-                    // *something* has happened, so trigger a refresh anyway
-                    channel.blocking_send(WebhookEvent::OtherUpdate).unwrap();
-                    let _ = request.respond(Response::empty(500));
-                    continue;
-                }
-            };
-
-            let event = match parsed.payload {
-                statuspage::webhook::WebhookPayload::Incident { incident } => {
-                    WebhookEvent::IncidentUpdate(Box::new(incident))
-                }
-                _ => WebhookEvent::OtherUpdate,
-            };
-
-            channel.blocking_send(event).unwrap();
-            let _ = request.respond(Response::empty(204));
-        }
-
-        let _ = channel.send(WebhookEvent::Closed);
-    });
 
     Ok(())
 }

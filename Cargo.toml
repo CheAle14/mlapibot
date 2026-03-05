@@ -12,6 +12,7 @@ members = [
     "crates/mlapibot-reddit",
     "crates/mlapibot-webhook",
     "tests",
+    "crates/mlapibot-api",
 ]
 
 [workspace.dependencies]

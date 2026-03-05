@@ -16,9 +16,6 @@ pub struct RedditArgs {
     /// Whether we are running in production or not
     #[arg(long)]
     release: bool,
-    /// If present, bind a HTTP listener to the provided address to listen for status webhooks.
-    #[arg(long)]
-    status_webhook: Option<String>,
     #[arg(long)]
     admin: Option<String>,
 }
@@ -29,7 +26,6 @@ impl RedditArgs {
             data_dir,
             scratch_dir,
             dry_run,
-            status_webhook,
             admin,
             release,
         } = self;
@@ -38,8 +34,7 @@ impl RedditArgs {
 
         let panic_webhook = settings.webhook_url.clone();
 
-        let mut client =
-            RedditClient::new(data_dir, dry_run, status_webhook, admin, settings, !release).await?;
+        let mut client = RedditClient::new(data_dir, dry_run, admin, settings, !release).await?;
 
         match client.run().await {
             Ok(()) => Ok(()),

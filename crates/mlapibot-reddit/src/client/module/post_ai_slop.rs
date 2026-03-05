@@ -9,7 +9,7 @@ use bumpalo::Bump;
 use futures_util::TryStreamExt;
 use markdown::{mdast::Node, unist::Position};
 use mlapibot_analysis::{Url, extract_all_links};
-use mlapibot_common::{DataMetaData, RunningStat};
+use mlapibot_common::{DataMetaData, RunningStat, action::PostAction};
 use octocrab::{Octocrab, models::repos::RepoCommit, repos::RepoHandler};
 
 use crate::client::module::impl_mask_subreddits;
@@ -107,9 +107,9 @@ impl super::Module for PostAiSlop {
         subreddit: &mut crate::client::Subreddit,
         post: &crate::Submission,
         has_seen: bool,
-    ) -> anyhow::Result<super::PostAction> {
+    ) -> anyhow::Result<PostAction> {
         if has_seen {
-            return Ok(super::PostAction::Ignore);
+            return Ok(PostAction::Ignore);
         }
 
         let config = &subreddit.db.mod_ai_slop;
@@ -124,7 +124,7 @@ impl super::Module for PostAiSlop {
         );
 
         let Some(github) = client.github else {
-            return Ok(super::PostAction::Ignore);
+            return Ok(PostAction::Ignore);
         };
 
         let mut links = HashSet::new();
@@ -176,7 +176,7 @@ impl super::Module for PostAiSlop {
             }
         }
 
-        Ok(super::PostAction::Ignore)
+        Ok(PostAction::Ignore)
     }
 }
 

@@ -1650,6 +1650,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mlapibot-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mlapibot-common",
+ "serde",
+ "serde_json",
+ "statuspage",
+ "systemd_socket",
+ "tiny_http",
+ "tokio",
+]
+
+[[package]]
 name = "mlapibot-bin"
 version = "0.1.0"
 dependencies = [
@@ -1748,6 +1762,7 @@ dependencies = [
  "image",
  "markdown",
  "mlapibot-analysis",
+ "mlapibot-api",
  "mlapibot-common",
  "mlapibot-database-v2",
  "mlapibot-imgur",
@@ -1767,7 +1782,6 @@ dependencies = [
  "tempfile",
  "tera",
  "thiserror 2.0.12",
- "tiny_http",
  "tokio",
  "toml",
  "unic-emoji-char",

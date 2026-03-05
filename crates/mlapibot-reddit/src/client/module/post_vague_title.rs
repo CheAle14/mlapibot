@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
-use mlapibot_common::Words;
-
-use crate::client::module::{ActionData, PostAction};
+use mlapibot_common::{
+    Words,
+    action::{ActionData, PostAction},
+};
 
 pub struct PostVagueTitle;
 

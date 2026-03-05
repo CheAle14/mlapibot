@@ -4,6 +4,7 @@ use serde::Deserialize;
 pub struct GlobalSettings {
     pub database_uri: String,
     pub webhook_url: Option<String>,
+    pub api: Option<ApiSettings>,
     pub reddit: Option<RedditSettings>,
     pub imgur: Option<ImgurSettings>,
     pub github: Option<GithubSettings>,
@@ -16,6 +17,12 @@ pub struct RedditSettings {
     pub username: String,
     pub password: String,
     pub user_agent: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct ApiSettings {
+    pub bind_address: String,
+    pub access_token: String,
 }
 
 #[derive(Clone, Deserialize)]
