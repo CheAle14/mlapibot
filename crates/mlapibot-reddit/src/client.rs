@@ -6,8 +6,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::Utc;
-use futures_util::stream::TryChunksError;
-use mlapibot_api::{ApiEvent, GotRedditPost};
+use mlapibot_api::{ApiEvent, GotAnalysis, GotRedditPost, OcrImageData};
 use mlapibot_common::{
     Cached, LowercaseString,
     action::PostAction,
@@ -822,12 +821,18 @@ impl RedditClient {
                     return Ok(());
                 };
 
+                let links = post
+                    .get_misc_links()
+                    .into_iter()
+                    .map(|v| v.as_str().to_owned())
+                    .collect();
+
                 let post = GotRedditPost {
                     id: post.id().to_owned(),
                     subreddit_id: post.subreddit_id().id().to_owned(),
                     title: post.title().to_owned(),
                     author: post.author().to_owned(),
-                    link: post.url().clone(),
+                    links,
                     body: Some(post.selftext().clone()),
                 };
 
@@ -836,7 +841,7 @@ impl RedditClient {
             ApiEvent::AnalyzeInfo {
                 subreddit_id,
                 title,
-                link,
+                links,
                 body,
 
                 reply,
@@ -846,19 +851,43 @@ impl RedditClient {
                     return Ok(());
                 };
 
-                let link = link.map(|s| Url::parse(&s).ok()).flatten();
+                let links: Vec<_> = links
+                    .into_iter()
+                    .filter_map(|s| Url::parse(&s).ok())
+                    .collect();
 
-                let action = crate::client::module::post_scams::analyze_post(
+                let (action, ctx, det) = crate::client::module::post_scams::analyze_post(
                     &mut (),
                     subreddit,
                     &title,
-                    link.into_iter(),
+                    links.into_iter(),
                     body.as_ref().map(|v| v.as_str()).unwrap_or_default(),
                     true,
                 )
                 .await?;
 
-                let _ = reply.send(action);
+                let response = GotAnalysis {
+                    action,
+                    ocr: ctx
+                        .images
+                        .into_iter()
+                        .enumerate()
+                        .map(|(idx, v)| {
+                            let triggers = det
+                                .as_ref()
+                                .and_then(|v| v.images.get(&idx))
+                                .map(|v| v.words.keys().copied().collect());
+
+                            OcrImageData {
+                                text: v.full_text(),
+                                name: v.name.unwrap_or_else(|| format!("<unnamed image>")),
+                                triggers: triggers.unwrap_or_default(),
+                            }
+                        })
+                        .collect(),
+                };
+
+                let _ = reply.send(response);
             }
         };
         Ok(())

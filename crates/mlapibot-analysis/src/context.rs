@@ -5,7 +5,7 @@ use mlapibot_ocr::image::{ImageSource, OcrImage};
 use crate::{
     error::AnalysisError,
     url::Url,
-    util::{download_all_files, download_file, extract_image_links},
+    util::{download_all_files, extract_image_links},
 };
 
 #[derive(Debug, Default)]
@@ -32,7 +32,10 @@ impl Context {
         }
 
         for (url, file) in result.success {
-            match OcrImage::new(ImageSource::DeleteOnDropFile(file)) {
+            match OcrImage::new(
+                Some(url.as_str().to_owned()),
+                ImageSource::DeleteOnDropFile(file),
+            ) {
                 Ok(image) => images.push(image),
                 Err(error) => warnings.push(ContextWarning(url, AnalysisError::OCR(error))),
             }
@@ -47,8 +50,10 @@ impl Context {
     }
 
     pub fn new_path(path: impl AsRef<Path>) -> crate::error::Result<Self> {
-        let source = ImageSource::KeepFile(path.as_ref().to_path_buf());
-        let image = OcrImage::new(source).map_err(AnalysisError::OCR)?;
+        let path: &Path = path.as_ref();
+
+        let source = ImageSource::KeepFile(path.to_path_buf());
+        let image = OcrImage::new(Some(format!("{path:?}")), source).map_err(AnalysisError::OCR)?;
 
         Ok(Self {
             images: vec![image],

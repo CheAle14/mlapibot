@@ -25,10 +25,10 @@ pub enum ApiEvent {
     AnalyzeInfo {
         subreddit_id: String,
         title: String,
-        link: Option<String>,
+        links: Vec<String>,
         body: Option<String>,
 
-        reply: oneshot::Sender<PostAction>,
+        reply: oneshot::Sender<GotAnalysis>,
     },
 }
 
@@ -146,7 +146,7 @@ pub fn start_web_connection(
                         .blocking_send(ApiEvent::AnalyzeInfo {
                             subreddit_id: parsed.subreddit_id,
                             title: parsed.title,
-                            link: parsed.link,
+                            links: parsed.links,
                             body: parsed.body,
 
                             reply: tx,
@@ -181,8 +181,8 @@ pub struct GotRedditPost {
     pub id: String,
     pub title: String,
     pub author: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub link: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 }
@@ -191,8 +191,22 @@ pub struct GotRedditPost {
 struct AnalyzeReq {
     pub subreddit_id: String,
     pub title: String,
-    pub link: Option<String>,
+    pub links: Vec<String>,
     pub body: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+pub struct OcrImageData {
+    pub name: String,
+    pub text: String,
+    pub triggers: Vec<usize>,
+}
+
+#[derive(serde::Serialize)]
+pub struct GotAnalysis {
+    pub action: PostAction,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ocr: Vec<OcrImageData>,
 }
 
 trait ResponseFromJson: Sized {

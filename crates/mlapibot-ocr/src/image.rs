@@ -63,6 +63,7 @@ impl ImageSource {
 }
 
 pub struct OcrImage {
+    pub name: Option<String>,
     #[allow(unused)]
     source: ImageSource,
     cached_image: DynamicImage,
@@ -79,7 +80,10 @@ impl std::fmt::Debug for OcrImage {
             s.push(' ');
         }
 
-        f.debug_struct("OcrImage").field("ocr_words", &s).finish()
+        f.debug_struct("OcrImage")
+            .field("name", &self.name)
+            .field("ocr_words", &s)
+            .finish()
     }
 }
 
@@ -103,7 +107,7 @@ fn get_size(font: &FontRef, text: &str) -> (i32, i32) {
 }
 
 impl OcrImage {
-    pub fn new(source: ImageSource) -> crate::error::Result<Self> {
+    pub fn new(name: Option<String>, source: ImageSource) -> crate::error::Result<Self> {
         let mut lt = get_tesseract()?;
         match &source {
             ImageSource::KeepFile(path) => lt.set_image(path).map_err(OcrError::SetImage)?,
@@ -147,6 +151,7 @@ impl OcrImage {
 
         let cached_image = source.read_image()?;
         Ok(Self {
+            name,
             ocr_words,
             ocr_boxes,
             cached_image,

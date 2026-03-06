@@ -1,6 +1,9 @@
 use anyhow::Context;
 use mlapibot_analysis::{ContextWarning, Url, analzyer::Analyzer};
-use mlapibot_common::action::{ActionData, PostAction};
+use mlapibot_common::{
+    Detection,
+    action::{ActionData, PostAction},
+};
 use mlapibot_database_v2::repos::subreddits::Scam;
 
 use crate::{RedditClient, exts::SubmissionExt, subreddit::Subreddit};
@@ -39,7 +42,7 @@ impl super::Module for PostScams {
 
         let links = post.get_misc_links();
 
-        return analyze_post(
+        let (action, _ctx, _det) = analyze_post(
             client,
             subreddit,
             post.title(),
@@ -47,34 +50,27 @@ impl super::Module for PostScams {
             post.selftext().as_str(),
             post.moderation().is_some(),
         )
-        .await;
+        .await?;
+
+        Ok(action)
     }
 }
 
-pub async fn analyze_post<R: Reporter>(
-    reporter: &mut R,
+async fn do_context_analysis(
+    ctx: &mlapibot_analysis::Context,
     subreddit: &mut Subreddit,
     title: &str,
-    links: impl Iterator<Item = Url> + ExactSizeIterator,
-    body: &str,
     can_moderate: bool,
-) -> anyhow::Result<PostAction> {
-    let mut warnings = Vec::new();
-    let ctx = mlapibot_analysis::Context::new_submission(links, title, body, &mut warnings).await?;
-
-    if warnings.len() > 0 {
-        reporter.image_warnings(title, warnings).await?;
-    }
-
+) -> anyhow::Result<(PostAction, Option<Detection>)> {
     let result = match mlapibot_analysis::get_best_analysis(&ctx, &subreddit.analyzers) {
         Ok(result) => result,
         Err(err) => {
             eprintln!("Error whilst analyising {title}: {err:?}");
-            return Ok(PostAction::Ignore);
+            return Ok((PostAction::Ignore, None));
         }
     };
 
-    if let Some((_detection, detected)) = result {
+    if let Some((detection, detected)) = result {
         let detected = &detected.0;
 
         let mut template_context = tera::Context::new();
@@ -150,10 +146,30 @@ pub async fn analyze_post<R: Reporter>(
             action.set_report();
         }
 
-        Ok(PostAction::Action(action))
+        Ok((PostAction::Action(action), Some(detection)))
     } else {
-        Ok(PostAction::Ignore)
+        Ok((PostAction::Ignore, None))
     }
+}
+
+pub async fn analyze_post<R: Reporter>(
+    reporter: &mut R,
+    subreddit: &mut Subreddit,
+    title: &str,
+    links: impl Iterator<Item = Url> + ExactSizeIterator,
+    body: &str,
+    can_moderate: bool,
+) -> anyhow::Result<(PostAction, mlapibot_analysis::Context, Option<Detection>)> {
+    let mut warnings = Vec::new();
+    let ctx = mlapibot_analysis::Context::new_submission(links, title, body, &mut warnings).await?;
+
+    if warnings.len() > 0 {
+        reporter.image_warnings(title, warnings).await?;
+    }
+
+    let (action, det) = do_context_analysis(&ctx, subreddit, title, can_moderate).await?;
+
+    Ok((action, ctx, det))
 }
 
 pub trait Reporter {

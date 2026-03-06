@@ -23,7 +23,7 @@ export const load: ServerLoad = async ({ url, cookies }) => {
   cookies.set("mlapibot_auth", user.cookie, {
     path: "/",
     secure: import.meta.env.PROD,
-    maxAge: 3600 * 24,
+    maxAge: 3600 * 24 * 31,
   });
 
   // const subs = await fetchUserModeratedSubreddits(me.name, resp.access_token);

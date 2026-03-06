@@ -98,7 +98,7 @@
 
     {#if value && value.type !== "phrase"}
         <div
-            class="pl-2 pb-2 mb-2 border-l border-b border-primary border-solid"
+            class="pl-2 pb-2 lg:pl-5 xl:pl-10 mb-2 border-l border-b border-primary border-solid"
         >
             {#each value.children as child, i}
                 <ScamMatcher

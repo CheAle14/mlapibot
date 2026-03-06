@@ -3,7 +3,7 @@
     import { Button } from "../ui/button";
     import * as Dialog from "../ui/dialog";
     import * as Field from "../ui/field";
-    import { Input } from "../ui/input";
+    import { Input, InputList } from "../ui/input";
     import * as Tabs from "../ui/tabs";
     import { FormWrapped } from "../reuse/form";
     import { useId } from "bits-ui";
@@ -12,7 +12,11 @@
         fetchRedditSubmission,
         fetchScamAnalysisResult,
     } from "$lib/api/scams.remote";
-    import type { GotRedditPost, PostAction } from "$lib/types/api";
+    import type {
+        GotAnalysis,
+        GotRedditPost,
+        PostAction,
+    } from "$lib/types/api";
     import { sleep } from "moderndash";
     import TestScamResultsModal from "./TestScamResultsModal.svelte";
     import * as Alert from "../ui/alert";
@@ -38,7 +42,7 @@
         link: "",
     });
 
-    let secondModal = $state<undefined | PostAction>(undefined);
+    let secondModal = $state<undefined | GotAnalysis>(undefined);
 
     let isPending = $state(false);
     let isError = $state(false);
@@ -56,7 +60,6 @@
                 id: "",
                 subreddit_id,
                 title: "",
-                link: "",
                 body: "",
             };
         }
@@ -78,6 +81,7 @@
         firstModal = {
             state: "manual",
             ...post,
+            subreddit_id,
         };
     };
 
@@ -121,7 +125,12 @@
             {#if firstModal.state === "reddit"}
                 <FormWrapped
                     id={redditForm}
-                    onsubmit={() => doRedditLink(firstModal.link ?? "")}
+                    onsubmit={() =>
+                        doRedditLink(
+                            firstModal.state === "reddit"
+                                ? firstModal.link
+                                : "",
+                        )}
                 >
                     <Field.Group>
                         <Field.Set>
@@ -198,9 +207,10 @@
 
                             <Field.Field>
                                 <Field.Label>Link</Field.Label>
-                                <Input
+                                <InputList
                                     type="url"
-                                    bind:value={firstModal.link}
+                                    popoverClass="w-xl"
+                                    bind:value={firstModal.links}
                                 />
                             </Field.Field>
 

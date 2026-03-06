@@ -4,7 +4,7 @@ import * as db from "$lib/server/database";
 import { command, query } from "$app/server";
 import { error } from "@sveltejs/kit";
 import { isModeratorOf } from "./auth.remote";
-import type { GotRedditPost, PostAction } from "$lib/types/api";
+import type { GotAnalysis, GotRedditPost, PostAction } from "$lib/types/api";
 
 export const getSubredditScams = query(z.string(), async (subreddit) => {
   if (!(await isModeratorOf(subreddit))) return error(403);
@@ -30,7 +30,7 @@ export const fetchScamAnalysisResult = command(
   z.object({
     subreddit_id: z.string(),
     title: z.string(),
-    link: z.string().optional(),
+    links: z.array(z.string()).optional(),
     body: z.string().optional(),
   }),
   async (data) => {
@@ -46,7 +46,7 @@ export const fetchScamAnalysisResult = command(
       console.error(result);
       throw result;
     } else {
-      return (await result.json()) as PostAction;
+      return (await result.json()) as GotAnalysis;
     }
   },
 );

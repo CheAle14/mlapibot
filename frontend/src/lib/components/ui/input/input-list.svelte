@@ -12,7 +12,7 @@
     import { cn } from "$lib/utils";
 
     interface StringProps {
-        type: "text";
+        type: "text" | "url";
         value?: string[];
 
         noedit?: boolean;

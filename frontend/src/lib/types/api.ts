@@ -3,7 +3,7 @@ export interface GotRedditPost {
   subreddit_id: string;
   author: string;
   title: string;
-  link?: string;
+  links?: string[];
   body?: string;
 }
 
@@ -23,3 +23,14 @@ export interface ActionData {
 }
 
 export type PostAction = IgnoreAction | ActionData;
+
+export interface OcrImageData {
+  name: string;
+  text: string;
+  triggers: number[];
+}
+
+export interface GotAnalysis {
+  action: PostAction;
+  ocr?: OcrImageData[];
+}
