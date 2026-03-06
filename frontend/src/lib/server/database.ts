@@ -142,6 +142,7 @@ export async function getSubredditTemplateStubs(
     SELECT id, name
     FROM subreddit_templates
     WHERE subreddit_id=${subreddit_id}
+    ORDER BY id
     `;
 
   return results;
@@ -155,6 +156,7 @@ export async function getSubredditTemplate(
     SELECT id, name, content
     FROM subreddit_templates
     WHERE subreddit_id=${subreddit_id} AND id=${id}
+    ORDER BY id
     `;
 
   return result;
@@ -167,6 +169,7 @@ export async function getSubredditScamRules(
     SELECT *
     FROM subreddit_scam_rules
     WHERE subreddit_id=${subreddit_id}
+    ORDER BY id
     `;
 
   return results.map((item) => {

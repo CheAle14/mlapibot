@@ -84,6 +84,7 @@
 
     const updateScam = (update: UpdateScamInfo) => {
         updateOrInsertInArrayBy(updates, (s) => s.id === update.id, update);
+        console.log("afterUpdate ", update.id, $state.snapshot(updates));
     };
 
     const onInitiateTransfer = () => {
@@ -189,7 +190,12 @@
                             }}>Restore</Button
                         >
                     {:else}
-                        <Button onclick={() => (modalItem = scam)}>Edit</Button>
+                        <Button
+                            onclick={() => {
+                                console.log("onEdit:", $state.snapshot(scam));
+                                modalItem = scam;
+                            }}>Edit</Button
+                        >
 
                         <Button
                             variant="destructive"

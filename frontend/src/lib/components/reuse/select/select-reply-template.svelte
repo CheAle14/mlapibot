@@ -31,8 +31,14 @@
 <MySelect.Simple
     clearable
     {options}
+    placeholder={templates.loading ? "Loading ..." : undefined}
     bind:selected={
-        () => options.find((i) => i.id === value), (v) => (value = v?.id)
+        () => options.find((i) => i.id === value),
+        (v) => {
+            if (!templates.loading) {
+                value = v?.id;
+            }
+        }
     }
 >
     {#snippet trigger(v)}
