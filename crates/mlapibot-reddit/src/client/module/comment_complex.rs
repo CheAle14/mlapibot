@@ -1,5 +1,5 @@
 use mlapibot_common::Words;
-use roux::{client::RemoveReason, util::error::RouxErrorKind};
+use roux::client::RemoveReason;
 
 use crate::subreddit::Subreddit;
 
@@ -26,7 +26,7 @@ impl super::Module for CommentComplex {
 
     async fn run_comment<'client>(
         &mut self,
-        client: &mut crate::client::ModuleRedditClient<'client>,
+        _client: &mut crate::client::ModuleRedditClient<'client>,
         subreddit: &mut Subreddit,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {

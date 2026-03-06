@@ -145,6 +145,7 @@ impl PgClient {
         Ok(())
     }
 
+    #[allow(unused)]
     pub(crate) async fn prepare(&self, query: &str) -> DbResult<Statement> {
         self.client.prepare(query).await.map_err(DbError::from)
     }
@@ -163,6 +164,7 @@ impl PgClient {
             .map_err(DbError::from)
     }
 
+    #[allow(unused)]
     pub(crate) async fn query_opt<T>(
         &self,
         statement: &T,

@@ -47,7 +47,7 @@ impl<'text> std::fmt::Display for CodeFence<'text> {
     }
 }
 
-pub fn extract_code_fences(text: &str) -> Vec<CodeFence> {
+pub fn extract_code_fences<'t>(text: &'t str) -> Vec<CodeFence<'t>> {
     let mut fences = Vec::new();
 
     let mut offset = 0;

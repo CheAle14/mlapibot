@@ -78,7 +78,6 @@ pub struct DataMetaData {
 
 #[cfg(test)]
 mod tests {
-    use self::Squared;
     use super::*;
 
     #[test]
@@ -98,7 +97,7 @@ mod tests {
         let true_variance = dist
             .iter()
             .copied()
-            .map(|v| (v - true_mean).squared())
+            .map(|v| square(v - true_mean))
             .sum::<Num>()
             / (dist.len() - 1) as Num;
         let true_std_dev = true_variance.sqrt();
@@ -123,14 +122,8 @@ mod tests {
             meta.standard_dev
         );
     }
-}
 
-trait Squared: Sized {
-    fn squared(&self) -> Self;
-}
-
-impl Squared for Num {
-    fn squared(&self) -> Self {
-        self * self
+    fn square(num: Num) -> Num {
+        num * num
     }
 }

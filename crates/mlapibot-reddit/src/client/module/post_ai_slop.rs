@@ -497,6 +497,7 @@ async fn determine_ai_slop<'arena, C: GitClient>(
     })
 }
 
+#[expect(unused)] // we use the debug impl for output
 #[derive(Debug)]
 struct CommitsSlopness {
     oldest: Option<DateTimeUtc>,
@@ -808,7 +809,6 @@ fn guess_readme_slop<'arena>(
     struct SpanString {
         text: String,
         span: Range<usize>,
-        walk_depth: usize,
     }
 
     let mut last_heading: Option<SpanString> = None;
@@ -910,7 +910,6 @@ fn guess_readme_slop<'arena>(
 
                 last_heading = Some(SpanString {
                     span: span.clone(),
-                    walk_depth: ctx.depth,
                     text: String::new(),
                 });
 

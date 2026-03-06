@@ -16,7 +16,6 @@ use crate::{
     },
     exts::DetectionExt,
     subreddit::Subreddit,
-    webhook::create_error_processing_message,
 };
 
 pub struct InboxCommands;

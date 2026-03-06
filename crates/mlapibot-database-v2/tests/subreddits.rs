@@ -1,4 +1,4 @@
-use chrono::{SubsecRound, Utc};
+use chrono::SubsecRound;
 use mlapibot_database_v2::{
     client::{PgClient, PgClientBuilder},
     errors::DbResult,

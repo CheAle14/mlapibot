@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use mlapibot_database_v2::{migrations::apply_migrations, repos::monitor::MonitorRepo};
+use mlapibot_database_v2::repos::monitor::MonitorRepo;
 
 #[derive(clap::Args)]
 pub struct DbArgs {

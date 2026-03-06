@@ -1,5 +1,3 @@
-use std::io::BufWriter;
-
 use ::image::DynamicImage;
 use album::{Album, AlbumBuilder};
 use error::ImgurError;

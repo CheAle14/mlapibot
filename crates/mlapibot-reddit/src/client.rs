@@ -22,7 +22,7 @@ use mlapibot_database_v2::{
 };
 use octocrab::OctocrabBuilder;
 use roux::{
-    api::{Distinguished, ThingFullname, response::ApiError},
+    api::{Distinguished, ThingFullname},
     client::{OAuthClient, RedditClient as RouxRedditClient},
     util::{SubmissionStream, now_utc},
 };
@@ -227,7 +227,7 @@ impl RedditClient {
     }
 
     pub async fn new(
-        data_dir: PathBuf,
+        _data_dir: PathBuf,
         dry_run: bool,
         admin: Option<String>,
         settings: GlobalSettings,
@@ -345,14 +345,6 @@ impl RedditClient {
         }
 
         Ok(())
-    }
-
-    async fn send_warnings(
-        &mut self,
-        warnings: Vec<ContextWarning>,
-        context: impl Into<String>,
-    ) -> anyhow::Result<()> {
-        Self::_send_warnings(self.webhook.as_mut(), warnings, context).await
     }
 
     async fn check_inbox(&mut self) -> anyhow::Result<Duration> {
@@ -950,7 +942,7 @@ impl RedditClient {
                 if wants.$wantsFn() {
                     if !ratelimiter.has($wantsFn) {
                         println!("enabling {}.", $wantsFn);
-                        ratelimiter.push($wantsFn, |ctx| Box::pin(Self::check_inbox(ctx)));
+                        ratelimiter.push($wantsFn, |ctx| Box::pin(Self::$callback(ctx)));
                     }
                 } else if ratelimiter.remove($wantsFn) {
                     println!("disabled {}.", $wantsFn);
@@ -963,7 +955,7 @@ impl RedditClient {
                 if wants.$wantsFn() && overall_sub_mask.$mask.has_any() {
                     if !ratelimiter.has($wantsFn) {
                         println!("enabling {}.", $wantsFn);
-                        ratelimiter.push($wantsFn, |ctx| Box::pin(Self::check_subreddits(ctx)));
+                        ratelimiter.push($wantsFn, |ctx| Box::pin(Self::$callback(ctx)));
                     }
                 } else if ratelimiter.remove($wantsFn) {
                     println!("disabled {}.", $wantsFn);
@@ -1052,6 +1044,7 @@ impl RedditClient {
     }
 }
 
+#[allow(unused)] // future modules may use thems
 pub struct ModuleRedditClient<'client> {
     db: &'client PgClient,
     own_name: &'client String,

@@ -8,15 +8,13 @@ use chrono::Utc;
 
 use mlapibot_database_v2::repos::{
     incidents::{IncidentRepo, ResolvedIncidentPost, StickyState},
-    subreddits::{
-        ReplyTemplate, ReplyTemplateId, Scam, ScamsModule, StatusModule, StatusStickyConfig,
-    },
+    subreddits::{ReplyTemplate, ReplyTemplateId, Scam, StatusModule, StatusStickyConfig},
 };
 use roux::{
-    api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
+    api::{ThingFullname, subreddit::RemovalReason},
     client::RedditClient,
     models::SubmissionStickySlot,
-    util::{FeedOption, RouxError},
+    util::RouxError,
 };
 
 use mlapibot_common::{LazyCached, LowercaseString};
@@ -452,26 +450,6 @@ impl Subreddit {
         }
 
         Ok(unseen)
-    }
-
-    pub async fn newest_unseen(&mut self) -> anyhow::Result<Vec<Submission>> {
-        let options = FeedOption::new().limit(25);
-
-        let data = self.reddit.latest(Some(options)).await?;
-        let mut children = data.children;
-        children.reverse();
-
-        Ok(children)
-    }
-
-    pub async fn get_removal_reason(
-        &mut self,
-        id: &str,
-    ) -> Result<Option<&RemovalReason>, RouxError> {
-        self.removal_reasons
-            .data(&self.reddit)
-            .await
-            .map(|map| map.get(id))
     }
 }
 

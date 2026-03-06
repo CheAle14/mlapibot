@@ -214,10 +214,6 @@ impl std::fmt::Debug for SubMask {
 }
 
 impl SubMask {
-    fn all(len: usize) -> Self {
-        Self(2u32.pow(len as u32) - 1)
-    }
-
     pub fn new() -> Self {
         Self(0)
     }
@@ -248,13 +244,6 @@ pub struct SplitSubMask {
 }
 
 impl SplitSubMask {
-    fn all(len: usize) -> Self {
-        Self {
-            posts: SubMask::all(len),
-            comments: SubMask::all(len),
-        }
-    }
-
     pub fn new() -> Self {
         Self {
             posts: SubMask::new(),

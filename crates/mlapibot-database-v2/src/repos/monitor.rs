@@ -1,9 +1,5 @@
-use crate::{
-    client::PgClient,
-    errors::{DbError, DbResult},
-};
+use crate::errors::{DbError, DbResult};
 use postgres_types::{FromSql, ToSql};
-use tokio_postgres::Statement;
 
 #[derive(Debug, FromSql, ToSql)]
 #[postgres(name = "monitorstate")]

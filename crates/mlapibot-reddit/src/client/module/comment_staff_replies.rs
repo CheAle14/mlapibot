@@ -25,10 +25,6 @@ pub struct CommentStaffReplies {
     next_update: DateTime<Utc>,
 }
 
-fn num_digits(n: usize) -> usize {
-    n.checked_ilog10().unwrap_or(0) as usize + 1
-}
-
 fn construct_layout_plan(
     all_replies: &[StaffReply],
     subreddit: &str,
@@ -158,7 +154,7 @@ trait CommentVisitor {
     async fn visit_comment(&mut self, comment: &ArticleCommentData) -> Result<(), Self::Error>;
 }
 
-pub async fn visit_comments<V: CommentVisitor>(
+async fn visit_comments<V: CommentVisitor>(
     listing: &Listing<ArticleCommentOrMore<AuthedClient>>,
     mut visitor: V,
 ) -> Result<(), V::Error> {

@@ -26,7 +26,7 @@ impl Module for CommentCode {
     async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
-        subreddit: &mut crate::subreddit::Subreddit,
+        _subreddit: &mut crate::subreddit::Subreddit,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
         use std::fmt::Write;

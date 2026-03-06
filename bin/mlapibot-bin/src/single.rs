@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
-use mlapibot_analysis::{Context, Url, get_best_analysis};
-use mlapibot_reddit::exts::DetectionExt;
+use mlapibot_analysis::{Context, Url};
 
 #[derive(clap::Args)]
 pub struct SingleArgs {
