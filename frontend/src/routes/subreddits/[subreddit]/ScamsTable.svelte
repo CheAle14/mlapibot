@@ -87,7 +87,13 @@
     };
 
     const onInitiateTransfer = () => {
-        const data = initiateTransfer(fetchScams.current ?? []);
+        const items = (fetchScams.current ?? []).map(
+            ({ template, ...item }) => {
+                return item;
+            },
+        );
+
+        const data = initiateTransfer(items);
         navigator.clipboard.writeText(data);
 
         toast.success(`Copied ${data.length} bytes`);

@@ -169,7 +169,28 @@ export async function getSubredditScamRules(
     WHERE subreddit_id=${subreddit_id}
     `;
 
-  return results;
+  return results.map((item) => {
+    if (!item.ocr) {
+      item.ocr = undefined;
+    }
+    if (!item.title) {
+      item.title = undefined;
+    }
+    if (!item.body) {
+      item.body = undefined;
+    }
+    if (!item.title_or_body) {
+      item.title_or_body = undefined;
+    }
+    if (!item.reason) {
+      item.reason = undefined;
+    }
+    if (!item.template) {
+      item.template = undefined;
+    }
+
+    return item;
+  });
 }
 
 type AppliedResult = { ok: ApiSubredditOptions } | { error: string };
