@@ -1,13 +1,13 @@
 import {
   CLIENT_ID,
   CLIENT_SECRET,
-  OUR_BASE_URL,
+  ORIGIN,
   CLIENT_USERNAME,
   CLIENT_PASSWORD,
 } from "$env/static/private";
 import Cached from "$lib/cached";
 
-const redirect_uri = OUR_BASE_URL + "/auth/callback";
+const redirect_uri = ORIGIN + "/auth/callback";
 
 interface TokenResponse {
   access_token: string;
