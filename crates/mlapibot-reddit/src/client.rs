@@ -858,26 +858,40 @@ impl RedditClient {
                 )
                 .await?;
 
-                let response = GotAnalysis {
-                    action,
-                    ocr: ctx
-                        .images
-                        .into_iter()
-                        .enumerate()
-                        .map(|(idx, v)| {
-                            let triggers = det
-                                .as_ref()
-                                .and_then(|v| v.images.get(&idx))
-                                .map(|v| v.words.keys().copied().collect());
+                let mut ocr: Vec<OcrImageData> = Vec::new();
 
-                            OcrImageData {
-                                text: v.full_text(),
-                                name: v.name.unwrap_or_else(|| format!("<unnamed image>")),
-                                triggers: triggers.unwrap_or_default(),
-                            }
-                        })
-                        .collect(),
-                };
+                if let Some(det) = &det {
+                    for (idx, v) in ctx.images.iter().enumerate() {
+                        let triggers = det
+                            .images
+                            .get(&idx)
+                            .map(|v| v.words.keys().copied().collect());
+
+                        ocr.push(OcrImageData {
+                            text: v.full_text(),
+                            name: v.name.clone().unwrap_or_else(|| format!("<unnamed image>")),
+                            triggers: triggers.unwrap_or_default(),
+                        });
+                    }
+
+                    if let Some(det_title) = &det.title {
+                        ocr.push(OcrImageData {
+                            name: String::from("<title>"),
+                            text: title,
+                            triggers: det_title.words.keys().copied().collect(),
+                        });
+                    }
+
+                    if let Some(det_body) = &det.body {
+                        ocr.push(OcrImageData {
+                            name: String::from("<body>"),
+                            text: body.unwrap_or_default(),
+                            triggers: det_body.words.keys().copied().collect(),
+                        });
+                    }
+                }
+
+                let response = GotAnalysis { action, ocr };
 
                 let _ = reply.send(response);
             }

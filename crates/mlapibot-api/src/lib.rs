@@ -191,6 +191,7 @@ pub struct GotRedditPost {
 struct AnalyzeReq {
     pub subreddit_id: String,
     pub title: String,
+    #[serde(default)]
     pub links: Vec<String>,
     pub body: Option<String>,
 }
