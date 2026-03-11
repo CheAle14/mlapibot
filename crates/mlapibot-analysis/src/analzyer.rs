@@ -14,9 +14,6 @@ pub trait Analyzer {
     fn analyze(&self, context: &Context) -> crate::error::Result<Option<Detection>> {
         let mut detection = Detection::new();
 
-        let lazy_body = LazyCell::new(|| context.body.as_ref().map(Words::new));
-        let lazy_title = LazyCell::new(|| context.title.as_ref().map(Words::new));
-
         if let Some(ocr) = self.ocr() {
             for (idx, image) in context.images.iter().enumerate() {
                 let words = image.words();
@@ -31,7 +28,7 @@ pub trait Analyzer {
 
         for title in [self.title(), self.title_or_body()] {
             if let Some(title) = title {
-                if let Some(words) = &*lazy_title {
+                if let Some(words) = &context.title {
                     let words = words.as_words();
                     if let Some(value) = title.best_match(&words, context.debug) {
                         println!("min-max: {:?}", value.min_max_word_indexes());
@@ -43,7 +40,7 @@ pub trait Analyzer {
 
         for body in [self.body(), self.title_or_body()] {
             if let Some(body) = body {
-                if let Some(words) = &*lazy_body {
+                if let Some(words) = &context.body {
                     let words = words.as_words();
                     if let Some(value) = body.best_match(&words, context.debug) {
                         detection.set_body(value);

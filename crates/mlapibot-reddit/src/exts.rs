@@ -77,16 +77,14 @@ impl DetectionExt for Detection {
         }
 
         if let Some(title) = &self.title {
-            let text = ctx.title.as_ref().unwrap();
-            let words = Words::new(text);
+            let words = ctx.title.as_ref().unwrap();
             let mut s = String::new();
             title.write_markdown(&words.as_words(), &mut s)?;
             v.push(s);
         }
 
         if let Some(body) = &self.body {
-            let text = ctx.body.as_ref().unwrap();
-            let words = Words::new(text);
+            let words = ctx.body.as_ref().unwrap();
             let mut s = String::new();
             body.write_markdown(&words.as_words(), &mut s)?;
             v.push(s);

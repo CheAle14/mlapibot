@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use mlapibot_common::Words;
 use mlapibot_ocr::image::{ImageSource, OcrImage};
 
 use crate::{
@@ -11,8 +12,8 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct Context {
     pub images: Vec<OcrImage>,
-    pub title: Option<String>,
-    pub body: Option<String>,
+    pub title: Option<Words>,
+    pub body: Option<Words>,
     pub debug: bool,
 }
 
@@ -43,8 +44,8 @@ impl Context {
 
         Ok(Self {
             images,
-            title,
-            body,
+            title: title.map(Words::new),
+            body: body.map(Words::new),
             debug: false,
         })
     }

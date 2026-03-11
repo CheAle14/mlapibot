@@ -8,7 +8,7 @@ use anyhow::Context;
 use chrono::Utc;
 use mlapibot_api::{ApiEvent, GotAnalysis, GotRedditPost, OcrImageData};
 use mlapibot_common::{
-    Cached, LowercaseString,
+    Cached, LowercaseString, Words,
     action::PostAction,
     config::{ApiSettings, GlobalSettings},
 };
@@ -848,12 +848,15 @@ impl RedditClient {
                     .filter_map(|s| Url::parse(&s).ok())
                     .collect();
 
+                let title = Words::new(title);
+                let body = body.map(Words::new);
+
                 let (action, ctx, det) = crate::client::module::post_scams::analyze_post(
                     &mut (),
                     subreddit,
-                    &title,
+                    title.full_text(),
                     links.into_iter(),
-                    body.as_ref().map(|v| v.as_str()).unwrap_or_default(),
+                    body.as_ref().map(|v| v.full_text()).unwrap_or_default(),
                     true,
                 )
                 .await?;
@@ -877,7 +880,10 @@ impl RedditClient {
                     if let Some(det_title) = &det.title {
                         ocr.push(OcrImageData {
                             name: String::from("<title>"),
-                            text: ctx.title.unwrap_or_default(),
+                            text: ctx
+                                .title
+                                .map(|v| v.full_text().to_owned())
+                                .unwrap_or_default(),
                             triggers: det_title.words.keys().copied().collect(),
                         });
                     }
@@ -885,7 +891,10 @@ impl RedditClient {
                     if let Some(det_body) = &det.body {
                         ocr.push(OcrImageData {
                             name: String::from("<body>"),
-                            text: ctx.body.unwrap_or_default(),
+                            text: ctx
+                                .body
+                                .map(|v| v.full_text().to_owned())
+                                .unwrap_or_default(),
                             triggers: det_body.words.keys().copied().collect(),
                         });
                     }

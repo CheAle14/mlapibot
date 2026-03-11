@@ -396,7 +396,7 @@ mod tests {
 
         let ctx = Context {
             images: Vec::new(),
-            title: Some(String::from(
+            title: Some(Words::from(
                 "some other words like lots of words on either side but the phrase is still there in the picture somewhere the quick brown fox jumps over the lazy and even more words go on this side of the picture it is unbelievable that it is so long over here dog",
             )),
             body: None,
@@ -420,7 +420,7 @@ mod tests {
 
         let ctx = Context {
             images: Vec::new(),
-            title: Some(String::from(
+            title: Some(Words::from(
                 "your message could not be delivered this is usually because you dont share a server with the recipient or the recipient is only accepting direct messages from friends you ca nsee the full list of reasons here",
             )),
             body: None,

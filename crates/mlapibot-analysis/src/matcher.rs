@@ -4,7 +4,7 @@ mod exact;
 mod ordered;
 mod phrase;
 
-use mlapibot_common::{DetectedItem, Words, matchers::Matchers};
+use mlapibot_common::{DetectedItem, matchers::Matchers};
 
 pub trait Matcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem>;
@@ -22,16 +22,16 @@ pub trait Matcher {
                 return true;
             }
         }
+
         if let Some(title) = &ctx.title {
-            let words = Words::new(title);
-            let words = words.as_words();
+            let words = title.as_words();
             if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
         }
+
         if let Some(body) = &ctx.body {
-            let words = Words::new(body);
-            let words = words.as_words();
+            let words = body.as_words();
             if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
