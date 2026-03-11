@@ -877,7 +877,7 @@ impl RedditClient {
                     if let Some(det_title) = &det.title {
                         ocr.push(OcrImageData {
                             name: String::from("<title>"),
-                            text: title,
+                            text: ctx.title.unwrap_or_default(),
                             triggers: det_title.words.keys().copied().collect(),
                         });
                     }
@@ -885,7 +885,7 @@ impl RedditClient {
                     if let Some(det_body) = &det.body {
                         ocr.push(OcrImageData {
                             name: String::from("<body>"),
-                            text: body.unwrap_or_default(),
+                            text: ctx.body.unwrap_or_default(),
                             triggers: det_body.words.keys().copied().collect(),
                         });
                     }
