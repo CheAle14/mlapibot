@@ -206,7 +206,8 @@ export async function tryApplyPendingChanges(
     const [subreddit]: [Subreddit?] = await sql`
         SELECT *
         FROM subreddits
-        WHERE id=${id}`;
+        WHERE id=${id}
+        FOR UPDATE`;
 
     if (!subreddit) {
       return { error: "invalid subreddit" };
