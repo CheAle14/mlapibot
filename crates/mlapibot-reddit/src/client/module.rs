@@ -162,10 +162,11 @@ impl std::fmt::Debug for ModuleWants {
 }
 
 impl ModuleWants {
-    pub const POSTS: ModuleWants = ModuleWants(0b0001);
-    pub const COMMENTS: ModuleWants = ModuleWants(0b0010);
-    pub const INBOX: ModuleWants = ModuleWants(0b0100);
-    pub const TIMER: ModuleWants = ModuleWants(0b1000);
+    pub const POSTS: ModuleWants = ModuleWants(1 << 0);
+    pub const COMMENTS: ModuleWants = ModuleWants(1 << 1);
+    pub const INBOX: ModuleWants = ModuleWants(1 << 2);
+    pub const TIMER: ModuleWants = ModuleWants(1 << 3);
+    pub const MODQUEUE: ModuleWants = ModuleWants(1 << 4);
 
     pub fn has(&self, wants: ModuleWants) -> bool {
         (*self & wants).0 != 0
@@ -185,6 +186,10 @@ impl ModuleWants {
 
     pub fn timer(&self) -> bool {
         self.has(ModuleWants::TIMER)
+    }
+
+    pub fn modqueue(&self) -> bool {
+        self.has(ModuleWants::MODQUEUE)
     }
 }
 
@@ -241,6 +246,7 @@ impl std::ops::BitOrAssign for SubMask {
 pub struct SplitSubMask {
     pub posts: SubMask,
     pub comments: SubMask,
+    pub modqueue: SubMask,
 }
 
 impl SplitSubMask {
@@ -248,6 +254,7 @@ impl SplitSubMask {
         Self {
             posts: SubMask::new(),
             comments: SubMask::new(),
+            modqueue: SubMask::new(),
         }
     }
 }
@@ -256,6 +263,7 @@ impl std::ops::BitOrAssign for SplitSubMask {
     fn bitor_assign(&mut self, rhs: Self) {
         self.posts |= rhs.posts;
         self.comments |= rhs.comments;
+        self.modqueue |= rhs.modqueue;
     }
 }
 

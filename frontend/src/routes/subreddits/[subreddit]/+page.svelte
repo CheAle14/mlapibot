@@ -189,6 +189,35 @@
                             subreddit_id={subreddit}
                         />
                     {/if}
+
+                    <div class="w-full max-w-md">
+                        <Field.Set>
+                            <Field.Legend>Settings</Field.Legend>
+                            <Field.Group>
+                                <Field.Field orientation="horizontal">
+                                    <Checkbox
+                                        id="search_modqueue"
+                                        bind:checked={
+                                            () =>
+                                                current.search_modqueue ??
+                                                false,
+                                            (v) => (current.search_modqueue = v)
+                                        }
+                                    />
+
+                                    <Field.Content>
+                                        <Field.Label for="search_modqueue"
+                                            >Search Modqueue</Field.Label
+                                        >
+                                        <Field.Description
+                                            >If checked, also apply rules
+                                            against the subreddit's modqueue</Field.Description
+                                        >
+                                    </Field.Content>
+                                </Field.Field>
+                            </Field.Group>
+                        </Field.Set>
+                    </div>
                 {/snippet}
             </Module>
 

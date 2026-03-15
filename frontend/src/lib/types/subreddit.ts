@@ -46,7 +46,10 @@ const BaseModule = z.object({
   enabled: z.boolean(),
 });
 
-export const ZModuleScams = BaseModule.extend({});
+export const ZModuleScams = BaseModule.extend({
+  search_modqueue: z.boolean().optional(),
+});
+
 export const ZModuleAiSlop = BaseModule.extend({
   modmail_to: z.string().optional(),
 });

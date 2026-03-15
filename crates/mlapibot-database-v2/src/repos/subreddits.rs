@@ -392,6 +392,13 @@ pub struct RelatedTitleModule {
     pub reason: RemovalReasonKey,
 }
 
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ScamsModule {
+    pub enabled: bool,
+    #[serde(default)]
+    pub search_modqueue: bool,
+}
+
 macro_rules! make_simple_module {
     ($($name:ident),* $(,)?) => {
         $(
@@ -404,7 +411,7 @@ macro_rules! make_simple_module {
     };
 }
 
-make_simple_module!(ScamsModule, CommentsCdnModule, CommentsCodeModule);
+make_simple_module!(CommentsCdnModule, CommentsCodeModule);
 
 super::make_newtype_id!(ReplyTemplateId, ScamId);
 

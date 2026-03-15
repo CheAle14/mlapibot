@@ -24,10 +24,23 @@ impl super::Module for PostScams {
     }
 
     fn wants(&self) -> super::ModuleWants {
-        super::ModuleWants::POSTS
+        super::ModuleWants::POSTS | super::ModuleWants::MODQUEUE
     }
 
-    super::impl_mask_subreddits!(mod_scams => posts);
+    fn mask_subreddits(&self, subreddits: &[crate::subreddit::Subreddit]) -> super::SplitSubMask {
+        let mut sum = super::SplitSubMask::new();
+        for (idx, sub) in subreddits.iter().enumerate() {
+            if sub.db.mod_scams.enabled {
+                sum.posts.set(idx);
+
+                if sub.db.mod_scams.search_modqueue {
+                    sum.modqueue.set(idx);
+                }
+            }
+        }
+
+        sum
+    }
 
     async fn run_post<'client>(
         &mut self,

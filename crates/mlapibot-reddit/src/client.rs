@@ -23,7 +23,11 @@ use mlapibot_database_v2::{
 use octocrab::OctocrabBuilder;
 use roux::{
     api::{Distinguished, ThingFullname},
-    client::{OAuthClient, RedditClient as RouxRedditClient},
+    client::{AuthedClient, OAuthClient, RedditClient as RouxRedditClient},
+    models::{
+        LatestComment,
+        modqueue::{Modqueue, QueueThing},
+    },
     util::{SubmissionStream, now_utc},
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
@@ -36,8 +40,9 @@ use tokio::sync::mpsc;
 use super::{RouxClient, Submission};
 
 use crate::{
+    Comment,
     client::module::{InboxAction, InboxMsg, RegisteredModule, SplitSubMask},
-    exts::SubmissionExt,
+    exts::{ModerationExt, SubmissionExt},
     ratelimiter::Ratelimiter,
     status_tracker::{IncidentWithLive, get_title, write_affected_components_list},
     subreddit::{DbSubreddit, Subreddit},
@@ -547,17 +552,8 @@ impl RedditClient {
                         .mark_item_seen(comment.name().full(), subreddit.name().as_str())
                         .await?;
 
-                    for reg in &mut self.modules {
-                        if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
-                            let name = reg.module.name();
-                            reg.module
-                                .run_comment(&mut view, subreddit, &comment)
-                                .await
-                                .with_context(|| {
-                                    format!("{name}.run_comment({})", comment.name().full())
-                                })?;
-                        }
-                    }
+                    view.run_comment(&mut self.modules, subreddit, idx, comment)
+                        .await?;
                 }
 
                 limit = limit * 2;
@@ -565,6 +561,61 @@ impl RedditClient {
         }
 
         Ok(Duration::from_secs(15))
+    }
+
+    async fn check_sub_modqueue(&mut self) -> anyhow::Result<Duration> {
+        for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
+            if !self.subreddits_mask.modqueue.is_set(idx) {
+                continue;
+            }
+
+            let queue = subreddit.reddit.modqueue(None).await?;
+
+            let mut view = make_view!(self);
+            for thing in queue {
+                if thing.author() == &self.own_name {
+                    continue;
+                }
+
+                match &thing {
+                    QueueThing::Submission(d) => {
+                        if d.has_unknown_media() || d.has_any_mod_action_by_human() {
+                            continue;
+                        }
+                    }
+                    QueueThing::Comment(d) => {
+                        if d.has_any_mod_action_by_human() {
+                            continue;
+                        }
+                    }
+                }
+
+                let has_seen = self.db.has_seen_item(thing.name().full()).await?;
+
+                if !has_seen {
+                    self.db
+                        .mark_item_seen(thing.name().full(), subreddit.name().as_str())
+                        .await?;
+
+                    println!("Saw mod {:?} by /u/{}", thing.name().full(), thing.author(),);
+                }
+
+                match thing {
+                    QueueThing::Submission(post) => {
+                        view.run_post(&mut self.modules, subreddit, idx, post, has_seen)
+                            .await?;
+                    }
+                    QueueThing::Comment(comment) => {
+                        if !has_seen {
+                            view.run_comment(&mut self.modules, subreddit, idx, comment)
+                                .await?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(Duration::from_mins(1))
     }
 
     async fn check_status_updates(
@@ -989,6 +1040,7 @@ impl RedditClient {
         set!(inbox, check_inbox);
         set!(posts + posts, check_subreddits);
         set!(comments + comments, check_sub_comments);
+        set!(modqueue + modqueue, check_sub_modqueue);
         set!(timer, check_module_timers);
 
         ratelimiter.push("check_own_comments", |ctx| {
@@ -1137,6 +1189,26 @@ impl<'client> ModuleRedditClient<'client> {
                         mlapibot_database_v2::repos::monitor::MonitorState::Ignored,
                     )
                     .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn run_comment(
+        &mut self,
+        modules: &mut [RegisteredModule],
+        subreddit: &mut Subreddit,
+        idx: usize,
+        comment: LatestComment<AuthedClient>,
+    ) -> anyhow::Result<()> {
+        for reg in modules {
+            if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
+                let name = reg.module.name();
+                reg.module
+                    .run_comment(self, subreddit, &comment)
+                    .await
+                    .with_context(|| format!("{name}.run_comment({})", comment.name().full()))?;
             }
         }
 

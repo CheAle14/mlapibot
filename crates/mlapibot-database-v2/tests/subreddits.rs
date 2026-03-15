@@ -34,7 +34,10 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
         seq_num: 1,
         mod_json_schema: 0,
         removal_reasons: RemovalReasonsMap::default().with("#repost", "abc-rule-123"),
-        mod_scams: ScamsModule { enabled: true },
+        mod_scams: ScamsModule {
+            enabled: true,
+            search_modqueue: true,
+        },
         mod_ai_slop: AiSlopModule {
             enabled: false,
             modmail_to: Some("sub456".into()),
