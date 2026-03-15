@@ -914,20 +914,24 @@ impl RedditClient {
 
                 let mut ocr: Vec<OcrImageData> = Vec::new();
 
+                // Unconditionally add OCR, to always see what the bot sees.
+                for (idx, v) in ctx.images.iter().enumerate() {
+                    let triggers = det
+                        .as_ref()
+                        .and_then(|det| det.images.get(&idx))
+                        .map(|v| v.words.keys().copied().collect::<Vec<_>>())
+                        .unwrap_or_default();
+
+                    ocr.push(OcrImageData {
+                        text: v.full_text(),
+                        name: v.name.clone().unwrap_or_else(|| format!("<unnamed image>")),
+                        triggers,
+                    });
+                }
+
                 if let Some(det) = &det {
-                    for (idx, v) in ctx.images.iter().enumerate() {
-                        let triggers = det
-                            .images
-                            .get(&idx)
-                            .map(|v| v.words.keys().copied().collect());
-
-                        ocr.push(OcrImageData {
-                            text: v.full_text(),
-                            name: v.name.clone().unwrap_or_else(|| format!("<unnamed image>")),
-                            triggers: triggers.unwrap_or_default(),
-                        });
-                    }
-
+                    // Only add title/body to mark any detections.
+                    // Presumably they already know what text is in there.
                     if let Some(det_title) = &det.title {
                         ocr.push(OcrImageData {
                             name: String::from("<title>"),
