@@ -58,6 +58,7 @@ impl super::Module for PostScams {
         let (action, _ctx, _det) = analyze_post(
             client,
             subreddit,
+            &format!("https://old.reddit.com{}", post.permalink()),
             post.title(),
             links.into_iter(),
             post.selftext().as_str(),
@@ -168,6 +169,7 @@ async fn do_context_analysis(
 pub async fn analyze_post<R: Reporter>(
     reporter: &mut R,
     subreddit: &mut Subreddit,
+    permalink: &str,
     title: &str,
     links: impl Iterator<Item = Url> + ExactSizeIterator,
     body: &str,
@@ -177,7 +179,7 @@ pub async fn analyze_post<R: Reporter>(
     let ctx = mlapibot_analysis::Context::new_submission(links, title, body, &mut warnings).await?;
 
     if warnings.len() > 0 {
-        reporter.image_warnings(title, warnings).await?;
+        reporter.image_warnings(permalink, title, warnings).await?;
     }
 
     let (action, det) = do_context_analysis(&ctx, subreddit, title, can_moderate).await?;
@@ -188,6 +190,7 @@ pub async fn analyze_post<R: Reporter>(
 pub trait Reporter {
     async fn image_warnings(
         &mut self,
+        permalink: &str,
         title: &str,
         warnings: Vec<ContextWarning>,
     ) -> anyhow::Result<()>;
@@ -196,13 +199,14 @@ pub trait Reporter {
 impl Reporter for crate::client::ModuleRedditClient<'_> {
     async fn image_warnings(
         &mut self,
+        permalink: &str,
         title: &str,
         warnings: Vec<ContextWarning>,
     ) -> anyhow::Result<()> {
         RedditClient::_send_warnings(
             self.webhook.as_mut(),
             warnings,
-            format!("Warnings with post {:?}", title),
+            format!("Warnings with post [{title}](<{permalink}>)"),
         )
         .await
     }
@@ -211,6 +215,8 @@ impl Reporter for crate::client::ModuleRedditClient<'_> {
 impl Reporter for () {
     async fn image_warnings(
         &mut self,
+        // Meaningless for web test
+        _permalink: &str,
         title: &str,
         warnings: Vec<ContextWarning>,
     ) -> anyhow::Result<()> {

@@ -905,6 +905,7 @@ impl RedditClient {
                 let (action, ctx, det) = crate::client::module::post_scams::analyze_post(
                     &mut (),
                     subreddit,
+                    "",
                     title.full_text(),
                     links.into_iter(),
                     body.as_ref().map(|v| v.full_text()).unwrap_or_default(),
