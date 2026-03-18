@@ -390,6 +390,8 @@ pub struct ComplexCommentsModule {
 pub struct RelatedTitleModule {
     pub enabled: bool,
     pub reason: RemovalReasonKey,
+    #[serde(default)]
+    pub check_img_posts: bool,
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]

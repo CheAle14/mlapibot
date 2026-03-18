@@ -13,6 +13,7 @@
         required?: boolean;
 
         clearable?: boolean;
+        empty?: Snippet<[]>;
         trigger?: Snippet<[T]>;
         item?: Snippet<[T]>;
     }
@@ -22,6 +23,7 @@
         options,
         placeholder,
         clearable,
+        empty,
         item,
         trigger,
         ...selectProps
@@ -59,6 +61,12 @@
                         {opt.id}
                     {/if}
                 </Select.Item>
+            {:else}
+                {#if empty}
+                    {@render empty()}
+                {:else}
+                    <em>No items</em>
+                {/if}
             {/each}
         </Select.Content>
     </Select.Root>

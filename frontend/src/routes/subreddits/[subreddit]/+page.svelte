@@ -9,7 +9,10 @@
     import { ModuleKeys, type ApiSubredditOptions } from "$lib/types/subreddit";
     import { Json, JsonMany } from "$lib/components/ui/json";
     import Module from "./Module.svelte";
-    import { SelectIncidentImpact } from "$lib/components/reuse/select";
+    import {
+        RemovalReason,
+        SelectIncidentImpact,
+    } from "$lib/components/reuse/select";
     import { Button } from "$lib/components/ui/button";
     import ScamsTable from "./ScamsTable.svelte";
     import * as Spinner from "$lib/components/ui/spinner";
@@ -422,7 +425,45 @@
                 {open}
                 bind:current={changes}
                 original={options}
-            />
+            >
+                {#snippet children({ open, current })}
+                    <div class="w-full max-w-md">
+                        <Field.Group>
+                            <Field.Set>
+                                <Field.Field>
+                                    <Field.Label>Removal reason</Field.Label>
+                                    <Field.Description
+                                        >The reason used to remove posts under
+                                        this module</Field.Description
+                                    >
+
+                                    <RemovalReason
+                                        required
+                                        reasons={changes?.removal_reasons ?? {}}
+                                        bind:value={current.reason}
+                                    />
+                                </Field.Field>
+
+                                <Field.Field orientation="horizontal">
+                                    <Checkbox
+                                        bind:checked={current.check_img_posts}
+                                    />
+
+                                    <Field.Content>
+                                        <Field.Label
+                                            >Check Image Posts</Field.Label
+                                        >
+                                        <Field.Description
+                                            >Whether image posts with vague
+                                            titles should also be removed</Field.Description
+                                        >
+                                    </Field.Content>
+                                </Field.Field>
+                            </Field.Set>
+                        </Field.Group>
+                    </div>
+                {/snippet}
+            </Module>
 
             <Module
                 key="complex_comments"

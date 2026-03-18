@@ -57,6 +57,7 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
         mod_related_title: RelatedTitleModule {
             enabled: true,
             reason: RemovalReasonKey::new("#repost"),
+            check_img_posts: true,
         },
         mod_complex_comments: ComplexCommentsModule {
             enabled: true,

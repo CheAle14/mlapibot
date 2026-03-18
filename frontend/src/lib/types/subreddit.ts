@@ -53,7 +53,11 @@ export const ZModuleScams = BaseModule.extend({
 export const ZModuleAiSlop = BaseModule.extend({
   modmail_to: z.string().optional(),
 });
-export const ZModuleRelatedTitle = BaseModule.extend({});
+
+export const ZModuleRelatedTitle = BaseModule.extend({
+  reason: ZRemovalReason,
+  check_img_posts: z.boolean().default(false),
+});
 
 export const ZComplexCommentInfo = z.object({
   name: z.string(),

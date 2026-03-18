@@ -81,7 +81,10 @@ function mapDataToOptions(sub: Subreddit): ApiSubredditOptions {
     ai_slop: sub.mod_ai_slop,
     status: sub.mod_status,
     staff_reply: sub.mod_staff_reply,
-    related_title: sub.mod_related_title,
+    related_title: {
+      ...sub.mod_related_title,
+      check_img_posts: sub.mod_related_title.check_img_posts ?? false,
+    },
     comments_cdn: sub.mod_comments_cdn,
     comments_code: sub.mod_comments_code,
     complex_comments: sub.mod_complex_comments,

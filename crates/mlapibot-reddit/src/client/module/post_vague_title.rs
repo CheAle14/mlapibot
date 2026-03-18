@@ -37,12 +37,8 @@ impl super::Module for PostVagueTitle {
             return Ok(PostAction::Ignore);
         }
 
-        if !post.is_self() || post.selftext().trim().len() == 0 {
-            return Ok(PostAction::Ignore);
-        }
-
-        if post.selftext().contains("http") {
-            // Image could contain more context.
+        let is_image_post = !post.is_self() || post.selftext().trim().len() == 0;
+        if is_image_post && !subreddit.db.mod_related_title.check_img_posts {
             return Ok(PostAction::Ignore);
         }
 

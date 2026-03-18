@@ -20,6 +20,10 @@
         () => options.find((i) => i.id === value), (v) => (value = v?.id)
     }
 >
+    {#snippet empty()}
+        <em>You need to add a removal reason</em>
+    {/snippet}
+
     {#snippet trigger(v)}
         {v.id}
     {/snippet}
