@@ -23,6 +23,7 @@ use mlapibot_database_v2::{
 use octocrab::OctocrabBuilder;
 use roux::{
     api::{Distinguished, ThingFullname},
+    builders::submission::SubmissionSubmitBuilder,
     client::{AuthedClient, OAuthClient, RedditClient as RouxRedditClient},
     models::{
         LatestComment,

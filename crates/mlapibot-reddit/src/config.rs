@@ -12,7 +12,10 @@ pub struct PostFlairSetting {
 }
 
 impl PostFlairSetting {
-    pub fn apply(&self, builder: SubmissionSubmitBuilder) -> SubmissionSubmitBuilder {
+    pub fn apply<Kind>(
+        &self,
+        builder: SubmissionSubmitBuilder<Kind>,
+    ) -> SubmissionSubmitBuilder<Kind> {
         let builder = match self.template {
             Some(ref id) => builder.with_flair_id(id),
             None => builder,
@@ -41,7 +44,7 @@ pub trait FlairSubBuilderExt: Sized {
     fn with_flair_setting(self, setting: &PostFlairSetting) -> Self;
 }
 
-impl FlairSubBuilderExt for SubmissionSubmitBuilder {
+impl<Kind> FlairSubBuilderExt for SubmissionSubmitBuilder<Kind> {
     fn with_flair_setting(self, setting: &PostFlairSetting) -> Self {
         setting.apply(self)
     }

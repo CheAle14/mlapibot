@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use mlapibot_database_v2::repos::incidents::StatusIncident;
-use roux::builders::submission::SubmissionSubmitBuilder;
+use roux::builders::submission::{PayloadLink, SubmissionSubmitBuilder};
 use statuspage::{component::Component, incident::Incident};
 
 use crate::utils::{BoO, clamp};
@@ -12,15 +12,27 @@ pub struct IncidentWithLive<'a> {
 }
 
 impl<'a> IncidentWithLive<'a> {
-    pub fn to_builder(&self) -> SubmissionSubmitBuilder {
+    pub fn to_builder(&self) -> SubmissionSubmitBuilder<PayloadLink> {
+        let live_link = format!(
+            "https://www.reddit.com/live/{}/",
+            self.live_thread.live_fullname
+        );
+
+        let mut self_text = String::with_capacity(128);
+
+        self_text.push_str(
+            "This post links to a live-updating thread which will post updates to this issue.  \n",
+        );
+        self_text.push_str("You may also reach that live thread by the following link:  \n");
+        self_text.push_str("\n**");
+        self_text.push_str(&live_link);
+        self_text.push_str("**");
+
         SubmissionSubmitBuilder::link(
             get_title(&self.incident, 256).expect("String write should be infalliable"),
-            format!(
-                "https://www.reddit.com/live/{}/",
-                self.live_thread.live_fullname
-            ),
-            false,
+            live_link,
         )
+        .with_text(self_text)
         .with_send_replies(false)
     }
 }
