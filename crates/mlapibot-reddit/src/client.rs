@@ -115,13 +115,13 @@ impl RedditClient {
             .get_my_subreddits(roux::client::SubRelation::Moderator)
             .await?;
 
-        for sub in &mut in_db {
-            if sub.enabled && !from_api.data.children.iter().any(|x| x.data.id == sub.id) {
-                println!("Disabling subreddit /r/{} {}", sub.name, sub.id);
-                db.set_subreddit_enabled(&sub.id, false).await?;
-                sub.enabled = false;
-            }
-        }
+        // for sub in &mut in_db {
+        //     if sub.enabled && !from_api.data.children.iter().any(|x| x.data.id == sub.id) {
+        //         println!("Disabling subreddit /r/{} {}", sub.name, sub.id);
+        //         db.set_subreddit_enabled(&sub.id, false).await?;
+        //         sub.enabled = false;
+        //     }
+        // }
 
         for api in from_api.data.children {
             if let Some(s) = in_db.iter_mut().find(|s| s.id == api.data.id) {
