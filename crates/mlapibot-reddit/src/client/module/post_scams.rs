@@ -157,7 +157,7 @@ async fn do_context_analysis(
                 action.set_remove();
             }
         } else if detected.report {
-            action.set_report();
+            action.set_report(format!("triggered rule {}", detected.name));
         }
 
         Ok((PostAction::Action(action), Some(detection)))

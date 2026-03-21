@@ -25,26 +25,26 @@ impl PostAction {
             (this, PostAction::Ignore) => this,
 
             (PostAction::Action(this_data), PostAction::Action(other_data)) => {
-                let data = match (this_data.moderate, other_data.moderate) {
+                let data = match (&this_data.moderate, &other_data.moderate) {
                     (ModAct::None, ModAct::None)
-                    | (ModAct::Report, ModAct::Report)
+                    | (ModAct::Report { .. }, ModAct::Report { .. })
                     | (ModAct::Remove, ModAct::Remove)
                     | (ModAct::Filter, ModAct::Filter) => Self::merge(this_data, other_data),
 
-                    (ModAct::None, ModAct::Report) => other_data,
+                    (ModAct::None, ModAct::Report { .. }) => other_data,
                     (ModAct::None, ModAct::Remove) => other_data,
                     (ModAct::None, ModAct::Filter) => other_data,
 
-                    (ModAct::Report, ModAct::None) => this_data,
-                    (ModAct::Report, ModAct::Remove) => other_data,
-                    (ModAct::Report, ModAct::Filter) => other_data,
+                    (ModAct::Report { .. }, ModAct::None) => this_data,
+                    (ModAct::Report { .. }, ModAct::Remove) => other_data,
+                    (ModAct::Report { .. }, ModAct::Filter) => other_data,
 
                     (ModAct::Remove, ModAct::None) => this_data,
-                    (ModAct::Remove, ModAct::Report) => this_data,
+                    (ModAct::Remove, ModAct::Report { .. }) => this_data,
                     (ModAct::Remove, ModAct::Filter) => other_data,
 
                     (ModAct::Filter, ModAct::None) => this_data,
-                    (ModAct::Filter, ModAct::Report) => this_data,
+                    (ModAct::Filter, ModAct::Report { .. }) => this_data,
                     (ModAct::Filter, ModAct::Remove) => this_data,
                 };
 
@@ -83,11 +83,29 @@ impl PostAction {
             }
         };
 
+        let moderate = match (this.moderate, other.moderate) {
+            (
+                ModAct::Report {
+                    reason: mut this_reason,
+                },
+                ModAct::Report {
+                    reason: other_reason,
+                },
+            ) => {
+                this_reason.push_str("; ");
+                this_reason.push_str(&other_reason);
+                ModAct::Report {
+                    reason: this_reason,
+                }
+            }
+            (this, _other) => this,
+        };
+
         ActionData {
             module,
             analyser,
             reply,
-            moderate: this.moderate,
+            moderate,
         }
     }
 }
@@ -137,13 +155,15 @@ impl ActionData {
         self
     }
 
-    pub fn set_report(&mut self) -> &mut Self {
-        self.moderate = ModAct::Report;
+    pub fn set_report(&mut self, reason: impl Into<String>) -> &mut Self {
+        self.moderate = ModAct::Report {
+            reason: reason.into(),
+        };
         self
     }
 
-    pub fn report(mut self) -> Self {
-        self.set_report();
+    pub fn report(mut self, reason: impl Into<String>) -> Self {
+        self.set_report(reason);
         self
     }
 
@@ -174,13 +194,13 @@ pub struct PostReply {
     pub distinguish: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Copy, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ModAct {
     /// Take no moderation decisions
     None,
     /// Report the post
-    Report,
+    Report { reason: String },
     /// Remove the post
     Remove,
     /// Remove the post and send a message to the subreddit's modmail
@@ -257,6 +277,18 @@ mod tests {
         );
 
         let result = second.join(first);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    pub fn test_merges_reports() {
+        let first = PostAction::Action(ActionData::new().report("hello"));
+
+        let second = PostAction::Action(ActionData::new().report("world"));
+
+        let expected = PostAction::Action(ActionData::new().report("hello; world"));
+
+        let result = first.clone().join(second.clone());
         assert_eq!(result, expected);
     }
 }

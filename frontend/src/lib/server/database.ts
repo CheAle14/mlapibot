@@ -78,7 +78,10 @@ function mapDataToOptions(sub: Subreddit): ApiSubredditOptions {
     removal_reasons: sub.removal_reasons,
     templates: { creates: [], deletes: [], updates: [] },
     scams: { ...sub.mod_scams, create: [], deletes: [], update: [] },
-    ai_slop: sub.mod_ai_slop,
+    ai_slop: {
+      ...sub.mod_ai_slop,
+      report: sub.mod_ai_slop.report ?? false,
+    },
     status: sub.mod_status,
     staff_reply: sub.mod_staff_reply,
     related_title: {

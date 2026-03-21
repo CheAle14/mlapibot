@@ -413,6 +413,23 @@
                                         placeholder={params.subreddit}
                                     />
                                 </Field.Field>
+
+                                <Field.Field orientation="horizontal">
+                                    <Switch
+                                        id="sticky"
+                                        bind:checked={current.report}
+                                    />
+
+                                    <Field.Content>
+                                        <Field.Label for="sticky"
+                                            >Report</Field.Label
+                                        >
+                                        <Field.Description
+                                            >Should potential AI slop be
+                                            reported?</Field.Description
+                                        >
+                                    </Field.Content>
+                                </Field.Field>
                             </Field.Set>
                         </Field.Group>
                     </div>

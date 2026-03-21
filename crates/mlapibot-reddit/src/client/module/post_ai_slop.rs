@@ -9,7 +9,10 @@ use bumpalo::Bump;
 use futures_util::TryStreamExt;
 use markdown::{mdast::Node, unist::Position};
 use mlapibot_analysis::{Url, extract_all_links};
-use mlapibot_common::{DataMetaData, RunningStat, action::PostAction};
+use mlapibot_common::{
+    DataMetaData, RunningStat,
+    action::{ActionData, PostAction},
+};
 use octocrab::{Octocrab, models::repos::RepoCommit, repos::RepoHandler};
 
 use crate::client::module::impl_mask_subreddits;
@@ -80,6 +83,11 @@ impl RepoLink {
     }
 }
 
+const EMOJI_HEADING_ERROR: f32 = 0.5;
+const EMOJI_HEADING_WARN: f32 = 0.25;
+const EMOJI_POINT_ERROR: f32 = 0.25;
+const EMOJI_POINT_WARN: f32 = 0.1;
+
 #[async_trait::async_trait(?Send)]
 impl super::Module for PostAiSlop {
     fn new() -> Self
@@ -140,6 +148,7 @@ impl super::Module for PostAiSlop {
             }
         }
 
+        let mut report_reasons = HashSet::new();
         let bump = Bump::new();
 
         for link in links {
@@ -169,6 +178,22 @@ impl super::Module for PostAiSlop {
                         .client
                         .compose_message(&modmail_to, &subject, &body)
                         .await?;
+
+                    if slop.commits.commits_per_day.max > 30.0 {
+                        report_reasons.insert("high commit rate");
+                    }
+
+                    if slop.commits.ai_co_author.ratio() > 50.0 {
+                        report_reasons.insert("majority ai-co-authored commits");
+                    }
+
+                    if slop.readme.emoji_headings.ratio() > EMOJI_HEADING_ERROR {
+                        report_reasons.insert("README headings many emoji");
+                    }
+
+                    if slop.readme.emoji_points.ratio() > EMOJI_POINT_ERROR {
+                        report_reasons.insert("README lists many emoji");
+                    }
                 }
                 Err(err) => {
                     eprintln!("{link}: {err}")
@@ -176,7 +201,24 @@ impl super::Module for PostAiSlop {
             }
         }
 
-        Ok(PostAction::Ignore)
+        if config.report && report_reasons.len() > 0 {
+            let mut reason = String::from("ai? ");
+            for r in report_reasons {
+                if (r.len() + reason.len()) > 100 {
+                    // Reddit restriction.
+                    break;
+                }
+
+                if reason.len() > 0 {
+                    reason.push_str("; ");
+                }
+                reason.push_str(r);
+            }
+
+            Ok(PostAction::Action(ActionData::new().report(reason)))
+        } else {
+            Ok(PostAction::Ignore)
+        }
     }
 }
 
@@ -988,7 +1030,7 @@ fn guess_readme_slop<'arena>(
         }
     }
 
-    if slopness.emoji_headings.ratio() > 0.5 {
+    if slopness.emoji_headings.ratio() > EMOJI_HEADING_ERROR {
         this_report.push(
             Level::ERROR
                 .primary_title(format!(
@@ -997,7 +1039,7 @@ fn guess_readme_slop<'arena>(
                 ))
                 .elements(pending_emoji_headings.into_iter().take(10)),
         );
-    } else if slopness.emoji_headings.ratio() > 0.25 {
+    } else if slopness.emoji_headings.ratio() > EMOJI_HEADING_WARN {
         this_report.push(
             Level::WARNING
                 .primary_title(format!(
@@ -1008,7 +1050,7 @@ fn guess_readme_slop<'arena>(
         );
     }
 
-    if slopness.emoji_points.ratio() > 0.25 {
+    if slopness.emoji_points.ratio() > EMOJI_POINT_ERROR {
         this_report.push(
             Level::ERROR
                 .primary_title(format!(
@@ -1017,7 +1059,7 @@ fn guess_readme_slop<'arena>(
                 ))
                 .elements(pending_emoji_points),
         );
-    } else if slopness.emoji_points.ratio() > 0.1 {
+    } else if slopness.emoji_points.ratio() > EMOJI_POINT_WARN {
         this_report.push(
             Level::WARNING
                 .primary_title(format!(
@@ -1128,7 +1170,7 @@ mod tests {
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = RepoLink::parse("https://github.com/RustedBytes/mtproxy");
+        let url = RepoLink::parse("https://github.com/cdump/proton-tui");
         println!("determine");
 
         let arena = Bump::new();

@@ -40,6 +40,7 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
         },
         mod_ai_slop: AiSlopModule {
             enabled: false,
+            report: true,
             modmail_to: Some("sub456".into()),
         },
         mod_staff_reply: StaffReplyModule {

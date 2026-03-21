@@ -365,13 +365,8 @@ pub async fn execute(
 
     let (reported, removed) = match action.moderate {
         ModAct::None => (false, false),
-        ModAct::Report => {
-            if let Some(name) = action.analyser.as_ref() {
-                post.report(&format!("Appears to be a common repost ({name})"))
-                    .await
-            } else {
-                post.report("Appears to be a common report").await
-            }?;
+        ModAct::Report { reason } => {
+            post.report(&reason).await?;
 
             (true, false)
         }

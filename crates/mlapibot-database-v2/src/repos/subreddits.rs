@@ -367,6 +367,8 @@ pub struct AiSlopModule {
     pub enabled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modmail_to: Option<String>,
+    #[serde(default)]
+    pub report: bool,
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]

@@ -52,6 +52,7 @@ export const ZModuleScams = BaseModule.extend({
 
 export const ZModuleAiSlop = BaseModule.extend({
   modmail_to: z.string().optional(),
+  report: z.boolean().default(false),
 });
 
 export const ZModuleRelatedTitle = BaseModule.extend({
