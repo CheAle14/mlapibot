@@ -15,6 +15,7 @@ export const isModeratorOf = query(z.string(), async (subreddit) => {
   }
 
   return (
-    locals.user.admin || (await db.isUserModeratorOf(subreddit, locals.user.id))
+    locals.user.admin ||
+    (await db.isUserModeratorOf(subreddit, locals.user.name))
   );
 });
