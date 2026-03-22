@@ -363,16 +363,16 @@ pub async fn execute(
         None
     };
 
-    let (reported, removed) = match action.moderate {
-        ModAct::None => (false, false),
+    let (reported, removed, webhook_text) = match action.moderate {
+        ModAct::None => (false, false, None),
         ModAct::Report { reason } => {
             post.report(&reason).await?;
 
-            (true, false)
+            (true, false, Some(reason))
         }
         ModAct::Remove => {
             post.remove(false).await?;
-            (false, true)
+            (false, true, None)
         }
         ModAct::Filter => {
             post.remove(false).await?;
@@ -393,7 +393,7 @@ pub async fn execute(
             sub.compose_message(&format!("Filtered post by /u/{}", post.author()), &modmail)
                 .await?;
 
-            (true, true)
+            (true, true, None)
         }
     };
 
@@ -418,6 +418,7 @@ pub async fn execute(
             post,
             &action.module,
             action.analyser.as_ref().map(|c| c.as_str()),
+            webhook_text.as_ref().map(|c| c.as_str()),
             is_debug,
         );
         webhook.send(&msg).await?;
