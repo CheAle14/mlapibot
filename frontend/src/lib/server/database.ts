@@ -58,14 +58,12 @@ export async function isUserModeratorOf(
   subreddit_id: string,
   username: string,
 ) {
-  const result = await sql`
-    SELECT COUNT(*) FROM subreddit_mods
+  const [row]: [{ count: number }?] = await sql`
+    SELECT COUNT(*) as count FROM subreddit_mods
     WHERE subreddit_id=${subreddit_id} AND username=${username}
   `;
 
-  console.log(result);
-
-  return result.length === 1 && result[0][0] === 1;
+  return row && row.count == 1;
 }
 
 export async function createSubreddit(sub: Subreddit) {
