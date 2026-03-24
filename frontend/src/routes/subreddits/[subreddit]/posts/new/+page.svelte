@@ -4,6 +4,7 @@
     import { FormWrapped } from "$lib/components/reuse/form";
     import MarkdownContent from "$lib/components/reuse/markdown-content.svelte";
     import { SelectStickySlot } from "$lib/components/reuse/select";
+    import { AlertError } from "$lib/components/ui/alert";
     import { Button } from "$lib/components/ui/button";
     import {
         Checkbox,
@@ -25,11 +26,6 @@
     let subreddit_id = $derived(
         data.subs.find((s) => s.name === params.subreddit)?.id ?? "<??>",
     );
-
-    function currentDateTime() {
-        const now = new Date().toISOString().split(".")[0];
-        return now.substring(0, now.length - 3);
-    }
 
     let values = $state<CreateSubredditPost>({
         title: "",
@@ -56,11 +52,20 @@
 
     const hasFlair = $derived(values.flair_id !== undefined);
 
+    let isSubmitting = $state(false);
+    let submitError = $state<any>(null);
+
     const handleSubmit = async () => {
-        console.log("sending", values);
-        const result = await createSubPost(values);
-        console.log("result", result);
-        await goto(`/subreddits/${params.subreddit}/posts/${result.id}`);
+        isSubmitting = true;
+        submitError = null;
+        try {
+            const result = await createSubPost(values);
+            await goto(`/subreddits/${params.subreddit}/posts/${result.id}`);
+        } catch (err) {
+            submitError = err;
+        } finally {
+            isSubmitting = false;
+        }
     };
 </script>
 
@@ -131,11 +136,20 @@
 
             <MarkdownContent bind:content={values.content}>
                 {#snippet buttons()}
-                    <Button type="submit">Create draft</Button>
+                    <Button
+                        type="submit"
+                        pending={isSubmitting}
+                        errored={submitError !== null}>Create draft</Button
+                    >
+
+                    {#if submitError}
+                        <AlertError
+                            title="Failed to create"
+                            error={submitError}
+                        />
+                    {/if}
                 {/snippet}
             </MarkdownContent>
         </Field.Set>
     </Field.Group>
-
-    <Json value={values} />
 </FormWrapped>

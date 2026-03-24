@@ -22,6 +22,7 @@
         <Table.Header>
             <Table.Row>
                 <Table.Head>Title</Table.Head>
+                <Table.Head>Status</Table.Head>
                 <Table.Head>Actions</Table.Head>
             </Table.Row>
         </Table.Header>
@@ -29,7 +30,20 @@
         <Table.Body>
             {#each posts.current as post (post.id)}
                 <Table.Row>
-                    <Table.Cell>{post.title}</Table.Cell>
+                    <Table.Cell>
+                        {post.title}
+                    </Table.Cell>
+                    <Table.Cell>
+                        {#if post.reddit_id}
+                            <a
+                                class="underline underline-offset-4"
+                                href={`https://reddit.com/r/${params.subreddit}/comments/${post.reddit_id}`}
+                                >Published</a
+                            >
+                        {:else}
+                            Draft
+                        {/if}
+                    </Table.Cell>
                     <Table.Cell>
                         <Button
                             href={`/subreddits/${params.subreddit}/posts/${post.id}`}
@@ -42,8 +56,10 @@
 
         <Table.Footer>
             <Table.Row>
-                <Table.Cell colspan={2}>
-                    <Button href={`/subreddits/${params.subreddit}/posts/new`}
+                <Table.Cell colspan={3}>
+                    <Button
+                        class="float-right"
+                        href={`/subreddits/${params.subreddit}/posts/new`}
                         >New</Button
                     >
                 </Table.Cell>

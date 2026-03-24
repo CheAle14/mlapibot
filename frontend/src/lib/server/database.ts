@@ -492,3 +492,9 @@ export async function updateSubredditPost(
 
   return mapSubredditPost(updated);
 }
+
+export async function deleteSubPost(subreddit_id: string, post_id: number) {
+  await sql`
+      DELETE FROM subreddit_posts
+      WHERE subreddit=${subreddit_id} AND id=${post_id}`;
+}

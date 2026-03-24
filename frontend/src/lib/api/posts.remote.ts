@@ -52,22 +52,34 @@ export const publishSubPost = command(
     if (!(await isModeratorOf(subreddit_id))) return error(403);
     const post = await db.getSubredditPost(subreddit_id, post_id);
 
-    if (!post || !!post.reddit_id) {
+    if (!post) {
       error(400, {
-        message: "post either does not exist or is already published",
+        message: "post does not exist",
       });
     }
 
     console.log("Publishing", post_id);
     const result = await fetch(API_URL + "/publish", {
       method: "POST",
-      body: JSON.stringify({ post_id }),
+      body: JSON.stringify({ id: post_id }),
     });
 
     if (result.ok) {
-      return { ok: true };
+      const body = await result.json();
+      return body as { id: string };
     } else {
       error(result.status, { message: "failed to publish" });
     }
+  },
+);
+
+export const deleteSubPost = command(
+  z.object({
+    subreddit_id: z.string(),
+    post_id: z.number(),
+  }),
+  async ({ subreddit_id, post_id }) => {
+    if (!(await isModeratorOf(subreddit_id))) return error(403);
+    await db.deleteSubPost(subreddit_id, post_id);
   },
 );

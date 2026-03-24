@@ -16,7 +16,7 @@
 </script>
 
 <Field>
-    <FieldLabel>Content</FieldLabel>
+    <FieldLabel>Content ({content.length} / 10000)</FieldLabel>
 
     <FieldDescription
         >Unfortunately the preview does not support some syntax such as <code

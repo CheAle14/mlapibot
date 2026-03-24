@@ -30,6 +30,12 @@ pub enum ApiEvent {
 
         reply: oneshot::Sender<GotAnalysis>,
     },
+
+    PublishPost {
+        id: i32,
+
+        reply: oneshot::Sender<Option<String>>,
+    },
 }
 
 pub fn start_web_connection(
@@ -159,6 +165,35 @@ pub fn start_web_connection(
                         Err(_) => request.respond(Response::empty(500)),
                     };
                 }
+                "/publish" => {
+                    let parsed: PublishPostReq = match serde_json::from_reader(body) {
+                        Ok(value) => value,
+                        Err(err) => {
+                            println!("[status-webhook] {err:?}");
+                            let _ = request.respond(Response::empty(400));
+                            continue;
+                        }
+                    };
+
+                    let (tx, rx) = oneshot::channel();
+
+                    channel
+                        .blocking_send(ApiEvent::PublishPost {
+                            id: parsed.id,
+                            reply: tx,
+                        })
+                        .unwrap();
+
+                    let _ = match rx.blocking_recv() {
+                        Ok(Some(id)) => request.respond(
+                            Response::from_json(&PublishPostResponse { id })
+                                .unwrap()
+                                .with_status_code(200),
+                        ),
+                        Ok(None) => request.respond(Response::empty(400)),
+                        Err(_) => request.respond(Response::empty(500)),
+                    };
+                }
                 other => {
                     eprintln!("[api] unexpected request: {other:?}");
                     let _ = request.respond(Response::empty(404));
@@ -208,6 +243,16 @@ pub struct GotAnalysis {
     pub action: PostAction,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub ocr: Vec<OcrImageData>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct PublishPostReq {
+    pub id: i32,
+}
+
+#[derive(serde::Serialize)]
+pub struct PublishPostResponse {
+    pub id: String,
 }
 
 trait ResponseFromJson: Sized {

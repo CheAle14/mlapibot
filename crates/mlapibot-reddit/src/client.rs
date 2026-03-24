@@ -17,7 +17,7 @@ use mlapibot_database_v2::{
     repos::{
         incidents::{IncidentRepo, StatusIncident},
         monitor::MonitorRepo,
-        subreddits::SubredditsRepo,
+        subreddits::{ScheduledPostId, ScheduledPostSticky, SubredditsRepo},
     },
 };
 use octocrab::OctocrabBuilder;
@@ -960,6 +960,83 @@ impl RedditClient {
                 let response = GotAnalysis { action, ocr };
 
                 let _ = reply.send(response);
+            }
+            ApiEvent::PublishPost { id, reply } => {
+                let Some(post) = self.db.get_scheduled_post(ScheduledPostId::new(id)).await? else {
+                    let _ = reply.send(None);
+                    return Ok(());
+                };
+
+                if let Some(existing) = &post.reddit_id {
+                    // We are publishing an update.
+
+                    let fullname = ThingFullname::from_submission_id(existing);
+
+                    self.client.edit(&post.content, &fullname).await?;
+                    self.db.publish_scheduled_post(post.id, &existing).await?;
+
+                    let _ = reply.send(Some(existing.clone()));
+
+                    return Ok(());
+                }
+
+                let Some(subreddit) = self
+                    .subreddits
+                    .iter()
+                    .find(|s| s.db.id == post.subreddit_id)
+                else {
+                    let _ = reply.send(None);
+                    return Ok(());
+                };
+
+                let client = self.client.subreddit(subreddit.name().as_str());
+                let builder = SubmissionSubmitBuilder::text(&post.title, &post.content)
+                    .with_send_replies(false);
+
+                let builder = if let Some(id) = post.flair_id {
+                    builder.with_flair_id(id)
+                } else {
+                    builder
+                };
+
+                let builder = if let Some(txt) = post.flair_text {
+                    builder.with_flair_text(txt)
+                } else {
+                    builder
+                };
+
+                let submission = client.submit(&builder).await?;
+                let _ = reply.send(Some(submission.id().clone()));
+
+                self.db
+                    .publish_scheduled_post(post.id, &submission.id())
+                    .await?;
+
+                if submission.moderation().is_some() {
+                    if post.distinguish {
+                        submission
+                            .distinguish(roux::models::Distinguish::Moderator)
+                            .await?;
+                    }
+
+                    if post.lock {
+                        submission.lock().await?;
+                    }
+
+                    match post.sticky {
+                        ScheduledPostSticky::None => (),
+                        ScheduledPostSticky::Top => {
+                            submission
+                                .sticky(true, roux::models::SubmissionStickySlot::Top)
+                                .await?
+                        }
+                        ScheduledPostSticky::Bottom => {
+                            submission
+                                .sticky(true, roux::models::SubmissionStickySlot::Bottom)
+                                .await?
+                        }
+                    }
+                }
             }
         };
         Ok(())

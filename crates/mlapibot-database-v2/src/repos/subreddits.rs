@@ -25,6 +25,19 @@ pub trait SubredditsRepo {
 
     async fn get_subreddit_templates(&self, id: &str) -> Result<Vec<ReplyTemplate>, Self::Error>;
     async fn get_subreddit_scams(&self, id: &str) -> Result<Vec<Scam>, Self::Error>;
+
+    async fn get_scheduled_post(
+        &self,
+        id: ScheduledPostId,
+    ) -> Result<Option<ScheduledPost>, Self::Error>;
+
+    async fn get_pending_posts(&self, id: &str) -> Result<Vec<ScheduledPost>, Self::Error>;
+
+    async fn publish_scheduled_post(
+        &self,
+        id: ScheduledPostId,
+        reddit: &str,
+    ) -> Result<(), Self::Error>;
 }
 
 impl SubredditsRepo for crate::client::PgClient {
@@ -171,13 +184,60 @@ impl SubredditsRepo for crate::client::PgClient {
         )
         .await
     }
+
+    async fn get_scheduled_post(
+        &self,
+        id: ScheduledPostId,
+    ) -> Result<Option<ScheduledPost>, Self::Error> {
+        self.query_opt_map(
+            "
+            SELECT * FROM subreddit_posts
+            WHERE id=$1",
+            &[&id],
+            ScheduledPost::from_row,
+        )
+        .await
+    }
+
+    async fn get_pending_posts(&self, id: &str) -> Result<Vec<ScheduledPost>, Self::Error> {
+        self.query_map(
+            "
+            SELECT * FROM subreddit_posts
+            WHERE
+                subreddit_id=$1
+            AND synced_at IS NOT NULL
+            AND synced_at < updated_at",
+            &[&id],
+            ScheduledPost::from_row,
+        )
+        .await
+    }
+
+    async fn publish_scheduled_post(
+        &self,
+        id: ScheduledPostId,
+        reddit: &str,
+    ) -> Result<(), Self::Error> {
+        self.execute(
+            "
+            UPDATE subreddit_posts
+            SET
+                synced_at = updated_at,
+                reddit_id = $2
+            WHERE id=$1
+            ",
+            &[&id, &reddit],
+        )
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Subreddit {
     pub id: String,
     pub name: String,
-    /// False if we are no longer a moderator of this subreddit.
     pub enabled: bool,
     pub last_sync: DateTimeUtc,
     pub seq_num: i32,
@@ -417,7 +477,7 @@ macro_rules! make_simple_module {
 
 make_simple_module!(CommentsCdnModule, CommentsCodeModule);
 
-super::make_newtype_id!(ReplyTemplateId, ScamId);
+super::make_newtype_id!(ReplyTemplateId, ScamId, ScheduledPostId);
 
 #[derive(Debug)]
 pub struct ReplyTemplate {
@@ -484,6 +544,63 @@ impl Scam {
             template,
         })
     }
+}
+
+pub struct ScheduledPost {
+    pub id: ScheduledPostId,
+    pub subreddit_id: String,
+    pub reddit_id: Option<String>,
+    pub updated_at: DateTimeUtc,
+    pub synced_at: Option<DateTimeUtc>,
+    pub title: String,
+    pub flair_id: Option<String>,
+    pub flair_text: Option<String>,
+    pub sticky: ScheduledPostSticky,
+    pub distinguish: bool,
+    pub lock: bool,
+    pub content: String,
+}
+
+impl ScheduledPost {
+    pub(crate) fn from_row(row: Row) -> DbResult<Self> {
+        let id = row.get("id");
+        let subreddit_id = row.get("subreddit");
+        let reddit_id = row.get("reddit_id");
+        let updated_at = row.get("updated_at");
+        let synced_at = row.get("synced_at");
+        let title = row.get("title");
+        let flair_id = row.get("flair_id");
+        let flair_text = row.get("flair_text");
+        let sticky = match row.get::<_, i32>("sticky") {
+            1 => ScheduledPostSticky::Top,
+            2 => ScheduledPostSticky::Bottom,
+            _ => ScheduledPostSticky::None,
+        };
+        let distinguish = row.get("distinguish");
+        let lock = row.get("lock");
+        let content = row.get("content");
+
+        Ok(Self {
+            id,
+            subreddit_id,
+            reddit_id,
+            updated_at,
+            synced_at,
+            title,
+            flair_id,
+            flair_text,
+            sticky,
+            distinguish,
+            lock,
+            content,
+        })
+    }
+}
+
+pub enum ScheduledPostSticky {
+    None,
+    Top,
+    Bottom,
 }
 
 #[cfg(test)]

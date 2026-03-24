@@ -71,6 +71,12 @@ macro_rules! make_newtype_id {
             #[serde(transparent)]
             pub struct $name(i32);
 
+            impl $name {
+                pub fn new(value: i32) -> Self {
+                    Self(value)
+                }
+            }
+
             impl_sql_fwd!($name as i32);
         )*
     };

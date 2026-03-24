@@ -1,5 +1,10 @@
 <script lang="ts">
-    import { publishSubPost, updateSubPost } from "$lib/api/posts.remote";
+    import { goto } from "$app/navigation";
+    import {
+        deleteSubPost,
+        publishSubPost,
+        updateSubPost,
+    } from "$lib/api/posts.remote";
     import { FormWrapped } from "$lib/components/reuse/form";
     import MarkdownContent from "$lib/components/reuse/markdown-content.svelte";
     import { SelectStickySlot } from "$lib/components/reuse/select";
@@ -20,6 +25,10 @@
 
     let subreddit_id = $derived(data.subreddit_id);
     let changes = $state<SubredditPost>(data.post);
+
+    $effect(() => {
+        changes = data.post;
+    });
 
     const isPublished = $derived(!!changes.reddit_id);
 
@@ -42,6 +51,8 @@
     let submitError = $state<any>(null);
     let isPublishing = $state(false);
     let publishError = $state<any>(null);
+    let isDeleting = $state(false);
+    let deleteError = $state<any>(null);
 
     const handleSubmit = async () => {
         isSubmitting = true;
@@ -60,15 +71,32 @@
         isPublishing = true;
         publishError = null;
         try {
-            await publishSubPost({
+            const { id } = await publishSubPost({
                 subreddit_id,
                 post_id: changes.id,
             });
-            window.location.reload();
+            changes.synced_at = changes.updated_at;
+            changes.reddit_id = id;
         } catch (err) {
             publishError = err;
         } finally {
             isPublishing = false;
+        }
+    };
+
+    const handleDelete = async () => {
+        isDeleting = true;
+        deleteError = null;
+        try {
+            await deleteSubPost({
+                subreddit_id,
+                post_id: changes.id,
+            });
+            await goto(`/subreddits/${params.subreddit}/posts`);
+        } catch (err) {
+            deleteError = err;
+        } finally {
+            isDeleting = false;
         }
     };
 </script>
@@ -167,23 +195,39 @@
 
             <MarkdownContent bind:content={changes.content}>
                 {#snippet buttons()}
-                    {#if isPublished}
-                        <Button
-                            class="w-full"
-                            type="submit"
-                            pending={isSubmitting}
-                            errored={submitError !== null}
-                            >Update content
-                        </Button>
-                    {:else}
-                        <Button
-                            class="w-full"
-                            type="submit"
-                            pending={isSubmitting}
-                            errored={submitError !== null}
-                            >Save draft
-                        </Button>
+                    <Button
+                        class="w-full"
+                        type="submit"
+                        pending={isSubmitting}
+                        errored={submitError !== null}
+                    >
+                        Save changes
+                    </Button>
 
+                    {#if isPublished}
+                        {#if changes.updated_at !== changes.synced_at}
+                            <Alert.Root>
+                                <Alert.Title>Sync changes</Alert.Title>
+                                <Alert.Description>
+                                    There are previous changes that have not
+                                    been synced to the Reddit post. If you have
+                                    made any further changes, save them above
+                                    and then sync.
+
+                                    <Button
+                                        class="w-full"
+                                        variant="destructive"
+                                        type="button"
+                                        onclick={handlePublish}
+                                        pending={isPublishing}
+                                        errored={publishError !== null}
+                                    >
+                                        Sync changes
+                                    </Button>
+                                </Alert.Description>
+                            </Alert.Root>
+                        {/if}
+                    {:else}
                         <ButtonConfirm
                             description="This will submit this post to the subreddit, an action that cannot be reversed."
                             class="w-full"
@@ -193,6 +237,17 @@
                             errored={publishError !== null}
                             onclick={handlePublish}
                             >Publish
+                        </ButtonConfirm>
+
+                        <ButtonConfirm
+                            description="This will permanently delete this draft"
+                            class="w-full"
+                            variant="destructive"
+                            type="button"
+                            pending={isDeleting}
+                            errored={deleteError !== null}
+                            onclick={handleDelete}
+                            >Delete draft
                         </ButtonConfirm>
                     {/if}
 
@@ -210,19 +265,14 @@
                         />
                     {/if}
 
-                    {#if isPublished && changes.updated_at !== changes.synced_at}
-                        <Alert.Root>
-                            <Alert.Title>Pending update</Alert.Title>
-                            <Alert.Description
-                                >Changes saved to database will be sent to
-                                Reddit soon</Alert.Description
-                            >
-                        </Alert.Root>
+                    {#if deleteError}
+                        <Alert.Error
+                            title="Failed to delete"
+                            error={deleteError}
+                        />
                     {/if}
                 {/snippet}
             </MarkdownContent>
         </Field.Set>
     </Field.Group>
-
-    <Json value={changes} />
 </FormWrapped>
