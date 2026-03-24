@@ -17,7 +17,6 @@
         GotRedditPost,
         PostAction,
     } from "$lib/types/api";
-    import { sleep } from "moderndash";
     import TestScamResultsModal from "./TestScamResultsModal.svelte";
     import * as Alert from "../ui/alert";
 

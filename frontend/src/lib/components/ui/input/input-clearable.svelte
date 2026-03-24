@@ -6,19 +6,36 @@
         type: "text" | "number";
         placeholder?: string;
         value: string | number | undefined;
+        coerceEmpty?: boolean;
+        required?: boolean;
+        onClear?: () => void;
     };
 
-    let { value = $bindable(), ...rest } = $props();
+    let {
+        value = $bindable(),
+        coerceEmpty = false,
+        onClear,
+        ...rest
+    }: VariousProps = $props();
+
+    let coercedValue = $derived.by(() => {
+        if (coerceEmpty && value === "") return undefined;
+        if (value === null) return undefined;
+        return value;
+    });
 </script>
 
 <InputGroup.Root>
-    <InputGroup.Input bind:value {...rest} />
+    <InputGroup.Input
+        bind:value={() => coercedValue, (v) => (value = v)}
+        {...rest}
+    />
 
-    {#if value !== undefined}
+    {#if coercedValue !== undefined}
         <InputGroup.Addon align="inline-end">
             <InputGroup.Button
                 size="icon-xs"
-                onclick={() => (value = undefined)}
+                onclick={onClear ?? (() => (value = undefined))}
             >
                 <X />
             </InputGroup.Button>

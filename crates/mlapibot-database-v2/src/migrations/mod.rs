@@ -145,4 +145,5 @@ define_migrations![
     m002_init_staff_replies::InitStaffReplies,
     m003_init_incidents::InitIncidents,
     m004_add_frontend::AddFrontend,
+    m005_scheduled_posts::ScheduledPosts,
 ];

@@ -4,6 +4,7 @@ import Scam from "./select-scam.svelte";
 import RemovalReason from "./select-removal-reason.svelte";
 import ReplyTemplate from "./select-reply-template.svelte";
 import Simple from "./select-simple.svelte";
+import StickySlot from "./select-sticky-slot.svelte";
 
 export {
   IncidentImpact,
@@ -12,6 +13,7 @@ export {
   RemovalReason,
   ReplyTemplate,
   Simple,
+  StickySlot,
   //
   IncidentImpact as SelectIncidentImpact,
   ScamAction as SelectScamAction,
@@ -19,4 +21,5 @@ export {
   RemovalReason as SelectRemovalReason,
   ReplyTemplate as SelectReplyTemplate,
   Simple as SelectSimple,
+  StickySlot as SelectStickySlot,
 };

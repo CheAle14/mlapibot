@@ -1,4 +1,4 @@
-import { form } from "$app/server";
+import { form, query } from "$app/server";
 import * as z from "zod";
 import * as db from "$lib/server/database";
 import { error } from "@sveltejs/kit";
@@ -25,6 +25,7 @@ export const createSubreddit = form(
       },
       mod_ai_slop: {
         enabled: false,
+        report: false,
       },
       mod_staff_reply: {
         enabled: false,
@@ -38,6 +39,8 @@ export const createSubreddit = form(
       },
       mod_related_title: {
         enabled: false,
+        reason: "",
+        check_img_posts: false,
       },
       mod_complex_comments: {
         enabled: false,

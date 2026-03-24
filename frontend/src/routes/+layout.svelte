@@ -21,88 +21,88 @@
         <Sidebar.Header>/u/mlapibot</Sidebar.Header>
         <Sidebar.Content>
             <Sidebar.Group>
-                <Sidebar.GroupContent>
-                    <Sidebar.Menu>
-                        {#if data.me !== undefined}
-                            <Collapsible.Root class="group/collapsible">
-                                <Sidebar.MenuItem>
-                                    <Collapsible.Trigger>
-                                        {#snippet child({ props })}
-                                            <Sidebar.MenuButton {...props}>
-                                                Subreddits
+                {#if data.me !== undefined}
+                    {#if data.me.admin}
+                        <Sidebar.MenuItem>
+                            <Sidebar.MenuButton>
+                                {#snippet child({ props })}
+                                    <a href="/settings" {...props}> Shhhhh </a>
+                                {/snippet}
+                            </Sidebar.MenuButton>
+                        </Sidebar.MenuItem>
+                    {/if}
 
-                                                <ChevronDown
-                                                    class="ms-auto transition-transform group-data-[state=open]/collapsible:rotate-180"
-                                                />
-                                            </Sidebar.MenuButton>
-                                        {/snippet}
-                                    </Collapsible.Trigger>
-                                    <Collapsible.Content>
-                                        <Sidebar.MenuSub>
-                                            {#each data.subs as sub (sub.id)}
-                                                {@const href =
-                                                    "/subreddits/" + sub.name}
+                    <Sidebar.MenuItem>
+                        <Sidebar.MenuButton>
+                            {#snippet child({ props })}
+                                <a href="/auth" {...props}>
+                                    /u/{data?.me?.name ?? "<never undefined>"}
+                                </a>
+                            {/snippet}
+                        </Sidebar.MenuButton>
+                    </Sidebar.MenuItem>
+                {:else}
+                    <Sidebar.MenuItem>
+                        <Sidebar.MenuButton>
+                            {#snippet child({ props })}
+                                <a href="/auth" {...props}> Login </a>
+                            {/snippet}
+                        </Sidebar.MenuButton>
+                    </Sidebar.MenuItem>
+                {/if}
+            </Sidebar.Group>
 
-                                                <Sidebar.MenuSubItem>
-                                                    <Sidebar.SidebarMenuSubButton
-                                                    >
-                                                        {#snippet child({
-                                                            props,
-                                                        })}
-                                                            <a
-                                                                {href}
-                                                                {...props}
-                                                            >
-                                                                /r/{sub.name}
+            <Sidebar.Group>
+                <Sidebar.GroupLabel>Subreddits</Sidebar.GroupLabel>
 
-                                                                {#if data.me?.admin && sub.is_mod}
-                                                                    <Shield
-                                                                        class="right-0 absolute"
-                                                                    />
-                                                                {/if}
-                                                            </a>
-                                                        {/snippet}
-                                                    </Sidebar.SidebarMenuSubButton>
-                                                </Sidebar.MenuSubItem>
-                                            {/each}
-                                        </Sidebar.MenuSub>
-                                    </Collapsible.Content>
-                                </Sidebar.MenuItem>
-                            </Collapsible.Root>
+                {#each data.subs as sub (sub.id)}
+                    {@const href = "/subreddits/" + sub.name}
+                    <Collapsible.Root class="group/collapsible">
+                        <Sidebar.MenuItem>
+                            <Collapsible.Trigger>
+                                {#snippet child({ props })}
+                                    <Sidebar.MenuButton {...props}>
+                                        /r/{sub.name}
 
-                            {#if data.me.admin}
-                                <Sidebar.MenuItem>
-                                    <Sidebar.MenuButton>
-                                        {#snippet child({ props })}
-                                            <a href="/settings" {...props}>
-                                                Shhhhh
-                                            </a>
-                                        {/snippet}
+                                        {#if data.me?.admin && sub.is_mod}
+                                            <Shield class="right-0 absolute" />
+                                        {/if}
+
+                                        <ChevronDown
+                                            class="ms-auto transition-transform group-data-[state=open]/collapsible:rotate-180"
+                                        />
                                     </Sidebar.MenuButton>
-                                </Sidebar.MenuItem>
-                            {/if}
+                                {/snippet}
+                            </Collapsible.Trigger>
+                            <Collapsible.Content>
+                                <Sidebar.MenuSub>
+                                    <Sidebar.MenuSubItem>
+                                        <Sidebar.MenuSubButton>
+                                            {#snippet child({ props })}
+                                                <a {href} {...props}>
+                                                    Settings
+                                                </a>
+                                            {/snippet}
+                                        </Sidebar.MenuSubButton>
+                                    </Sidebar.MenuSubItem>
 
-                            <Sidebar.MenuItem>
-                                <Sidebar.MenuButton>
-                                    {#snippet child({ props })}
-                                        <a href="/auth" {...props}>
-                                            /u/{data?.me?.name ??
-                                                "<never undefined>"}
-                                        </a>
-                                    {/snippet}
-                                </Sidebar.MenuButton>
-                            </Sidebar.MenuItem>
-                        {:else}
-                            <Sidebar.MenuItem>
-                                <Sidebar.MenuButton>
-                                    {#snippet child({ props })}
-                                        <a href="/auth" {...props}> Login </a>
-                                    {/snippet}
-                                </Sidebar.MenuButton>
-                            </Sidebar.MenuItem>
-                        {/if}
-                    </Sidebar.Menu>
-                </Sidebar.GroupContent>
+                                    <Sidebar.MenuSubItem>
+                                        <Sidebar.MenuSubButton>
+                                            {#snippet child({ props })}
+                                                <a
+                                                    href={href + "/posts"}
+                                                    {...props}
+                                                >
+                                                    Posts
+                                                </a>
+                                            {/snippet}
+                                        </Sidebar.MenuSubButton>
+                                    </Sidebar.MenuSubItem>
+                                </Sidebar.MenuSub>
+                            </Collapsible.Content>
+                        </Sidebar.MenuItem>
+                    </Collapsible.Root>
+                {/each}
             </Sidebar.Group>
         </Sidebar.Content>
     </Sidebar.Root>

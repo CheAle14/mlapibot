@@ -1,4 +1,10 @@
 import { DATABASE_URI } from "$env/static/private";
+import type {
+  CreateSubredditPost,
+  DbSubredditPost,
+  SubredditPost,
+  SubredditPostStub,
+} from "$lib/types/posts";
 import {
   type Subreddit,
   type ApiSubredditOptions,
@@ -90,6 +96,18 @@ function mapDataToOptions(sub: Subreddit): ApiSubredditOptions {
     comments_code: sub.mod_comments_code,
     complex_comments: sub.mod_complex_comments,
   };
+}
+
+export async function getSubredditNameById(
+  id: string,
+): Promise<string | undefined> {
+  const [sub]: [{ name: string }?] = await sql`
+    SELECT name
+    FROM subreddits sub
+    WHERE sub.id=${id}
+    `;
+
+  return sub?.name;
 }
 
 export async function getSubredditData(
@@ -388,4 +406,89 @@ export async function tryApplyPendingChanges(
   }
 
   return result;
+}
+
+export async function createSubredditPost(
+  create: CreateSubredditPost,
+): Promise<SubredditPost> {
+  const data = {
+    ...create,
+    flair_id: create.flair_id ?? null,
+    flair_text: create.flair_text ?? null,
+  };
+
+  const [post]: [SubredditPost] = await sql`
+      INSERT INTO subreddit_posts ${sql(data)}
+      RETURNING *
+    `;
+
+  return post;
+}
+
+export async function getSubredditPosts(
+  subreddit_id: string,
+): Promise<SubredditPostStub[]> {
+  const posts = await sql<SubredditPostStub[]>`
+    SELECT id, reddit_id, title
+    FROM subreddit_posts
+    WHERE subreddit=${subreddit_id}
+    ORDER BY id DESC
+  `;
+
+  return posts;
+}
+
+function mapSubredditPost(db: DbSubredditPost): SubredditPost {
+  const { flair_id, flair_text, reddit_id, synced_at, updated_at, ...simple } =
+    db;
+
+  return {
+    ...simple,
+    flair_id: flair_id ?? undefined,
+    flair_text: flair_text ?? undefined,
+    reddit_id: reddit_id ?? undefined,
+    synced_at: synced_at?.toISOString(),
+    updated_at: updated_at.toISOString(),
+  };
+}
+
+export async function getSubredditPost(
+  subreddit_id: string,
+  post_id: number,
+): Promise<SubredditPost | undefined> {
+  const [post]: [DbSubredditPost?] = await sql`
+    SELECT *
+    FROM subreddit_posts
+    WHERE subreddit=${subreddit_id} AND id=${post_id}
+  `;
+
+  if (!post) return undefined;
+  return mapSubredditPost(post);
+}
+
+export async function updateSubredditPost(
+  post: SubredditPost,
+): Promise<SubredditPost> {
+  const changes: Partial<DbSubredditPost> = post.reddit_id
+    ? {
+        content: post.content,
+      }
+    : {
+        title: post.title,
+        content: post.content,
+        flair_id: post.flair_id ?? null,
+        flair_text: post.flair_text ?? null,
+        sticky: post.sticky,
+        distinguish: post.distinguish,
+        lock: post.lock,
+      };
+
+  const [updated]: [DbSubredditPost] = await sql`
+    UPDATE subreddit_posts
+    SET updated_at=CURRENT_TIMESTAMP, ${sql(changes)}
+    WHERE subreddit=${post.subreddit} AND id=${post.id}
+    RETURNING *
+  `;
+
+  return mapSubredditPost(updated);
 }
