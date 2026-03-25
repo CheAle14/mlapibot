@@ -202,14 +202,16 @@ impl super::Module for PostAiSlop {
         }
 
         if config.report && report_reasons.len() > 0 {
-            let mut reason = String::from("ai? ");
+            const PREFIX: &str = "ai? ";
+
+            let mut reason = String::from(PREFIX);
             for r in report_reasons {
                 if (r.len() + reason.len()) > 100 {
                     // Reddit restriction.
                     break;
                 }
 
-                if reason.len() > 0 {
+                if reason.len() > PREFIX.len() {
                     reason.push_str("; ");
                 }
                 reason.push_str(r);
