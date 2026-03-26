@@ -183,7 +183,7 @@ impl super::Module for PostAiSlop {
                         report_reasons.insert("high commit rate");
                     }
 
-                    if slop.commits.ai_co_author.ratio() > 50.0 {
+                    if slop.commits.ai_co_author.ratio() > 0.5 {
                         report_reasons.insert("majority ai-co-authored commits");
                     }
 
