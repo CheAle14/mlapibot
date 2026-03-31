@@ -194,6 +194,10 @@ impl super::Module for PostAiSlop {
                     if slop.readme.emoji_points.ratio() > EMOJI_POINT_ERROR {
                         report_reasons.insert("README lists many emoji");
                     }
+
+                    if slop.readme.num_em_dash > 2 {
+                        report_reasons.insert("README many em-dashes");
+                    }
                 }
                 Err(err) => {
                     eprintln!("{link}: {err}")
@@ -914,9 +918,10 @@ fn guess_readme_slop<'arena>(
                 let mut saw_emoji = false;
                 for (idx, chr) in text.value.char_indices() {
                     slopness.total_chars += 1;
-                    if chr == '—' {
+
+                    if is_char_em_dash(chr) {
                         let start = text.position.as_ref().unwrap().start.offset + idx;
-                        pending_em_dashes.push((start, start + 1));
+                        pending_em_dashes.push((start, start + chr.len_utf8()));
                     } else if is_char_emoji(chr) {
                         slopness.num_emoji += 1;
 
@@ -1076,6 +1081,8 @@ fn guess_readme_slop<'arena>(
         reports.push(this_report);
     }
 
+    slopness.num_em_dash = pending_em_dashes.len() as u32;
+
     Ok(slopness)
 }
 
@@ -1114,6 +1121,10 @@ fn is_char_emoji(chr: char) -> bool {
     }
 
     unic_emoji_char::is_emoji(chr)
+}
+
+fn is_char_em_dash(chr: char) -> bool {
+    chr == '—' || chr == '–'
 }
 
 #[cfg(test)]
@@ -1225,6 +1236,17 @@ mod tests {
                 total_chars: 2608
             }
         );
+    }
+
+    #[test]
+    fn counts_em_dashes() {
+        static EM_DASH_README: &str = include_str!("em_dash_readme.md");
+
+        let arena = Bump::new();
+        let mut reports = Vec::new();
+        let slop = super::guess_readme_slop(&arena, &mut reports, EM_DASH_README).unwrap();
+
+        assert_eq!(slop.num_em_dash, 6);
     }
 
     #[test]
