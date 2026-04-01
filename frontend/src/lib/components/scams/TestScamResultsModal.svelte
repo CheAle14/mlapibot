@@ -48,6 +48,10 @@
                                 ? action.moderate + "d"
                                 : action.moderate + "ed"}</strong
                         >
+
+                        {#if action.reason}
+                            with reason <em>{action.reason}</em>
+                        {/if}
                     {/if}
                 </FieldDescription>
             </Field>

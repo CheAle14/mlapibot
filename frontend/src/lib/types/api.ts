@@ -20,6 +20,7 @@ export interface ActionData {
     distinguish: boolean;
   };
   moderate: "none" | "report" | "remove" | "filter";
+  reason?: string;
 }
 
 export type PostAction = IgnoreAction | ActionData;

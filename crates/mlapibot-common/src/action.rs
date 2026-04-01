@@ -117,6 +117,7 @@ pub struct ActionData {
     pub module: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply: Option<PostReply>,
+    #[serde(flatten)]
     pub moderate: ModAct,
 }
 
@@ -195,7 +196,7 @@ pub struct PostReply {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(tag = "moderate", rename_all = "lowercase")]
 pub enum ModAct {
     /// Take no moderation decisions
     None,
@@ -209,6 +210,8 @@ pub enum ModAct {
 
 #[cfg(test)]
 mod tests {
+    use crate::action::ModAct;
+
     use super::{ActionData, PostAction};
 
     #[test]
@@ -290,5 +293,28 @@ mod tests {
 
         let result = first.clone().join(second.clone());
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    pub fn serialise_mod_action() {
+        #[derive(serde::Serialize)]
+        struct Action {
+            #[serde(flatten)]
+            moderate: ModAct,
+        }
+
+        fn make(moderate: ModAct) -> String {
+            serde_json::to_string(&Action { moderate }).unwrap()
+        }
+
+        assert_eq!(make(ModAct::None), r#"{"moderate":"none"}"#);
+        assert_eq!(make(ModAct::Remove), r#"{"moderate":"remove"}"#);
+        assert_eq!(make(ModAct::Filter), r#"{"moderate":"filter"}"#);
+        assert_eq!(
+            make(ModAct::Report {
+                reason: "hello".into()
+            }),
+            r#"{"moderate":"report","reason":"hello"}"#
+        );
     }
 }
