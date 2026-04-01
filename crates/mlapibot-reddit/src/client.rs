@@ -255,7 +255,8 @@ impl RedditClient {
         let config =
             roux::Config::new(&reddit.user_agent, &reddit.client_id, &reddit.client_secret)
                 .username(&reddit.username)
-                .password(&reddit.password);
+                .password(&reddit.password)
+                .timeout(std::time::Duration::from_mins(1));
 
         let client = OAuthClient::new(config)?.login().await?;
 
