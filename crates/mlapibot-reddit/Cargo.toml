@@ -39,8 +39,9 @@ bumpalo = { version = "3.19.1", features = ["allocator_api", "collections"] }
 chrono-tz = "0.9.0"
 futures-util = "0.3.31"
 markdown = "1.0.0"
-roux = { git = "https://github.com/CheAle14/roux.git", rev = "ae150528", features = [
+roux = { git = "https://github.com/CheAle14/roux.git", rev = "154dfbe1", features = [
     "log-json-on-error",
+    "json-error-path",
 ] }
 sha2 = "0.10.8"
 strsim = "0.11.1"
