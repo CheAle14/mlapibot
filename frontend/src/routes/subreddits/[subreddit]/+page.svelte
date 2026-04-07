@@ -285,6 +285,23 @@
                                     >
                                 </Field.Content>
                             </Field.Field>
+
+                            <Field.Field>
+                                <Field.Label for="post_flair_id"
+                                    >Post Flair ID</Field.Label
+                                >
+                                <Field.Description
+                                    >If present, incidents posted to the
+                                    subreddit will use this flair template.</Field.Description
+                                >
+
+                                <InputClearable
+                                    id="post_flair_id"
+                                    type="text"
+                                    bind:value={current.flair_id}
+                                    placeholder="some-flair-id-here"
+                                />
+                            </Field.Field>
                         </Field.Set>
 
                         <Field.Set>

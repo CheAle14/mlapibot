@@ -183,17 +183,10 @@ impl Subreddit {
 
         let is_major = Self::is_incident_major(incident, &self.db.mod_status);
 
-        // TODO: re-add flairing.
-        // let submission = match &config.flair {
-        //     Some(flair) => incident.to_builder().with_flair_setting(if is_major {
-        //         flair.major.as_ref().unwrap_or(&flair.minor)
-        //     } else {
-        //         &flair.minor
-        //     }),
-        //     None => incident.to_builder(),
-        // };
-
-        let submission = incident.to_builder();
+        let submission = match &self.db.mod_status.flair_id {
+            Some(flair) => incident.to_builder().with_flair_id(flair),
+            None => incident.to_builder(),
+        };
 
         let submission = reddit.submit(&self.lower.as_str(), &submission).await?;
         println!("Incident posted as {:?}", submission.name());

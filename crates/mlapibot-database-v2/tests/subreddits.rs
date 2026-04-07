@@ -54,6 +54,7 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
             min_impact: statuspage::incident::IncidentImpact::Critical,
             sticky: None,
             distinguish: true,
+            flair_id: Some("abc-flair-123".into()),
         },
         mod_related_title: RelatedTitleModule {
             enabled: true,

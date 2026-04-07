@@ -31,6 +31,7 @@
     >
 
     <InputClearable
+        type="text"
         bind:value={current.replace_sticky}
         placeholder="some-flair-id-here"
     />

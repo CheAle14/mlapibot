@@ -110,6 +110,7 @@ export const ZModuleStatus = BaseModule.extend({
   min_impact: ZStatusIncidentImpact,
   sticky: ZStatusStickyConfig.optional(),
   distinguish: z.boolean(),
+  flair_id: z.string().optional(),
 });
 
 export const ZSubreddit = z.object({

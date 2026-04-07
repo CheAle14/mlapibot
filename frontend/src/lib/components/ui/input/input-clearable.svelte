@@ -3,6 +3,7 @@
     import { X } from "@lucide/svelte";
 
     type VariousProps = {
+        id?: string;
         type: "text" | "number";
         placeholder?: string;
         value: string | number | undefined;

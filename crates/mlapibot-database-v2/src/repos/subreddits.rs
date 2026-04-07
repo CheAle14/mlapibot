@@ -397,6 +397,8 @@ pub struct StatusModule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sticky: Option<StatusStickyConfig>,
     pub distinguish: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flair_id: Option<String>,
 }
 
 impl Default for StatusModule {
@@ -406,6 +408,7 @@ impl Default for StatusModule {
             min_impact: statuspage::incident::IncidentImpact::Critical,
             sticky: None,
             distinguish: false,
+            flair_id: None,
         }
     }
 }
