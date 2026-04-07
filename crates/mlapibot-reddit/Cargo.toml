@@ -23,6 +23,7 @@ base64ct = { workspace = true, features = ["alloc"] }
 bumpalo = { workspace = true, features = ["allocator_api", "collections"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+digest-io = { workspace = true }
 futures-util = { workspace = true }
 image = { workspace = true }
 markdown = { workspace = true }

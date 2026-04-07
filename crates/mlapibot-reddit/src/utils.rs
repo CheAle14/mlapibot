@@ -2,6 +2,7 @@ use std::ops::Deref;
 
 use base64ct::{Base64, Encoding};
 use chrono::{DateTime, TimeZone, Utc};
+use digest_io::IoWrapper;
 use sha2::Digest;
 
 pub fn clamp(text: &str, len: usize) -> &str {
@@ -31,7 +32,7 @@ impl<'a, T> Deref for BoO<'a, T> {
 }
 
 pub struct Sha256Hasher {
-    hash: sha2::Sha256,
+    hash: IoWrapper<sha2::Sha256>,
 }
 
 impl Sha256Hasher {
@@ -44,7 +45,7 @@ impl Sha256Hasher {
 
     pub fn new() -> Self {
         Self {
-            hash: sha2::Sha256::new(),
+            hash: IoWrapper(sha2::Sha256::new()),
         }
     }
 
@@ -52,14 +53,13 @@ impl Sha256Hasher {
         use std::io::Write;
 
         let bytes: &[u8] = bytes.as_ref();
-
         let _ = write!(self.hash, "{}", bytes.len());
 
-        self.hash.update(bytes);
+        self.hash.0.update(bytes);
     }
 
     pub fn finish(self) -> String {
-        let output = self.hash.finalize();
+        let output = self.hash.0.finalize();
         Base64::encode_string(&output)
     }
 }

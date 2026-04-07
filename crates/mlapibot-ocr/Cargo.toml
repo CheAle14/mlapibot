@@ -8,7 +8,7 @@ mlapibot-common = { path = "../mlapibot-common" }
 
 ab_glyph = { workspace = true }
 image = { workspace = true }
-imageproc = { workspace = true }
+imageproc = { workspace = true, features = ["text"] }
 leptess = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
