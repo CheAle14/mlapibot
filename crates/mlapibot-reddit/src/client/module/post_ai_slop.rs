@@ -1,5 +1,5 @@
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashMap, HashSet},
     ops::{ControlFlow, Range},
 };
 
@@ -9,7 +9,10 @@ use bumpalo::Bump;
 use futures_util::TryStreamExt;
 use markdown::{mdast::Node, unist::Position};
 use mlapibot_analysis::{Url, extract_all_links};
-use mlapibot_common::{DataMetaData, RunningStat};
+use mlapibot_common::{
+    DataMetaData, RunningStat,
+    action::{ActionData, PostAction},
+};
 use octocrab::{Octocrab, models::repos::RepoCommit, repos::RepoHandler};
 
 use crate::client::module::impl_mask_subreddits;
@@ -80,6 +83,11 @@ impl RepoLink {
     }
 }
 
+const EMOJI_HEADING_ERROR: f32 = 0.5;
+const EMOJI_HEADING_WARN: f32 = 0.25;
+const EMOJI_POINT_ERROR: f32 = 0.25;
+const EMOJI_POINT_WARN: f32 = 0.1;
+
 #[async_trait::async_trait(?Send)]
 impl super::Module for PostAiSlop {
     fn new() -> Self
@@ -99,26 +107,32 @@ impl super::Module for PostAiSlop {
         super::ModuleWants::POSTS
     }
 
-    impl_mask_subreddits!(ai_slop => posts);
+    impl_mask_subreddits!(mod_ai_slop => posts);
 
     async fn run_post<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
-        _subreddit: &mut crate::client::Subreddit,
-        config: Option<&crate::config::SubredditConfig>,
+        subreddit: &mut crate::client::Subreddit,
         post: &crate::Submission,
         has_seen: bool,
-    ) -> anyhow::Result<super::PostAction> {
+    ) -> anyhow::Result<PostAction> {
         if has_seen {
-            return Ok(super::PostAction::Ignore);
+            return Ok(PostAction::Ignore);
         }
 
-        let Some(slopconf) = config.and_then(|v| v.ai_slop.as_ref()) else {
-            return Ok(super::PostAction::Ignore);
-        };
+        let config = &subreddit.db.mod_ai_slop;
+
+        let modmail_to = format!(
+            "/r/{}",
+            config
+                .modmail_to
+                .as_ref()
+                .map(|v: &String| v.as_str())
+                .unwrap_or_else(|| post.subreddit())
+        );
 
         let Some(github) = client.github else {
-            return Ok(super::PostAction::Ignore);
+            return Ok(PostAction::Ignore);
         };
 
         let mut links = HashSet::new();
@@ -134,6 +148,7 @@ impl super::Module for PostAiSlop {
             }
         }
 
+        let mut report_reasons = HashSet::new();
         let bump = Bump::new();
 
         for link in links {
@@ -161,8 +176,28 @@ impl super::Module for PostAiSlop {
 
                     client
                         .client
-                        .compose_message(&slopconf.modmail_to, &subject, &body)
+                        .compose_message(&modmail_to, &subject, &body)
                         .await?;
+
+                    if slop.commits.commits_per_day.max > 30.0 {
+                        report_reasons.insert("high commit rate");
+                    }
+
+                    if slop.commits.ai_co_author.ratio() > 0.5 {
+                        report_reasons.insert("majority ai-co-authored commits");
+                    }
+
+                    if slop.readme.emoji_headings.ratio() > EMOJI_HEADING_ERROR {
+                        report_reasons.insert("README headings many emoji");
+                    }
+
+                    if slop.readme.emoji_points.ratio() > EMOJI_POINT_ERROR {
+                        report_reasons.insert("README lists many emoji");
+                    }
+
+                    if slop.readme.num_em_dash > 2 {
+                        report_reasons.insert("README many em-dashes");
+                    }
                 }
                 Err(err) => {
                     eprintln!("{link}: {err}")
@@ -170,7 +205,26 @@ impl super::Module for PostAiSlop {
             }
         }
 
-        Ok(super::PostAction::Ignore)
+        if config.report && report_reasons.len() > 0 {
+            const PREFIX: &str = "ai? ";
+
+            let mut reason = String::from(PREFIX);
+            for r in report_reasons {
+                if (r.len() + reason.len()) > 100 {
+                    // Reddit restriction.
+                    break;
+                }
+
+                if reason.len() > PREFIX.len() {
+                    reason.push_str("; ");
+                }
+                reason.push_str(r);
+            }
+
+            Ok(PostAction::Action(ActionData::new().report(reason)))
+        } else {
+            Ok(PostAction::Ignore)
+        }
     }
 }
 
@@ -491,6 +545,7 @@ async fn determine_ai_slop<'arena, C: GitClient>(
     })
 }
 
+#[expect(unused)] // we use the debug impl for output
 #[derive(Debug)]
 struct CommitsSlopness {
     oldest: Option<DateTimeUtc>,
@@ -802,7 +857,6 @@ fn guess_readme_slop<'arena>(
     struct SpanString {
         text: String,
         span: Range<usize>,
-        walk_depth: usize,
     }
 
     let mut last_heading: Option<SpanString> = None;
@@ -864,9 +918,10 @@ fn guess_readme_slop<'arena>(
                 let mut saw_emoji = false;
                 for (idx, chr) in text.value.char_indices() {
                     slopness.total_chars += 1;
-                    if chr == '—' {
+
+                    if is_char_em_dash(chr) {
                         let start = text.position.as_ref().unwrap().start.offset + idx;
-                        pending_em_dashes.push((start, start + 1));
+                        pending_em_dashes.push((start, start + chr.len_utf8()));
                     } else if is_char_emoji(chr) {
                         slopness.num_emoji += 1;
 
@@ -904,7 +959,6 @@ fn guess_readme_slop<'arena>(
 
                 last_heading = Some(SpanString {
                     span: span.clone(),
-                    walk_depth: ctx.depth,
                     text: String::new(),
                 });
 
@@ -983,7 +1037,7 @@ fn guess_readme_slop<'arena>(
         }
     }
 
-    if slopness.emoji_headings.ratio() > 0.5 {
+    if slopness.emoji_headings.ratio() > EMOJI_HEADING_ERROR {
         this_report.push(
             Level::ERROR
                 .primary_title(format!(
@@ -992,7 +1046,7 @@ fn guess_readme_slop<'arena>(
                 ))
                 .elements(pending_emoji_headings.into_iter().take(10)),
         );
-    } else if slopness.emoji_headings.ratio() > 0.25 {
+    } else if slopness.emoji_headings.ratio() > EMOJI_HEADING_WARN {
         this_report.push(
             Level::WARNING
                 .primary_title(format!(
@@ -1003,7 +1057,7 @@ fn guess_readme_slop<'arena>(
         );
     }
 
-    if slopness.emoji_points.ratio() > 0.25 {
+    if slopness.emoji_points.ratio() > EMOJI_POINT_ERROR {
         this_report.push(
             Level::ERROR
                 .primary_title(format!(
@@ -1012,7 +1066,7 @@ fn guess_readme_slop<'arena>(
                 ))
                 .elements(pending_emoji_points),
         );
-    } else if slopness.emoji_points.ratio() > 0.1 {
+    } else if slopness.emoji_points.ratio() > EMOJI_POINT_WARN {
         this_report.push(
             Level::WARNING
                 .primary_title(format!(
@@ -1026,6 +1080,8 @@ fn guess_readme_slop<'arena>(
     if this_report.len() > 0 {
         reports.push(this_report);
     }
+
+    slopness.num_em_dash = pending_em_dashes.len() as u32;
 
     Ok(slopness)
 }
@@ -1065,6 +1121,10 @@ fn is_char_emoji(chr: char) -> bool {
     }
 
     unic_emoji_char::is_emoji(chr)
+}
+
+fn is_char_em_dash(chr: char) -> bool {
+    chr == '—' || chr == '–'
 }
 
 #[cfg(test)]
@@ -1123,7 +1183,7 @@ mod tests {
         // ???:
         // https://github.com/landaire/stoptrackingme
         let octo = octocrab::instance();
-        let url = RepoLink::parse("https://github.com/RustedBytes/mtproxy");
+        let url = RepoLink::parse("https://github.com/cdump/proton-tui");
         println!("determine");
 
         let arena = Bump::new();
@@ -1176,6 +1236,17 @@ mod tests {
                 total_chars: 2608
             }
         );
+    }
+
+    #[test]
+    fn counts_em_dashes() {
+        static EM_DASH_README: &str = include_str!("em_dash_readme.md");
+
+        let arena = Bump::new();
+        let mut reports = Vec::new();
+        let slop = super::guess_readme_slop(&arena, &mut reports, EM_DASH_README).unwrap();
+
+        assert_eq!(slop.num_em_dash, 6);
     }
 
     #[test]

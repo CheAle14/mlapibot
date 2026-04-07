@@ -1,4 +1,4 @@
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::StreamExt;
 use mlapibot_common::NeedleFinder;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;

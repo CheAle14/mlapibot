@@ -30,11 +30,11 @@ impl<Ctx> RateJob<Ctx> {
     }
 
     pub fn mark_failed(&mut self) {
-        self.failures = self.failures.saturating_add(1);
+        self.failures = self.failures.saturating_add(2);
     }
 
     pub fn mark_success(&mut self) {
-        self.failures = self.failures.saturating_sub(2);
+        self.failures = self.failures.saturating_sub(1);
     }
 
     pub fn next(&self) -> Instant {

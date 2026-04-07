@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use mlapibot_common::Detection;
 use mlapibot_database_v2::repos::{incidents::IncidentRepo, staff_replies::StaffReplyRepo};
 use roux::{
     api::{ThingFullname, subreddit::ModActionType},
@@ -8,14 +9,13 @@ use roux::{
 };
 
 use crate::{
-    QuickStopError, Submission,
+    Submission,
     client::{
         ModuleRedditClient,
         module::{InboxAction, InboxMsg, Module},
     },
     exts::DetectionExt,
     subreddit::Subreddit,
-    webhook::create_error_processing_message,
 };
 
 pub struct InboxCommands;
@@ -53,8 +53,6 @@ impl Module for InboxCommands {
             client.send_removal_reasons(&item).await?;
         } else if item.subject == "sticky" {
             client.try_sticky_status_post(subreddits, &item).await?;
-        } else if item.subject.trim().eq_ignore_ascii_case("stop") {
-            client.try_stop_bot(subreddits, &item).await?;
         } else if item.subject == "suffix" {
             return client.run_staff_reply_suffix(subreddits, &item).await;
         } else if item.author == "" {
@@ -147,7 +145,7 @@ impl<'client> ModuleRedditClient<'client> {
             return Ok(None);
         };
 
-        if !subreddit.is_moderator(message.author).await? {
+        if !subreddit.is_moderator(message.author) {
             message
                 .reply("You are not a moderator of that subreddit!")
                 .await?;
@@ -213,62 +211,47 @@ impl<'client> ModuleRedditClient<'client> {
         self.send_warnings(warnings, "Warnings in inbox test")
             .await?;
 
-        match mlapibot_analysis::get_best_analysis(&ctx, &self.analzyers) {
-            Ok(Some((detection, detected))) => {
-                let text = detection.get_markdown(&ctx)?;
-                let text = text.join("\n\n\n> ");
-                let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
-                message.reply(&s).await?;
-            }
-            Ok(None) => {
-                let mut text = String::from("No scams were detected, text was:\r\n\r\n");
-                for img in &ctx.images {
-                    text.push_str("> ");
-                    text.push_str(&img.full_text());
-                    text.push_str("\n\n\n");
-                }
-                message.reply(&text).await?;
-            }
-            Err(err) => {
-                eprintln!(
-                    "Error whilst analyising message {:?}: {err:?}",
-                    message.subject
-                );
-                if let Some(webhook) = &mut self.webhook {
-                    let msg = create_error_processing_message(message.author, message.subject);
-                    webhook.send(&msg).await?;
-                }
-                message.reply(
-                    "An internal error occured whilst attempting to process your request. Sorry!",
-                ).await?;
-            }
-        };
-        Ok(())
-    }
+        let fake_detection = Detection::new();
+        let text = fake_detection.get_markdown(&ctx)?.join("\n\n\n> ");
 
-    async fn try_stop_bot(
-        &mut self,
-        subreddits: &mut [Subreddit],
-        message: &InboxMsg<'_>,
-    ) -> anyhow::Result<()> {
-        for sub in subreddits {
-            if !self
-                .subreddits_config
-                .get(sub.name())
-                .is_some_and(|c| c.mods_can_stop)
-            {
-                continue;
-            }
+        message
+            .reply(&format!(
+                "Currently unable to run analysis text; saw:\r\n\r\n> {text}"
+            ))
+            .await?;
 
-            if sub.is_moderator(message.author).await? {
-                let _ = message.reply("Stopping...");
-
-                return Err(anyhow::Error::from(QuickStopError));
-            }
-        }
-
-        message.reply("You are authorised to do that").await?;
-
+        // match mlapibot_analysis::get_best_analysis(&ctx, &self.analzyers) {
+        //     Ok(Some((detection, detected))) => {
+        //         let text = detection.get_markdown(&ctx)?;
+        //         let text = text.join("\n\n\n> ");
+        //         let s = format!("Detected {:?}. Full text:\r\n\r\n> {text}", detected.name);
+        //         message.reply(&s).await?;
+        //     }
+        //     Ok(None) => {
+        //         let mut text = String::from("No scams were detected, text was:\r\n\r\n");
+        //         for img in &ctx.images {
+        //             text.push_str("> ");
+        //             text.push_str(&img.full_text());
+        //             text.push_str("\n\n\n");
+        //         }
+        //         message.reply(&text).await?;
+        //     }
+        //     Err(err) => {
+        //         eprintln!(
+        //             "Error whilst analyising message {:?}: {err:?}",
+        //             message.subject
+        //         );
+        //         if let Some(webhook) = &mut self.webhook {
+        //             let msg = create_error_processing_message(message.author, message.subject);
+        //             webhook.send(&msg).await?;
+        //         }
+        //         message.reply(
+        //             "An internal error occured whilst attempting to process your request. Sorry!",
+        //         ).await?;
+        //     }
+        // };
+        //
+        //
         Ok(())
     }
 
@@ -288,7 +271,7 @@ impl<'client> ModuleRedditClient<'client> {
             return Ok(());
         };
 
-        if !our_sub.is_moderator(message.author).await? {
+        if !our_sub.is_moderator(message.author) {
             message
                 .reply("You are not a moderator of that subreddit!")
                 .await?;
@@ -388,14 +371,14 @@ impl<'client> ModuleRedditClient<'client> {
             return Ok(());
         }
 
-        let Some(config) = self.subreddits_config.get_status(link.subreddit.name()) else {
+        if !link.subreddit.db.mod_status.enabled {
             message
                 .reply("That subreddit is not configured for automatic status posts.")
                 .await?;
             return Ok(());
-        };
+        }
 
-        let Some(sticky) = config.sticky.as_ref() else {
+        let Some(sticky) = link.subreddit.db.mod_status.sticky.as_ref() else {
             message
                 .reply("That subreddit is not configured for stickying its status posts.")
                 .await?;
@@ -413,9 +396,13 @@ impl<'client> ModuleRedditClient<'client> {
             return Ok(());
         };
 
-        link.subreddit
-            .sticky_incident_post(self.db, sticky, &link.submission)
-            .await?;
+        Subreddit::sticky_incident_post(
+            &mut link.subreddit.reddit,
+            self.db,
+            sticky,
+            &link.submission,
+        )
+        .await?;
 
         message.reply("✔ That post should now be stickied. It will be automatically un-stickied some time after the incident is resolved.").await?;
 

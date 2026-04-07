@@ -146,6 +146,21 @@ impl From<String> for Words {
     }
 }
 
+impl<'a> From<&'a str> for Words {
+    fn from(value: &'a str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl serde::Serialize for Words {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.phrase.serialize(serializer)
+    }
+}
+
 fn allowed_char(c: char) -> bool {
     match c {
         'a'..='z' => true,

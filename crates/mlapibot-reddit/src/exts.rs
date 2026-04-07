@@ -1,6 +1,6 @@
 use mlapibot_analysis::{Context, Url, parse_url};
 use mlapibot_common::{Detection, Words};
-use roux::api::submission::SubmissionDataMediaMetadata;
+use roux::{api::submission::SubmissionDataMediaMetadata, models::LatestComment};
 
 use crate::Submission;
 
@@ -77,16 +77,14 @@ impl DetectionExt for Detection {
         }
 
         if let Some(title) = &self.title {
-            let text = ctx.title.as_ref().unwrap();
-            let words = Words::new(text);
+            let words = ctx.title.as_ref().unwrap();
             let mut s = String::new();
             title.write_markdown(&words.as_words(), &mut s)?;
             v.push(s);
         }
 
         if let Some(body) = &self.body {
-            let text = ctx.body.as_ref().unwrap();
-            let words = Words::new(text);
+            let words = ctx.body.as_ref().unwrap();
             let mut s = String::new();
             body.write_markdown(&words.as_words(), &mut s)?;
             v.push(s);
@@ -106,5 +104,45 @@ impl DetectionExt for Detection {
         }
 
         Ok(v)
+    }
+}
+
+pub trait ModerationExt {
+    fn has_any_mod_action_by_human(&self) -> bool;
+}
+
+impl ModerationExt for Submission {
+    fn has_any_mod_action_by_human(&self) -> bool {
+        let Some(moddata) = self.moderation() else {
+            return false;
+        };
+
+        for option in [
+            moddata.approved_by.as_ref(),
+            moddata.removed_by.as_ref(),
+            moddata.banned_by.as_ref(),
+        ] {
+            if let Some(by) = option {
+                if by != "AutoModerator" && by != "reddit" {
+                    return true;
+                }
+            }
+        }
+
+        false
+    }
+}
+
+impl<T> ModerationExt for LatestComment<T> {
+    fn has_any_mod_action_by_human(&self) -> bool {
+        for option in [self.approved_by(), self.banned_by()] {
+            if let Some(by) = option {
+                if by != "AutoModerator" && by != "reddit" {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 }

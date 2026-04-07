@@ -1,71 +1,76 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::mpsc::{self, RecvTimeoutError},
     time::{Duration, Instant},
 };
 
-use anyhow::{Context, bail};
-use mlapibot_common::Cached;
+use anyhow::Context;
+use chrono::Utc;
+use mlapibot_api::{ApiEvent, GotAnalysis, GotRedditPost, OcrImageData};
+use mlapibot_common::{
+    Cached, LowercaseString, Words,
+    action::PostAction,
+    config::{ApiSettings, GlobalSettings},
+};
 use mlapibot_database_v2::{
-    client::PgClient,
+    client::{PgClient, PgClientBuilder, PgNotification},
     repos::{
         incidents::{IncidentRepo, StatusIncident},
         monitor::MonitorRepo,
+        subreddits::{ScheduledPostId, ScheduledPostSticky, SubredditsRepo},
     },
 };
 use octocrab::OctocrabBuilder;
 use roux::{
     api::{Distinguished, ThingFullname},
-    client::{OAuthClient, RedditClient as RouxRedditClient},
+    builders::submission::SubmissionSubmitBuilder,
+    client::{AuthedClient, OAuthClient, RedditClient as RouxRedditClient},
+    models::{
+        LatestComment,
+        modqueue::{Modqueue, QueueThing},
+    },
     util::{SubmissionStream, now_utc},
 };
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
-use tera::Tera;
 
-use mlapibot_analysis::{ContextWarning, analzyer::Analyzer};
+use mlapibot_analysis::{ContextWarning, Url};
 use mlapibot_imgur::ImgurClient;
 use mlapibot_webhook::{WebhookClient, create_multiple_error_message};
+use tokio::sync::mpsc;
 
 use super::{RouxClient, Submission};
 
 use crate::{
-    client::module::{
-        InboxAction, InboxMsg, PostAction, RegisteredModule, SplitSubMask,
-        post_flairs::PostFlairCache,
-    },
-    config::{GlobalSettings, SubredditsConfig},
-    exts::SubmissionExt,
+    Comment,
+    client::module::{InboxAction, InboxMsg, RegisteredModule, SplitSubMask},
+    exts::{ModerationExt, SubmissionExt},
     ratelimiter::Ratelimiter,
-    status_tracker::{IncidentWithLive, WebhookEvent, get_title, write_affected_components_list},
-    subreddit::Subreddit,
+    status_tracker::{IncidentWithLive, get_title, write_affected_components_list},
+    subreddit::{DbSubreddit, Subreddit},
     utils::BoO,
     webhook::{create_deleted_downvoted_comment, create_inbox_message},
 };
 
 pub mod module;
 
-pub struct RedditClient<'a> {
+pub struct RedditClient {
     // data_dir: PathBuf,
     db: PgClient,
-    analzyers: &'a [Analyzer],
     own_name: String,
     pub client: RouxClient,
     subreddits: Vec<Subreddit>,
-    templates: Tera,
     webhook: Option<WebhookClient>,
     imgur: Option<ImgurClient>,
+    api: Option<ApiSettings>,
     github: Option<octocrab::Octocrab>,
     status: StatusClient,
     last_status: StatusIndicator,
-    subreddits_config: SubredditsConfig,
     dry_run: bool,
-    status_webhook: Option<String>,
     #[allow(unused)]
     admin: Option<String>,
-    flair_cache: PostFlairCache,
     cached_status_components: StatusComponentCache,
     debug: bool,
+    dbrx: mpsc::Receiver<PgNotification>,
 
     posts: roux::util::SubmissionStream<Submission>,
 
@@ -81,57 +86,181 @@ macro_rules! make_view {
     ($self:ident) => {
         ModuleRedditClient {
             db: &$self.db,
-            analzyers: &$self.analzyers,
             own_name: &$self.own_name,
             client: &$self.client,
-            templates: &$self.templates,
             webhook: &mut $self.webhook,
             imgur: &mut $self.imgur,
             github: &mut $self.github,
             status: &$self.status,
             last_status: &$self.last_status,
-            subreddits_config: &$self.subreddits_config,
             dry_run: $self.dry_run,
-            status_webhook: &$self.status_webhook,
             admin: &$self.admin,
-            flair_cache: &mut $self.flair_cache,
             cached_status_components: &$self.cached_status_components,
             debug: $self.debug,
         }
     };
 }
 
-impl<'a> RedditClient<'a> {
-    const USER_AGENT: &'static str = "rust-mlapibot-ocr by /u/DarkOverLordCO";
+impl RedditClient {
+    async fn fetch_and_sync_subreddits(
+        db: &mut PgClient,
+        reddit: &RouxClient,
+    ) -> anyhow::Result<Vec<DbSubreddit>> {
+        let mut in_db = db
+            .fetch_all_subreddits()
+            .await
+            .context("fetch subreddits")?;
+
+        let from_api = reddit
+            .get_my_subreddits(roux::client::SubRelation::Moderator)
+            .await?;
+
+        // for sub in &mut in_db {
+        //     if sub.enabled && !from_api.data.children.iter().any(|x| x.data.id == sub.id) {
+        //         println!("Disabling subreddit /r/{} {}", sub.name, sub.id);
+        //         db.set_subreddit_enabled(&sub.id, false).await?;
+        //         sub.enabled = false;
+        //     }
+        // }
+
+        for api in from_api.data.children {
+            if let Some(s) = in_db.iter_mut().find(|s| s.id == api.data.id) {
+                if !s.enabled {
+                    db.set_subreddit_enabled(&s.id, true).await?;
+                    s.enabled = true;
+                }
+                continue;
+            }
+
+            let new = DbSubreddit::new(&api.data.id, &api.data.display_name);
+
+            println!(
+                "Registering new subreddit /r/{} @ {}",
+                api.data.display_name, api.data.id
+            );
+
+            db.create_subreddit(&new)
+                .await
+                .with_context(|| format!("creating {} {}", api.data.id, api.data.display_name))?;
+
+            in_db.push(new);
+        }
+
+        in_db.retain(|a| a.enabled);
+
+        let now = Utc::now();
+        for subreddit in &mut in_db {
+            let diff = now.signed_duration_since(subreddit.last_sync);
+
+            if diff.num_days() >= 7 {
+                let mods = match reddit.subreddit(&subreddit.name).moderators().await {
+                    Ok(m) => m,
+                    Err(err) => {
+                        eprintln!("Failed to get mods for /r/{}: {err}", subreddit.name);
+                        continue;
+                    }
+                };
+
+                let names: Vec<_> = mods
+                    .data
+                    .children
+                    .iter()
+                    .map(|data| data.name.as_str())
+                    .collect();
+
+                db.set_subreddit_moderators(&subreddit.id, &names)
+                    .await
+                    .with_context(|| format!("set moderators {}", subreddit.id))?;
+            }
+        }
+
+        Ok(in_db)
+    }
+
+    async fn convert_db_subreddits(
+        db: &mut PgClient,
+        client: &RouxClient,
+        db_subreddits: Vec<DbSubreddit>,
+    ) -> anyhow::Result<Vec<Subreddit>> {
+        let mut subreddits = Vec::with_capacity(db_subreddits.len());
+
+        for db_sub in db_subreddits {
+            let moderators = db
+                .get_subreddit_moderators(&db_sub.id)
+                .await
+                .with_context(|| format!("get sub mods {}", db_sub.id))?;
+            let moderators: HashSet<String> = moderators.into_iter().collect();
+
+            let templates = db.get_subreddit_templates(&db_sub.id).await?;
+            let scams = db.get_subreddit_scams(&db_sub.id).await?;
+
+            let name = LowercaseString::new(&db_sub.name);
+
+            let sub = Subreddit::new(
+                client.subreddit(&db_sub.name),
+                db_sub,
+                templates,
+                scams,
+                moderators,
+                name,
+            );
+
+            match sub.await {
+                Ok(sub) => subreddits.push(sub),
+                Err(err) => {
+                    eprintln!("failed to create subreddit: {err}")
+                }
+            }
+        }
+
+        Ok(subreddits)
+    }
+
+    fn make_submission_stream(
+        subreddits: &[Subreddit],
+        subreddits_mask: SplitSubMask,
+    ) -> SubmissionStream<Submission> {
+        SubmissionStream::new(
+            25,
+            subreddits.iter().enumerate().filter_map(|(idx, sub)| {
+                if subreddits_mask.posts.is_set(idx) {
+                    Some(sub.name().as_str())
+                } else {
+                    None
+                }
+            }),
+        )
+    }
 
     pub async fn new(
-        analzyers: &'a [Analyzer],
-        data_dir: PathBuf,
+        _data_dir: PathBuf,
         dry_run: bool,
-        status_webhook: Option<String>,
         admin: Option<String>,
         settings: GlobalSettings,
-        subreddits_config: SubredditsConfig,
         debug: bool,
     ) -> anyhow::Result<Self> {
-        let templates_path = data_dir.join("templates").join("*.md");
-        let templates = Tera::new(templates_path.as_os_str().to_str().unwrap())?;
-        let found: Vec<_> = templates.get_template_names().collect();
-        assert!(found.len() > 0);
+        let reddit = settings
+            .reddit
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("reddit config missing from settings"))?;
 
-        let db = PgClient::connect(&settings.database_uri, true)
+        let (dbtx, dbrx) = tokio::sync::mpsc::channel(32);
+
+        let mut db = PgClientBuilder::new(&settings.database_uri)
+            .listen(dbtx)
+            .connect()
             .await
             .context("initialize db")?;
 
-        let config = roux::Config::new(
-            Self::USER_AGENT,
-            &settings.reddit.client_id,
-            &settings.reddit.client_secret,
-        )
-        .username(&settings.reddit.username)
-        .password(&settings.reddit.password);
+        let config =
+            roux::Config::new(&reddit.user_agent, &reddit.client_id, &reddit.client_secret)
+                .username(&reddit.username)
+                .password(&reddit.password)
+                .timeout(std::time::Duration::from_mins(1));
 
         let client = OAuthClient::new(config)?.login().await?;
+
+        let db_subreddits = Self::fetch_and_sync_subreddits(&mut db, &client).await?;
 
         let webhook = settings
             .webhook_url
@@ -156,18 +285,7 @@ impl<'a> RedditClient<'a> {
             .transpose()?;
 
         let status = StatusClient::new("https://discordstatus.com")?;
-
-        let mut subreddit_names = HashSet::new();
-        for key in subreddits_config.keys() {
-            subreddit_names.insert(key.clone());
-        }
-
-        let subreddits: Result<Vec<Subreddit>, _> = subreddit_names
-            .into_iter()
-            .map(|name| Subreddit::new(client.subreddit(name.as_str()), name))
-            .collect();
-
-        let subreddits = subreddits?;
+        let subreddits = Self::convert_db_subreddits(&mut db, &client, db_subreddits).await?;
 
         let cached_status_components = Cached::new(Duration::from_secs(600), &status, |client| {
             Box::pin(async {
@@ -184,47 +302,33 @@ impl<'a> RedditClient<'a> {
         .await?;
 
         println!(
-            "Logged in as /u/{}; monitoring {} with {} total known subreddits in {}",
-            settings.reddit.username,
-            subreddits.len(),
-            subreddits_config.len(),
-            if debug { "debug mode" } else { "release mode" }
+            "Logged in as /u/{username}; monitoring {subs} subreddits in {mode}",
+            username = reddit.username,
+            subs = subreddits.len(),
+            mode = if debug { "debug mode" } else { "release mode" }
         );
 
         if dry_run {
             println!("Running in dry-run mode.");
         }
 
-        let (subreddits_mask, modules) = Self::build_modules(&subreddits_config, &subreddits);
-
-        let posts = SubmissionStream::new(
-            25,
-            subreddits.iter().enumerate().filter_map(|(idx, sub)| {
-                if subreddits_mask.posts.is_set(idx) {
-                    Some(sub.name().as_str())
-                } else {
-                    None
-                }
-            }),
-        );
+        let (subreddits_mask, modules) = Self::build_modules(&subreddits);
+        let posts = Self::make_submission_stream(&subreddits, subreddits_mask);
 
         Ok(Self {
             db,
-            own_name: settings.reddit.username,
+            dbrx,
+            own_name: reddit.username.clone(),
             client,
             subreddits,
-            analzyers,
             // data_dir: scratch_dir,
-            templates,
             webhook,
             imgur,
+            api: settings.api,
             github,
             status,
-            subreddits_config,
             dry_run: dry_run,
-            status_webhook: status_webhook,
             admin: admin,
-            flair_cache: PostFlairCache::default(),
             last_status: StatusIndicator::None,
             cached_status_components,
             debug,
@@ -248,14 +352,6 @@ impl<'a> RedditClient<'a> {
         }
 
         Ok(())
-    }
-
-    async fn send_warnings(
-        &mut self,
-        warnings: Vec<ContextWarning>,
-        context: impl Into<String>,
-    ) -> anyhow::Result<()> {
-        Self::_send_warnings(self.webhook.as_mut(), warnings, context).await
     }
 
     async fn check_inbox(&mut self) -> anyhow::Result<Duration> {
@@ -336,7 +432,7 @@ impl<'a> RedditClient<'a> {
                             }
 
                             reg.module
-                                .run_comment(&mut view, &msg)
+                                .run_comment(&mut view, &mut self.subreddits[idx], &msg)
                                 .await
                                 .with_context(|| {
                                     format!(
@@ -431,7 +527,7 @@ impl<'a> RedditClient<'a> {
 
             while can_continue && !seen_any {
                 let mut comments = subreddit
-                    .data
+                    .reddit
                     .latest_comments(
                         None,
                         Some(std::cmp::min(limit, 100)),
@@ -458,17 +554,8 @@ impl<'a> RedditClient<'a> {
                         .mark_item_seen(comment.name().full(), subreddit.name().as_str())
                         .await?;
 
-                    for reg in &mut self.modules {
-                        if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
-                            let name = reg.module.name();
-                            reg.module
-                                .run_comment(&mut view, &comment)
-                                .await
-                                .with_context(|| {
-                                    format!("{name}.run_comment({})", comment.name().full())
-                                })?;
-                        }
-                    }
+                    view.run_comment(&mut self.modules, subreddit, idx, comment)
+                        .await?;
                 }
 
                 limit = limit * 2;
@@ -476,6 +563,61 @@ impl<'a> RedditClient<'a> {
         }
 
         Ok(Duration::from_secs(15))
+    }
+
+    async fn check_sub_modqueue(&mut self) -> anyhow::Result<Duration> {
+        for (idx, subreddit) in self.subreddits.iter_mut().enumerate() {
+            if !self.subreddits_mask.modqueue.is_set(idx) {
+                continue;
+            }
+
+            let queue = subreddit.reddit.modqueue(None).await?;
+
+            let mut view = make_view!(self);
+            for thing in queue {
+                if thing.author() == &self.own_name {
+                    continue;
+                }
+
+                match &thing {
+                    QueueThing::Submission(d) => {
+                        if d.has_unknown_media() || d.has_any_mod_action_by_human() {
+                            continue;
+                        }
+                    }
+                    QueueThing::Comment(d) => {
+                        if d.has_any_mod_action_by_human() {
+                            continue;
+                        }
+                    }
+                }
+
+                let has_seen = self.db.has_seen_item(thing.name().full()).await?;
+
+                if !has_seen {
+                    self.db
+                        .mark_item_seen(thing.name().full(), subreddit.name().as_str())
+                        .await?;
+
+                    println!("Saw mod {:?} by /u/{}", thing.name().full(), thing.author(),);
+                }
+
+                match thing {
+                    QueueThing::Submission(post) => {
+                        view.run_post(&mut self.modules, subreddit, idx, post, has_seen)
+                            .await?;
+                    }
+                    QueueThing::Comment(comment) => {
+                        if !has_seen {
+                            view.run_comment(&mut self.modules, subreddit, idx, comment)
+                                .await?;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(Duration::from_mins(1))
     }
 
     async fn check_status_updates(
@@ -559,13 +701,11 @@ impl<'a> RedditClient<'a> {
             match self.db.get_status_incident_by_id(&incident.id).await? {
                 None => {
                     let any_would_post = self.subreddits.iter().any(|s| {
-                        self.subreddits_config
-                            .get_status(s.name())
-                            .is_some_and(|c| incident.impact >= c.min_impact)
+                        s.db.mod_status.enabled && incident.impact >= s.db.mod_status.min_impact
                     });
 
                     if !any_would_post {
-                        // no since starting a live thread for an irrelevant incident.
+                        // no point starting a live thread for an irrelevant incident.
                         continue;
                     }
 
@@ -652,15 +792,9 @@ impl<'a> RedditClient<'a> {
         }
 
         for subreddit in &mut self.subreddits {
-            if let Some(config) = self.subreddits_config.get_status(subreddit.name()) {
+            if subreddit.db.mod_status.enabled {
                 subreddit
-                    .update_status(
-                        &self.db,
-                        &self.client,
-                        &incidents_with_live,
-                        is_summary,
-                        config,
-                    )
+                    .update_status(&self.db, &self.client, &incidents_with_live, is_summary)
                     .await
                     .with_context(|| format!("check status for /r/{}", subreddit.name()))?;
             }
@@ -703,34 +837,207 @@ impl<'a> RedditClient<'a> {
                         let message = create_deleted_downvoted_comment(&comment);
                         webhook.send(&message).await?;
                     }
-                } else {
-                    println!(
-                        "NOT removing downvoted {:?} on {:?} by /u/{}",
-                        comment.name(),
-                        comment.link_title(),
-                        comment.link_author()
-                    );
                 }
             }
         }
 
-        Ok(Duration::from_secs(15))
+        Ok(Duration::from_secs(300))
     }
 
-    async fn handle_webhook_event(
+    async fn handle_api_event(
         &mut self,
-        event: WebhookEvent,
+        event: ApiEvent,
         ratelimiter: &mut Ratelimiter<Self>,
     ) -> anyhow::Result<()> {
         match event {
-            crate::status_tracker::WebhookEvent::IncidentUpdate(incident) => {
-                println!("[status-recv] got incident webhook");
-                let incident = *incident;
-                self.update_status_with(&[incident], false).await?;
+            ApiEvent::WebhookRecv { incident } => {
+                if let Some(incident) = incident {
+                    println!("[status-recv] got incident webhook");
+                    let incident = *incident;
+                    self.update_status_with(&[incident], false).await?;
+                } else {
+                    println!("[status-recv] got unknown webhook, scheduling status check to run");
+                    ratelimiter.run_immediately("check_status");
+                }
             }
-            _ => {
-                println!("[status-recv] got unknown webhook, scheduling status check to run");
-                ratelimiter.run_immediately("check_status");
+            ApiEvent::GetRedditPost { link, reply } => {
+                let Ok(post) = self.client.get_submission_by_link(&link).await else {
+                    // drops reply, returns an error.
+                    return Ok(());
+                };
+
+                let links = post
+                    .get_misc_links()
+                    .into_iter()
+                    .map(|v| v.as_str().to_owned())
+                    .collect();
+
+                let post = GotRedditPost {
+                    id: post.id().to_owned(),
+                    subreddit_id: post.subreddit_id().id().to_owned(),
+                    title: post.title().to_owned(),
+                    author: post.author().to_owned(),
+                    links,
+                    body: Some(post.selftext().clone()),
+                };
+
+                let _ = reply.send(post);
+            }
+            ApiEvent::AnalyzeInfo {
+                subreddit_id,
+                title,
+                links,
+                body,
+
+                reply,
+            } => {
+                let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.db.id == subreddit_id)
+                else {
+                    return Ok(());
+                };
+
+                let links: Vec<_> = links
+                    .into_iter()
+                    .filter_map(|s| Url::parse(&s).ok())
+                    .collect();
+
+                let title = Words::new(title);
+                let body = body.map(Words::new);
+
+                let (action, ctx, det) = crate::client::module::post_scams::analyze_post(
+                    &mut (),
+                    subreddit,
+                    "",
+                    title.full_text(),
+                    links.into_iter(),
+                    body.as_ref().map(|v| v.full_text()).unwrap_or_default(),
+                    true,
+                )
+                .await?;
+
+                let mut ocr: Vec<OcrImageData> = Vec::new();
+
+                // Unconditionally add OCR, to always see what the bot sees.
+                for (idx, v) in ctx.images.iter().enumerate() {
+                    let triggers = det
+                        .as_ref()
+                        .and_then(|det| det.images.get(&idx))
+                        .map(|v| v.words.keys().copied().collect::<Vec<_>>())
+                        .unwrap_or_default();
+
+                    ocr.push(OcrImageData {
+                        text: v.full_text(),
+                        name: v.name.clone().unwrap_or_else(|| format!("<unnamed image>")),
+                        triggers,
+                    });
+                }
+
+                if let Some(det) = &det {
+                    // Only add title/body to mark any detections.
+                    // Presumably they already know what text is in there.
+                    if let Some(det_title) = &det.title {
+                        ocr.push(OcrImageData {
+                            name: String::from("<title>"),
+                            text: ctx
+                                .title
+                                .map(|v| v.full_text().to_owned())
+                                .unwrap_or_default(),
+                            triggers: det_title.words.keys().copied().collect(),
+                        });
+                    }
+
+                    if let Some(det_body) = &det.body {
+                        ocr.push(OcrImageData {
+                            name: String::from("<body>"),
+                            text: ctx
+                                .body
+                                .map(|v| v.full_text().to_owned())
+                                .unwrap_or_default(),
+                            triggers: det_body.words.keys().copied().collect(),
+                        });
+                    }
+                }
+
+                let response = GotAnalysis { action, ocr };
+
+                let _ = reply.send(response);
+            }
+            ApiEvent::PublishPost { id, reply } => {
+                let Some(post) = self.db.get_scheduled_post(ScheduledPostId::new(id)).await? else {
+                    let _ = reply.send(None);
+                    return Ok(());
+                };
+
+                if let Some(existing) = &post.reddit_id {
+                    // We are publishing an update.
+
+                    let fullname = ThingFullname::from_submission_id(existing);
+
+                    self.client.edit(&post.content, &fullname).await?;
+                    self.db.publish_scheduled_post(post.id, &existing).await?;
+
+                    let _ = reply.send(Some(existing.clone()));
+
+                    return Ok(());
+                }
+
+                let Some(subreddit) = self
+                    .subreddits
+                    .iter()
+                    .find(|s| s.db.id == post.subreddit_id)
+                else {
+                    let _ = reply.send(None);
+                    return Ok(());
+                };
+
+                let client = self.client.subreddit(subreddit.name().as_str());
+                let builder = SubmissionSubmitBuilder::text(&post.title, &post.content)
+                    .with_send_replies(false);
+
+                let builder = if let Some(id) = post.flair_id {
+                    builder.with_flair_id(id)
+                } else {
+                    builder
+                };
+
+                let builder = if let Some(txt) = post.flair_text {
+                    builder.with_flair_text(txt)
+                } else {
+                    builder
+                };
+
+                let submission = client.submit(&builder).await?;
+                let _ = reply.send(Some(submission.id().clone()));
+
+                self.db
+                    .publish_scheduled_post(post.id, &submission.id())
+                    .await?;
+
+                if submission.moderation().is_some() {
+                    if post.distinguish {
+                        submission
+                            .distinguish(roux::models::Distinguish::Moderator)
+                            .await?;
+                    }
+
+                    if post.lock {
+                        submission.lock().await?;
+                    }
+
+                    match post.sticky {
+                        ScheduledPostSticky::None => (),
+                        ScheduledPostSticky::Top => {
+                            submission
+                                .sticky(true, roux::models::SubmissionStickySlot::Top)
+                                .await?
+                        }
+                        ScheduledPostSticky::Bottom => {
+                            submission
+                                .sticky(true, roux::models::SubmissionStickySlot::Bottom)
+                                .await?
+                        }
+                    }
+                }
             }
         };
         Ok(())
@@ -766,69 +1073,123 @@ impl<'a> RedditClient<'a> {
         Ok(earliest_next)
     }
 
-    pub async fn run(&mut self) -> anyhow::Result<()> {
-        let (tx, rx) = mpsc::channel();
+    fn reconfigure_ratelimit(modules: &[RegisteredModule], ratelimiter: &mut Ratelimiter<Self>) {
+        let mut overall_sub_mask = SplitSubMask::new();
 
-        if let Some(addr) = &self.status_webhook {
-            println!("Starting status webhook at {addr}");
-            crate::status_tracker::start_webhook_listener_thread(tx, &addr)
-                .with_context(|| format!("status webhook at {addr}"))?;
+        for reg in modules {
+            overall_sub_mask |= reg.submask;
+            println!(
+                "{} wants {:?}\n => {:?}",
+                reg.module.name(),
+                reg.module.wants(),
+                reg.submask
+            );
         }
 
-        let wants = self
-            .modules
+        let wants = modules
             .iter()
             .map(|reg| reg.module.wants())
             .reduce(|acc, e| acc | e)
             .unwrap_or_default();
 
-        let mut ratelimiter = Ratelimiter::new();
+        macro_rules! set {
+            ($wantsFn:ident, $callback:ident) => {
+                #[allow(non_upper_case_globals)]
+                const $wantsFn: &'static str = stringify!($callback);
 
-        if wants.inbox() {
-            println!("enabling inbox.");
-            ratelimiter.push("check_inbox", |ctx| Box::pin(Self::check_inbox(ctx)));
+                if wants.$wantsFn() {
+                    if !ratelimiter.has($wantsFn) {
+                        println!("enabling {}.", $wantsFn);
+                        ratelimiter.push($wantsFn, |ctx| Box::pin(Self::$callback(ctx)));
+                    }
+                } else if ratelimiter.remove($wantsFn) {
+                    println!("disabled {}.", $wantsFn);
+                }
+            };
+            ($wantsFn:ident + $mask:ident, $callback:ident) => {
+                #[allow(non_upper_case_globals)]
+                const $wantsFn: &'static str = stringify!($callback);
+
+                if wants.$wantsFn() && overall_sub_mask.$mask.has_any() {
+                    if !ratelimiter.has($wantsFn) {
+                        println!("enabling {}.", $wantsFn);
+                        ratelimiter.push($wantsFn, |ctx| Box::pin(Self::$callback(ctx)));
+                    }
+                } else if ratelimiter.remove($wantsFn) {
+                    println!("disabled {}.", $wantsFn);
+                }
+            };
         }
 
-        if wants.posts() {
-            println!("enabling subreddits.");
-            ratelimiter.push("check_subreddits", |ctx| {
-                Box::pin(Self::check_subreddits(ctx))
-            });
-        }
-
-        if wants.comments() {
-            println!("enabling comments.");
-            ratelimiter.push("check_sub_comments", |ctx| {
-                Box::pin(Self::check_sub_comments(ctx))
-            });
-        }
-
-        if wants.timer() {
-            println!("enabling timer.");
-            ratelimiter.push("check_module_timers", |ctx| {
-                Box::pin(Self::check_module_timers(ctx))
-            });
-        }
+        set!(inbox, check_inbox);
+        set!(posts + posts, check_subreddits);
+        set!(comments + comments, check_sub_comments);
+        set!(modqueue + modqueue, check_sub_modqueue);
+        set!(timer, check_module_timers);
 
         ratelimiter.push("check_own_comments", |ctx| {
             Box::pin(Self::check_own_comments(ctx))
         });
+
         ratelimiter.push("check_status", |ctx| Box::pin(Self::check_status(ctx)));
+    }
+
+    pub async fn run(&mut self) -> anyhow::Result<()> {
+        let (tx, mut rx) = mpsc::channel(32);
+
+        if let Some(api) = &self.api {
+            println!("Starting status webhook at {}", api.bind_address);
+            mlapibot_api::start_web_connection(tx, &api)
+                .with_context(|| format!("start api @ {}", api.bind_address))?;
+        }
+
+        let mut ratelimiter = Ratelimiter::new();
+        Self::reconfigure_ratelimit(&self.modules, &mut ratelimiter);
 
         loop {
             while let Ok(event) = rx.try_recv() {
-                self.handle_webhook_event(event, &mut ratelimiter).await?;
+                self.handle_api_event(event, &mut ratelimiter).await?;
             }
 
             let now = Instant::now();
             let next = ratelimiter.run(self, now).await?;
 
-            match rx.recv_timeout(next - now) {
-                Ok(event) => self.handle_webhook_event(event, &mut ratelimiter).await?,
-                Err(RecvTimeoutError::Disconnected) => bail!("status webhook disconnected"),
-                Err(RecvTimeoutError::Timeout) => continue,
-            }
+            println!("Next task in {:?}", next - now);
+
+            let _ = tokio::select! {
+                Some(webhook) = rx.recv() => {
+                    self.handle_api_event(webhook, &mut ratelimiter).await?;
+                }
+                Some(dbmsg) = self.dbrx.recv() => {
+                    println!("db msg: {dbmsg:?}");
+                    self.handle_db_notification(&mut ratelimiter, dbmsg).await?;
+                }
+                _ = tokio::time::sleep_until(tokio::time::Instant::from_std(next)) => {
+                    continue;
+                }
+            };
         }
+    }
+
+    async fn handle_db_notification(
+        &mut self,
+        ratelimiter: &mut Ratelimiter<Self>,
+        // For now we just refresh everything.
+        _msg: PgNotification,
+    ) -> anyhow::Result<()> {
+        let db_subreddits = Self::fetch_and_sync_subreddits(&mut self.db, &self.client).await?;
+        let subreddits =
+            Self::convert_db_subreddits(&mut self.db, &self.client, db_subreddits).await?;
+        let (subreddits_mask, modules) = Self::build_modules(&subreddits);
+        let posts = Self::make_submission_stream(&subreddits, subreddits_mask);
+
+        self.subreddits = subreddits;
+        self.subreddits_mask = subreddits_mask;
+        self.modules = modules;
+        self.posts = posts;
+
+        Self::reconfigure_ratelimit(&self.modules, ratelimiter);
+        Ok(())
     }
 
     pub async fn send_webhook(
@@ -842,23 +1203,19 @@ impl<'a> RedditClient<'a> {
     }
 }
 
+#[allow(unused)] // future modules may use thems
 pub struct ModuleRedditClient<'client> {
     db: &'client PgClient,
-    analzyers: &'client [Analyzer],
     own_name: &'client String,
     client: &'client RouxClient,
-    templates: &'client Tera,
     webhook: &'client mut Option<WebhookClient>,
     imgur: &'client mut Option<ImgurClient>,
     github: &'client mut Option<octocrab::Octocrab>,
     status: &'client StatusClient,
     last_status: &'client StatusIndicator,
-    subreddits_config: &'client SubredditsConfig,
     dry_run: bool,
-    status_webhook: &'client Option<String>,
     #[allow(unused)]
     admin: &'client Option<String>,
-    flair_cache: &'client mut PostFlairCache,
     cached_status_components: &'client StatusComponentCache,
     debug: bool,
 }
@@ -880,8 +1237,6 @@ impl<'client> ModuleRedditClient<'client> {
         post: Submission,
         has_seen: bool,
     ) -> anyhow::Result<()> {
-        let config = self.subreddits_config.get(subreddit.name());
-
         let mut action = PostAction::Ignore;
 
         for reg in modules {
@@ -890,7 +1245,7 @@ impl<'client> ModuleRedditClient<'client> {
 
                 let mod_act = reg
                     .module
-                    .run_post(self, subreddit, config, &post, has_seen)
+                    .run_post(self, subreddit, &post, has_seen)
                     .await
                     .with_context(|| format!("{name}.run_post({})", post.name().full()))?
                     .with_module(reg.module.name());
@@ -901,7 +1256,8 @@ impl<'client> ModuleRedditClient<'client> {
 
         match action {
             PostAction::Action(data) if !self.dry_run => {
-                data.execute(
+                crate::client::module::execute(
+                    data,
                     self.debug,
                     self.webhook.as_mut(),
                     self.db,
@@ -917,6 +1273,26 @@ impl<'client> ModuleRedditClient<'client> {
                         mlapibot_database_v2::repos::monitor::MonitorState::Ignored,
                     )
                     .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn run_comment(
+        &mut self,
+        modules: &mut [RegisteredModule],
+        subreddit: &mut Subreddit,
+        idx: usize,
+        comment: LatestComment<AuthedClient>,
+    ) -> anyhow::Result<()> {
+        for reg in modules {
+            if reg.module.wants().comments() && reg.submask.comments.is_set(idx) {
+                let name = reg.module.name();
+                reg.module
+                    .run_comment(self, subreddit, &comment)
+                    .await
+                    .with_context(|| format!("{name}.run_comment({})", comment.name().full()))?;
             }
         }
 

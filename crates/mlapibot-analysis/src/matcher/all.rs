@@ -1,18 +1,6 @@
-use mlapibot_common::DetectedItem;
-use serde::Deserialize;
+use mlapibot_common::{DetectedItem, matchers::AllMatcher};
 
-use super::{Matcher, MatcherKind};
-
-#[derive(Debug, PartialEq, Clone, Deserialize)]
-pub struct AllMatcher {
-    children: Vec<MatcherKind>,
-}
-
-impl AllMatcher {
-    pub fn new(children: Vec<MatcherKind>) -> Self {
-        Self { children }
-    }
-}
+use super::Matcher;
 
 impl Matcher for AllMatcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {

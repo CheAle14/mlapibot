@@ -8,3 +8,6 @@ ord-many = { workspace = true }
 serde = { workspace = true }
 
 rust-stemmers = "1.2.0"
+
+[dev-dependencies]
+serde_json = { workspace = true }

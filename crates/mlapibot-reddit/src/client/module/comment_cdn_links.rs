@@ -1,5 +1,5 @@
 use anyhow::Context;
-use mlapibot_analysis::{Url, download_file};
+use mlapibot_analysis::Url;
 use mlapibot_imgur::image::ImageBuilder;
 
 pub struct CdnLinks;
@@ -39,11 +39,12 @@ impl super::Module for CdnLinks {
         super::ModuleWants::COMMENTS
     }
 
-    super::impl_mask_subreddits!(comments_cdn => comments);
+    super::impl_mask_subreddits!(mod_comments_cdn => comments);
 
     async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
+        _subreddit: &mut crate::subreddit::Subreddit,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
         let links = Self::extract_cdn_links(comment.body());

@@ -1,10 +1,6 @@
 use std::{fmt::Write, path::PathBuf};
 
-use anyhow::Context;
-use mlapibot_reddit::{
-    QuickStopError, RedditClient,
-    config::{GlobalSettings, SubredditsConfig},
-};
+use mlapibot_reddit::{QuickStopError, RedditClient};
 use mlapibot_webhook::{WebhookClient, create_generic_error_message};
 
 #[derive(clap::Args)]
@@ -20,55 +16,25 @@ pub struct RedditArgs {
     /// Whether we are running in production or not
     #[arg(long)]
     release: bool,
-    /// If present, bind a HTTP listener to the provided address to listen for status webhooks.
-    #[arg(long)]
-    status_webhook: Option<String>,
     #[arg(long)]
     admin: Option<String>,
 }
 
 impl RedditArgs {
-    pub fn get_global_settings(&self) -> anyhow::Result<GlobalSettings> {
-        crate::get_global_settings(&self.scratch_dir)
-    }
-
-    pub fn get_subreddits_config(&self) -> anyhow::Result<SubredditsConfig> {
-        let config = self.scratch_dir.join("subreddits.json");
-        let mut file =
-            std::fs::File::open(&config).with_context(|| format!("reading {config:?}"))?;
-
-        let parsed = serde_json::from_reader(&mut file).context("subreddits.json config")?;
-        Ok(parsed)
-    }
-
     pub async fn run(self) -> anyhow::Result<()> {
-        let settings = self.get_global_settings()?;
-        let subreddits_config = self.get_subreddits_config()?;
-
         let Self {
             data_dir,
             scratch_dir,
             dry_run,
-            status_webhook,
             admin,
             release,
         } = self;
 
-        let analyzers = mlapibot_analysis::load_scams()?;
+        let settings = crate::get_global_settings(&scratch_dir)?;
 
         let panic_webhook = settings.webhook_url.clone();
 
-        let mut client = RedditClient::new(
-            &analyzers,
-            data_dir,
-            dry_run,
-            status_webhook,
-            admin,
-            settings,
-            subreddits_config,
-            !release,
-        )
-        .await?;
+        let mut client = RedditClient::new(data_dir, dry_run, admin, settings, !release).await?;
 
         match client.run().await {
             Ok(()) => Ok(()),

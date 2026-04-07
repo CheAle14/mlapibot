@@ -1,18 +1,19 @@
 use std::path::Path;
 
+use mlapibot_common::Words;
 use mlapibot_ocr::image::{ImageSource, OcrImage};
 
 use crate::{
     error::AnalysisError,
     url::Url,
-    util::{download_all_files, download_file, extract_image_links},
+    util::{download_all_files, extract_image_links},
 };
 
 #[derive(Debug, Default)]
 pub struct Context {
     pub images: Vec<OcrImage>,
-    pub title: Option<String>,
-    pub body: Option<String>,
+    pub title: Option<Words>,
+    pub body: Option<Words>,
     pub debug: bool,
 }
 
@@ -32,7 +33,10 @@ impl Context {
         }
 
         for (url, file) in result.success {
-            match OcrImage::new(ImageSource::DeleteOnDropFile(file)) {
+            match OcrImage::new(
+                Some(url.as_str().to_owned()),
+                ImageSource::DeleteOnDropFile(file),
+            ) {
                 Ok(image) => images.push(image),
                 Err(error) => warnings.push(ContextWarning(url, AnalysisError::OCR(error))),
             }
@@ -40,15 +44,17 @@ impl Context {
 
         Ok(Self {
             images,
-            title,
-            body,
+            title: title.map(Words::new),
+            body: body.map(Words::new),
             debug: false,
         })
     }
 
     pub fn new_path(path: impl AsRef<Path>) -> crate::error::Result<Self> {
-        let source = ImageSource::KeepFile(path.as_ref().to_path_buf());
-        let image = OcrImage::new(source).map_err(AnalysisError::OCR)?;
+        let path: &Path = path.as_ref();
+
+        let source = ImageSource::KeepFile(path.to_path_buf());
+        let image = OcrImage::new(Some(format!("{path:?}")), source).map_err(AnalysisError::OCR)?;
 
         Ok(Self {
             images: vec![image],

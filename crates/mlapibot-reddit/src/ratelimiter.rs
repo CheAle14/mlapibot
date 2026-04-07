@@ -17,6 +17,23 @@ impl<Ctx> Ratelimiter<Ctx> {
         }
     }
 
+    pub fn remove(&mut self, name: &'static str) -> bool {
+        let mut found = false;
+        self.jobs.retain(|job| {
+            if job.name() == name {
+                found = true;
+                false
+            } else {
+                true
+            }
+        });
+        found
+    }
+
+    pub fn has(&self, name: &'static str) -> bool {
+        self.jobs.iter().any(|v| v.name() == name)
+    }
+
     pub fn push(&mut self, name: &'static str, task: RateTask<Ctx>) {
         let job = RateJob::new(name, task);
         self.jobs.push(job);

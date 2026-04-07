@@ -9,7 +9,6 @@ CREATE TABLE LiveIncidentPosts (
 
 use std::collections::HashSet;
 
-use chrono::NaiveDateTime;
 use rusqlite::OptionalExtension;
 
 use crate::{DateTimeUtc, MlapiDb};

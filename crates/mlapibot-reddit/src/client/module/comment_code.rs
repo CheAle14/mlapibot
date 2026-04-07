@@ -21,11 +21,12 @@ impl Module for CommentCode {
         super::ModuleWants::COMMENTS
     }
 
-    super::impl_mask_subreddits!(comments_code => comments);
+    super::impl_mask_subreddits!(mod_comments_code => comments);
 
     async fn run_comment<'client>(
         &mut self,
         client: &mut crate::client::ModuleRedditClient<'client>,
+        _subreddit: &mut crate::subreddit::Subreddit,
         comment: &roux::models::LatestComment<roux::client::AuthedClient>,
     ) -> anyhow::Result<()> {
         use std::fmt::Write;

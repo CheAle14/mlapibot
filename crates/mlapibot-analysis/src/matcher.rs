@@ -4,100 +4,7 @@ mod exact;
 mod ordered;
 mod phrase;
 
-pub use all::*;
-pub use any::*;
-pub use exact::*;
-use mlapibot_common::{DetectedItem, Words};
-pub use ordered::*;
-pub use phrase::*;
-use serde::{Deserialize, de::Visitor};
-
-// Note: Any new variants must be added to the deserialize visitor impl
-#[derive(Debug, PartialEq, Clone)]
-pub enum MatcherKind {
-    Phrase(PhraseMatcher),
-    Ordered(OrderedMatcher),
-    All(AllMatcher),
-    Any(AnyMatcher),
-    Exact(ExactMatcher),
-    // Dummy value for mem-replace
-    None,
-}
-
-struct MatcherKindVisitor;
-
-impl<'de> Visitor<'de> for MatcherKindVisitor {
-    type Value = MatcherKind;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "a string, seq, map")
-    }
-
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(MatcherKind::Phrase(PhraseMatcher::new(v)))
-    }
-
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(MatcherKind::Phrase(PhraseMatcher::new(v)))
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: serde::de::SeqAccess<'de>,
-    {
-        let mut kinds = if let Some(size) = seq.size_hint() {
-            Vec::with_capacity(size)
-        } else {
-            Vec::new()
-        };
-
-        while let Some(next) = seq.next_element()? {
-            kinds.push(next);
-        }
-
-        Ok(MatcherKind::Any(AnyMatcher::new(kinds)))
-    }
-
-    fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
-    where
-        A: serde::de::MapAccess<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(tag = "type", rename_all = "lowercase")]
-        pub enum InnerMatcherKind {
-            Phrase(PhraseMatcher),
-            Ordered(OrderedMatcher),
-            All(AllMatcher),
-            Any(AnyMatcher),
-            Exact(ExactMatcher),
-        }
-
-        let deser = serde::de::value::MapAccessDeserializer::new(map);
-
-        InnerMatcherKind::deserialize(deser).map(|v| match v {
-            InnerMatcherKind::Phrase(m) => MatcherKind::Phrase(m),
-            InnerMatcherKind::Ordered(m) => MatcherKind::Ordered(m),
-            InnerMatcherKind::All(m) => MatcherKind::All(m),
-            InnerMatcherKind::Any(m) => MatcherKind::Any(m),
-            InnerMatcherKind::Exact(m) => MatcherKind::Exact(m),
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for MatcherKind {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_any(MatcherKindVisitor)
-    }
-}
+use mlapibot_common::{DetectedItem, matchers::Matchers};
 
 pub trait Matcher {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem>;
@@ -115,16 +22,16 @@ pub trait Matcher {
                 return true;
             }
         }
+
         if let Some(title) = &ctx.title {
-            let words = Words::new(title);
-            let words = words.as_words();
+            let words = title.as_words();
             if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
         }
+
         if let Some(body) = &ctx.body {
-            let words = Words::new(body);
-            let words = words.as_words();
+            let words = body.as_words();
             if self.matches(&words, ctx.debug).len() > 0 {
                 return true;
             }
@@ -134,99 +41,14 @@ pub trait Matcher {
     }
 }
 
-impl Matcher for MatcherKind {
+impl Matcher for Matchers {
     fn matches(&self, words: &[&str], debug: bool) -> Vec<DetectedItem> {
         match &self {
-            MatcherKind::Phrase(v) => v.matches(words, debug),
-            MatcherKind::Ordered(v) => v.matches(words, debug),
-            MatcherKind::Any(v) => v.matches(words, debug),
-            MatcherKind::All(v) => v.matches(words, debug),
-            MatcherKind::Exact(v) => v.matches(words, debug),
-            MatcherKind::None => Vec::new(),
+            Matchers::Phrase(v) => v.matches(words, debug),
+            Matchers::Ordered(v) => v.matches(words, debug),
+            Matchers::Any(v) => v.matches(words, debug),
+            Matchers::All(v) => v.matches(words, debug),
+            Matchers::Exact(v) => v.matches(words, debug),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde::Deserialize;
-
-    use crate::matcher::{AnyMatcher, MatcherKind, OrderedMatcher, PhraseMatcher};
-
-    #[test]
-    pub fn deserialize_string() {
-        const JSON: &str = r#""hello world""#;
-
-        let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
-        assert_eq!(
-            parsed,
-            MatcherKind::Phrase(PhraseMatcher::new("hello world"))
-        );
-    }
-
-    #[test]
-    pub fn deserialize_vec_to_any() {
-        const JSON: &str = r#"["hello world", "another one"]"#;
-
-        let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
-        assert_eq!(
-            parsed,
-            MatcherKind::Any(AnyMatcher::new(vec![
-                MatcherKind::Phrase(PhraseMatcher::new("hello world")),
-                MatcherKind::Phrase(PhraseMatcher::new("another one"))
-            ]))
-        );
-    }
-
-    #[test]
-    pub fn deserialize_ordered() {
-        const JSON: &str = r#"{"type":"ordered", "children":["hello world", "another one"]}"#;
-
-        let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
-        assert_eq!(
-            parsed,
-            MatcherKind::Ordered(OrderedMatcher::new(vec![
-                MatcherKind::Phrase(PhraseMatcher::new("hello world")),
-                MatcherKind::Phrase(PhraseMatcher::new("another one"))
-            ]))
-        );
-    }
-
-    #[test]
-    pub fn deserialize_recursive() {
-        const JSON: &str = r#"{
-            "type":"ordered",
-            "children":[
-                [
-                    "hello world", "another one"
-                ],
-                {
-                    "type": "ordered",
-                    "children": [
-                        "other",
-                        "text",
-                        "goes",
-                        "here"
-                    ]
-                }
-            ]
-        }"#;
-
-        let parsed: MatcherKind = serde_json::from_str(JSON).unwrap();
-        assert_eq!(
-            parsed,
-            MatcherKind::Ordered(OrderedMatcher::new(vec![
-                MatcherKind::Any(AnyMatcher::new(vec![
-                    MatcherKind::Phrase(PhraseMatcher::new("hello world")),
-                    MatcherKind::Phrase(PhraseMatcher::new("another one"))
-                ])),
-                MatcherKind::Ordered(OrderedMatcher::new(vec![
-                    MatcherKind::Phrase(PhraseMatcher::new("other")),
-                    MatcherKind::Phrase(PhraseMatcher::new("text")),
-                    MatcherKind::Phrase(PhraseMatcher::new("goes")),
-                    MatcherKind::Phrase(PhraseMatcher::new("here"))
-                ]))
-            ]))
-        );
     }
 }

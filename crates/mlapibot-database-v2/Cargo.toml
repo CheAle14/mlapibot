@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+mlapibot-common = { path = "../mlapibot-common" }
+
 chrono = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+statuspage = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
-postgres-types = { version = "0.2.12", features = ["derive"] }
+postgres-types = { version = "0.2.12", features = [
+    "derive",
+    "with-serde_json-1",
+] }

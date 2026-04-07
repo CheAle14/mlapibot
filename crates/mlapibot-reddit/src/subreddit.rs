@@ -6,32 +6,41 @@ use std::{
 use anyhow::Context;
 use chrono::Utc;
 
-use mlapibot_database_v2::repos::incidents::{IncidentRepo, ResolvedIncidentPost, StickyState};
+use mlapibot_database_v2::repos::{
+    incidents::{IncidentRepo, ResolvedIncidentPost, StickyState},
+    subreddits::{ReplyTemplate, ReplyTemplateId, Scam, StatusModule, StatusStickyConfig},
+};
 use roux::{
-    api::{FlairId, ThingFullname, moderator::ModeratorData, subreddit::RemovalReason},
+    api::{ThingFullname, subreddit::RemovalReason},
     client::RedditClient,
     models::SubmissionStickySlot,
-    util::{FeedOption, RouxError},
+    util::RouxError,
 };
 
 use mlapibot_common::{LazyCached, LowercaseString};
 
-use crate::{
-    config::{FlairSubBuilderExt, StatusStickyConfig, SubredditStatusConfig},
-    status_tracker::IncidentWithLive,
-};
+use crate::{client::module::post_scams::ScamAnalyzer, status_tracker::IncidentWithLive};
 
 use super::{RouxClient, Submission};
 
 pub type RouxSubreddit = roux::client::Subreddit<super::RouxClient>;
+pub type DbSubreddit = mlapibot_database_v2::repos::subreddits::Subreddit;
 
 type SubCached<T> = LazyCached<T, RouxSubreddit, RouxError>;
 
 pub struct Subreddit {
-    pub data: RouxSubreddit,
+    pub reddit: RouxSubreddit,
+    pub db: DbSubreddit,
     lower: LowercaseString,
-    moderators: SubCached<Vec<ModeratorData>>,
-    removal_reasons: SubCached<HashMap<String, RemovalReason>>,
+    // Cached in the database, periodically refreshed per
+    // the `db.lasy_sync` time.
+    moderators: HashSet<String>,
+
+    pub template_map: HashMap<ReplyTemplateId, String>,
+    pub templates: tera::Tera,
+    pub analyzers: Vec<ScamAnalyzer>,
+
+    pub removal_reasons: SubCached<HashMap<String, RemovalReason>>,
 }
 
 fn minimal_urldecode(text: &mut String) {
@@ -55,28 +64,46 @@ async fn fetch_removal_reasons(
 }
 
 impl Subreddit {
-    pub fn new(data: RouxSubreddit, name: LowercaseString) -> anyhow::Result<Self> {
+    pub async fn new(
+        reddit: RouxSubreddit,
+        db: DbSubreddit,
+        templates: Vec<ReplyTemplate>,
+        analyzers: Vec<Scam>,
+        moderators: HashSet<String>,
+        name: LowercaseString,
+    ) -> anyhow::Result<Self> {
         let removal_reasons = SubCached::new(Duration::from_secs(60 * 60), |c| {
             Box::pin(fetch_removal_reasons(c))
         });
 
-        let moderators = SubCached::new(Duration::from_secs(15 * 60), |ctx| {
-            Box::pin(async { ctx.moderators().await.map(|d| d.data.children) })
-        });
+        let mut tera = tera::Tera::default();
+        let mut map = HashMap::new();
+
+        tera.add_raw_templates(
+            templates
+                .iter()
+                .map(|t| (t.name.as_str(), t.content.as_str())),
+        )
+        .with_context(|| format!("build tera templates for /r/{name}"))?;
+
+        for template in templates {
+            map.insert(template.id, template.name);
+        }
 
         Ok(Self {
-            data,
+            reddit,
+            db,
             lower: name,
+            templates: tera,
+            template_map: map,
+            analyzers: analyzers.into_iter().map(ScamAnalyzer).collect(),
             removal_reasons,
-            moderators: moderators,
+            moderators,
         })
     }
 
-    pub async fn is_moderator(&mut self, username: &str) -> Result<bool, RouxError> {
-        self.moderators
-            .data(&self.data)
-            .await
-            .map(|ls| ls.iter().any(|m| m.name == username))
+    pub fn is_moderator(&mut self, username: &str) -> bool {
+        self.moderators.contains(username)
     }
 
     pub fn name(&self) -> &LowercaseString {
@@ -84,13 +111,13 @@ impl Subreddit {
     }
 
     pub async fn sticky_incident_post<DB: IncidentRepo>(
-        &mut self,
+        reddit: &mut RouxSubreddit,
         db: &DB,
         sticky: &StatusStickyConfig,
         submission: &Submission,
     ) -> anyhow::Result<()> {
         let prior_id = if let Some(replace) = sticky.replace_sticky.as_ref() {
-            let replacing = Self::get_sticky_to_replace(&mut self.data, replace).await?;
+            let replacing = Self::get_sticky_to_replace(reddit, replace).await?;
 
             if let Some(replacing) = replacing.as_ref() {
                 println!("replacing {:?}", replacing.name());
@@ -118,15 +145,17 @@ impl Subreddit {
         Ok(())
     }
 
-    fn is_incident_major(incident: &IncidentWithLive, config: &SubredditStatusConfig) -> bool {
+    fn is_incident_major(incident: &IncidentWithLive, config: &StatusModule) -> bool {
         let Some(sticky) = &config.sticky else {
             return false;
         };
 
-        if sticky.only_for.len() > 0 {
+        if let Some(only_for) = sticky.only_for.as_ref()
+            && only_for.len() > 0
+        {
             let has_components = (&incident.incident.components)
                 .iter()
-                .any(|c| sticky.only_for.contains(&c.id) || sticky.only_for.contains(&c.name));
+                .any(|c| only_for.contains(&c.id) || only_for.contains(&c.name));
 
             if !has_components {
                 println!("Incident does not affect components required to sticky");
@@ -149,18 +178,13 @@ impl Subreddit {
         db: &DB,
         incident: &IncidentWithLive<'_>,
         reddit: &RouxClient,
-        config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
         println!("Sending incident to /r/{}", self.lower);
 
-        let is_major = Self::is_incident_major(incident, config);
+        let is_major = Self::is_incident_major(incident, &self.db.mod_status);
 
-        let submission = match &config.flair {
-            Some(flair) => incident.to_builder().with_flair_setting(if is_major {
-                flair.major.as_ref().unwrap_or(&flair.minor)
-            } else {
-                &flair.minor
-            }),
+        let submission = match &self.db.mod_status.flair_id {
+            Some(flair) => incident.to_builder().with_flair_id(flair),
             None => incident.to_builder(),
         };
 
@@ -174,19 +198,21 @@ impl Subreddit {
         )
         .await?;
 
-        if config.distinguish {
+        if self.db.mod_status.distinguish {
             submission
                 .distinguish(roux::models::Distinguish::Moderator)
                 .await?;
         }
 
         if is_major {
-            self.sticky_incident_post(
+            Self::sticky_incident_post(
+                &mut self.reddit,
                 db,
-                config
+                self.db
+                    .mod_status
                     .sticky
                     .as_ref()
-                    .expect("must have sticky config to sticky"),
+                    .expect("is_major only true if sticky config there"),
                 &submission,
             )
             .await?;
@@ -197,7 +223,7 @@ impl Subreddit {
 
     async fn get_sticky_to_replace(
         subreddit: &mut RouxSubreddit,
-        replace: &FlairId,
+        replace: &str,
     ) -> anyhow::Result<Option<Submission>> {
         println!("Looking for {replace:?}");
         let Some(top) = subreddit.sticky(SubmissionStickySlot::Top).await? else {
@@ -206,7 +232,7 @@ impl Subreddit {
         };
 
         if let Some(id) = top.link_flair_template_id() {
-            if id == replace {
+            if id.as_str() == replace {
                 return Ok(Some(top));
             }
         }
@@ -221,7 +247,7 @@ impl Subreddit {
         };
 
         if let Some(id) = bottom.link_flair_template_id() {
-            if id == replace {
+            if id.as_str() == replace {
                 return Ok(Some(bottom));
             }
         }
@@ -234,19 +260,17 @@ impl Subreddit {
         Ok(None)
     }
 
-    async fn set_resolved_flair(
-        post: &Submission,
-        config: &SubredditStatusConfig,
-    ) -> anyhow::Result<()> {
-        let Some(flair) = config.flair.as_ref() else {
-            return Ok(());
-        };
+    async fn set_resolved_flair(_post: &Submission, _config: &StatusModule) -> anyhow::Result<()> {
+        // TODO: re-add flairing
+        // let Some(flair) = config.flair.as_ref() else {
+        //     return Ok(());
+        // };
 
-        let Some(resolved) = flair.resolved.as_ref() else {
-            return Ok(());
-        };
+        // let Some(resolved) = flair.resolved.as_ref() else {
+        //     return Ok(());
+        // };
 
-        post.select_flair(&resolved.as_update()).await?;
+        // post.select_flair(&resolved.as_update()).await?;
 
         Ok(())
     }
@@ -255,14 +279,13 @@ impl Subreddit {
         &mut self,
         db: &DB,
         post: ResolvedIncidentPost,
-        config: &SubredditStatusConfig,
     ) -> anyhow::Result<()> {
         if post.sticky_state == StickyState::NeverStickied {
             println!("Never stickied!");
             return Ok(());
         }
 
-        let Some(sticky) = config.sticky.as_ref() else {
+        let Some(sticky) = self.db.mod_status.sticky.as_ref() else {
             println!("No sticky config");
             return Ok(());
         };
@@ -280,8 +303,8 @@ impl Subreddit {
             return Ok(());
         };
 
-        let submission = self
-            .data
+        let submission: Submission = self
+            .reddit
             .client
             .get_submissions(&[&thing])
             .await?
@@ -293,7 +316,7 @@ impl Subreddit {
             // assume that a human mod has unstickied it manually.
             println!("Already unstickied");
             db.unsticky_incident_post(thing.full(), Utc::now()).await?;
-            Self::set_resolved_flair(&submission, config).await?;
+            Self::set_resolved_flair(&submission, &self.db.mod_status).await?;
             return Ok(());
         }
 
@@ -316,12 +339,12 @@ impl Subreddit {
             StickyState::Stickied {
                 removed: Some(put_back),
             } => {
-                let bot_slot = self.data.sticky(SubmissionStickySlot::Bottom).await?;
+                let bot_slot = self.reddit.sticky(SubmissionStickySlot::Bottom).await?;
 
                 submission.unsticky().await?;
 
                 let put_back = self
-                    .data
+                    .reddit
                     .client
                     .get_submissions(&[&ThingFullname::try_from(put_back).expect("was fullname")])
                     .await?
@@ -346,7 +369,7 @@ impl Subreddit {
                         let not_our_post = if slot.name() == submission.name() {
                             // the bottom slot was our post, so the other one is in the top slot.
                             // unfortunately, that means we'll have to fetch it
-                            self.data
+                            self.reddit
                                 .sticky(SubmissionStickySlot::Top)
                                 .await?
                                 .expect("has other top sticky")
@@ -374,18 +397,14 @@ impl Subreddit {
         }
 
         db.unsticky_incident_post(thing.full(), Utc::now()).await?;
-        Self::set_resolved_flair(&submission, config).await?;
+        Self::set_resolved_flair(&submission, &self.db.mod_status).await?;
 
         Ok(())
     }
 
-    async fn check_posts_for_unsticky<DB: IncidentRepo>(
-        &mut self,
-        db: &DB,
-        config: &SubredditStatusConfig,
-    ) -> anyhow::Result<()> {
+    async fn check_posts_for_unsticky<DB: IncidentRepo>(&mut self, db: &DB) -> anyhow::Result<()> {
         for post in db.get_resolved_incidents_still_stickied().await? {
-            self.check_incident_sticky(db, post, config).await?;
+            self.check_incident_sticky(db, post).await?;
         }
 
         Ok(())
@@ -397,9 +416,8 @@ impl Subreddit {
         reddit: &RouxClient,
         updated_incidents: &[IncidentWithLive<'_>],
         is_summary: bool,
-        config: &SubredditStatusConfig,
     ) -> anyhow::Result<HashSet<String>> {
-        self.check_posts_for_unsticky(db, config)
+        self.check_posts_for_unsticky(db)
             .await
             .context("check unsticky")?;
 
@@ -414,8 +432,8 @@ impl Subreddit {
                 .await?
             {
                 unseen.remove(&update.incident.id);
-            } else if update.incident.impact >= config.min_impact {
-                self.send_incident_post(db, update, reddit, &config).await?;
+            } else if update.incident.impact >= self.db.mod_status.min_impact {
+                self.send_incident_post(db, update, reddit).await?;
             }
         }
 
@@ -425,26 +443,6 @@ impl Subreddit {
         }
 
         Ok(unseen)
-    }
-
-    pub async fn newest_unseen(&mut self) -> anyhow::Result<Vec<Submission>> {
-        let options = FeedOption::new().limit(25);
-
-        let data = self.data.latest(Some(options)).await?;
-        let mut children = data.children;
-        children.reverse();
-
-        Ok(children)
-    }
-
-    pub async fn get_removal_reason(
-        &mut self,
-        id: &str,
-    ) -> Result<Option<&RemovalReason>, RouxError> {
-        self.removal_reasons
-            .data(&self.data)
-            .await
-            .map(|map| map.get(id))
     }
 }
 

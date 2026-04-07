@@ -1,0 +1,84 @@
+use chrono::SubsecRound;
+use mlapibot_database_v2::{
+    client::{PgClient, PgClientBuilder},
+    errors::DbResult,
+    repos::subreddits::*,
+};
+
+async fn make_db() -> PgClient {
+    let db = PgClientBuilder::new("postgres://postgres:postgres@localhost/mlapibotest")
+        .connect()
+        .await
+        .expect("can connect");
+
+    db.danger_delete_all_data()
+        .await
+        .expect("can delete everything in DB");
+
+    db
+}
+
+#[tokio::test]
+async fn insert_and_fetch_subreddits() -> DbResult<()> {
+    let mut db = make_db().await;
+
+    let now = chrono::Utc::now().trunc_subsecs(4);
+
+    let mods_ids = vec!["user01", "user02", "user33"];
+
+    let subreddit = Subreddit {
+        id: "sub123".into(),
+        name: "subreddit".into(),
+        enabled: true,
+        last_sync: now,
+        seq_num: 1,
+        mod_json_schema: 0,
+        removal_reasons: RemovalReasonsMap::default().with("#repost", "abc-rule-123"),
+        mod_scams: ScamsModule {
+            enabled: true,
+            search_modqueue: true,
+        },
+        mod_ai_slop: AiSlopModule {
+            enabled: false,
+            report: true,
+            modmail_to: Some("sub456".into()),
+        },
+        mod_staff_reply: StaffReplyModule {
+            enabled: false,
+            flair_id: String::new(),
+            css_class: None,
+            ignore_post_title_contains: Vec::new(),
+        },
+        mod_status: StatusModule {
+            enabled: true,
+            min_impact: statuspage::incident::IncidentImpact::Critical,
+            sticky: None,
+            distinguish: true,
+            flair_id: Some("abc-flair-123".into()),
+        },
+        mod_related_title: RelatedTitleModule {
+            enabled: true,
+            reason: RemovalReasonKey::new("#repost"),
+            check_img_posts: true,
+        },
+        mod_complex_comments: ComplexCommentsModule {
+            enabled: true,
+            items: Vec::new(),
+        },
+        mod_comments_code: CommentsCodeModule { enabled: false },
+        mod_comments_cdn: CommentsCdnModule { enabled: false },
+    };
+
+    db.create_subreddit(&subreddit).await?;
+
+    db.set_subreddit_moderators(&subreddit.id, &mods_ids)
+        .await?;
+
+    let mods = db.get_subreddit_moderators(&subreddit.id).await?;
+    assert_eq!(mods, mods_ids);
+
+    let subs = db.fetch_all_subreddits().await?;
+    assert_eq!(subs, vec![subreddit]);
+
+    Ok(())
+}

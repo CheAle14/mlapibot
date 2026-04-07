@@ -2,7 +2,6 @@
 mod client;
 pub mod config;
 pub mod exts;
-mod flairs;
 mod ratelimiter;
 mod status_tracker;
 mod subreddit;
