@@ -1,21 +1,20 @@
 [package]
+edition = "2024"
 name = "mlapibot-analysis"
 version = "0.1.0"
-edition = "2024"
 
 [dependencies]
 mlapibot-common = { path = "../mlapibot-common" }
 mlapibot-ocr = { path = "../mlapibot-ocr" }
 
-image = { workspace = true }
 futures = { workspace = true }
+hex_color = { workspace = true, features = ["serde"] }
+image = { workspace = true }
+ord-many = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+strsim = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-reqwest = { workspace = true, features = ["stream"] }
-ord-many = { workspace = true }
-
-strsim = "0.11.1"
-hex_color = { version = "3.0.0", features = ["serde"] }

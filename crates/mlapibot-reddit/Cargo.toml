@@ -1,48 +1,44 @@
 [package]
+edition = "2024"
 name = "mlapibot-reddit"
 version = "0.1.0"
-edition = "2024"
 
 [features]
 imgur = []
 
 [dependencies]
-mlapibot-api = { path = "../mlapibot-api" }
 mlapibot-analysis = { path = "../mlapibot-analysis" }
+mlapibot-api = { path = "../mlapibot-api" }
 mlapibot-common = { path = "../mlapibot-common" }
 mlapibot-database-v2 = { path = "../mlapibot-database-v2" }
 mlapibot-imgur = { path = "../mlapibot-imgur" }
+mlapibot-markdown = { path = "../mlapibot-markdown" }
 mlapibot-ocr = { path = "../mlapibot-ocr" }
 mlapibot-webhook = { path = "../mlapibot-webhook" }
-mlapibot-markdown = { path = "../mlapibot-markdown" }
 
-async-trait = { workspace = true }
+annotate-snippets = { workspace = true }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64ct = { workspace = true, features = ["alloc"] }
+bumpalo = { workspace = true, features = ["allocator_api", "collections"] }
 chrono = { workspace = true }
+chrono-tz = { workspace = true }
+futures-util = { workspace = true }
 image = { workspace = true }
+markdown = { workspace = true }
 octocrab = { workspace = true }
 ord-many = { workspace = true }
 reqwest = { workspace = true }
+roux = { workspace = true, features = ["json-error-path", "log-json-on-error"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 statuspage = { workspace = true }
+strsim = { workspace = true }
 systemd_socket = { workspace = true }
 tempfile = { workspace = true }
 tera = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
-
-annotate-snippets = "0.12.10"
-base64ct = { version = "1.6.0", features = ["alloc"] }
-bumpalo = { version = "3.19.1", features = ["allocator_api", "collections"] }
-chrono-tz = "0.9.0"
-futures-util = "0.3.31"
-markdown = "1.0.0"
-roux = { git = "https://github.com/CheAle14/roux.git", rev = "154dfbe1", features = [
-    "log-json-on-error",
-    "json-error-path",
-] }
-sha2 = "0.10.8"
-strsim = "0.11.1"
-unic-emoji-char = "0.9.0"
+unic-emoji-char = { workspace = true }

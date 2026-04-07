@@ -1,16 +1,15 @@
 [package]
+edition = "2024"
 name = "mlapibot-api"
 version = "0.1.0"
-edition = "2024"
 
 [dependencies]
 mlapibot-common = { path = "../mlapibot-common" }
 
 anyhow = { workspace = true }
-tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 statuspage = { workspace = true }
 systemd_socket = { workspace = true }
-
-tiny_http = "0.12.0"
+tiny_http = { workspace = true }
+tokio = { workspace = true }

@@ -1,13 +1,12 @@
 [package]
+edition = "2024"
 name = "mlapibot-common"
 version = "0.1.0"
-edition = "2024"
 
 [dependencies]
 ord-many = { workspace = true }
+rust-stemmers = { workspace = true }
 serde = { workspace = true }
-
-rust-stemmers = "1.2.0"
 
 [dev-dependencies]
 serde_json = { workspace = true }
