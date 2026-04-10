@@ -167,8 +167,6 @@
         >
     </div>
 
-    <JsonMany items={[options, changes]} titles={["Options", "Changes"]} />
-
     {#if isFetching}
         <Spinner.Badge>Fetching subreddit options</Spinner.Badge>
     {/if}
