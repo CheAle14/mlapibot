@@ -23,6 +23,7 @@
     import StatusStickySettings from "./StatusStickySettings.svelte";
     import { Check } from "@lucide/svelte";
     import ComplexCommentsSettings from "./ComplexCommentsSettings.svelte";
+    import { beforeNavigate } from "$app/navigation";
 
     const STATUS_URL = "https://discordstatus.com/api/v2";
     const { params, data }: PageProps = $props();
@@ -69,7 +70,39 @@
     };
 
     const hasChanges = $derived.by(() => {
+        const oAny = (options ?? {}) as any;
+        const cAny = (changes ?? {}) as any;
+
+        const allkeys = new Set([...Object.keys(oAny), ...Object.keys(cAny)]);
+
+        allkeys.delete("seq_num");
+
+        for (const key of allkeys) {
+            if (!_.isEqual(oAny[key], cAny[key])) {
+                console.log(key, oAny[key], cAny[key]);
+                return true;
+            }
+        }
+
         return options !== undefined && !_.isEqual(options, changes);
+    });
+
+    beforeNavigate((nav) => {
+        if (hasChanges) {
+            if (nav.to?.route.id) {
+                // client-side routing
+                const confirmed = confirm(
+                    "You have unsaved changes. Are you sure you wish to leave?",
+                );
+
+                if (!confirmed) {
+                    nav.cancel();
+                }
+            } else {
+                // external nav uses the browser's built-in prompt
+                nav.cancel();
+            }
+        }
     });
 
     const isAllDisabled = $derived.by(() => {
@@ -133,6 +166,8 @@
             >Revert changes</Button
         >
     </div>
+
+    <JsonMany items={[options, changes]} titles={["Options", "Changes"]} />
 
     {#if isFetching}
         <Spinner.Badge>Fetching subreddit options</Spinner.Badge>
