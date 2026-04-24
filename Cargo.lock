@@ -2028,10 +2028,13 @@ dependencies = [
 name = "mlapibot-common"
 version = "0.1.0"
 dependencies = [
+ "base64ct",
+ "digest-io",
  "ord-many",
  "rust-stemmers",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -2097,11 +2100,9 @@ dependencies = [
  "annotate-snippets",
  "anyhow",
  "async-trait",
- "base64ct",
  "bumpalo",
  "chrono",
  "chrono-tz",
- "digest-io",
  "futures-util",
  "image",
  "markdown",
@@ -2119,7 +2120,6 @@ dependencies = [
  "roux",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "statuspage",
  "strsim",
  "systemd_socket",

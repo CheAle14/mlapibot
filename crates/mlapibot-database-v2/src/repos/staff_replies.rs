@@ -1,3 +1,5 @@
+use mlapibot_common::hash::Base64Hash;
+
 use crate::{DateTimeUtc, client::PgClient};
 
 #[derive(Debug, Default, PartialEq)]
@@ -35,7 +37,7 @@ pub struct StaffReplyThread {
     pub post_id: String,
     pub our_comment_id: String,
     pub created_at: DateTimeUtc,
-    pub hash: String,
+    pub hash: Base64Hash,
     pub suffix: Option<String>,
 }
 
@@ -74,8 +76,11 @@ pub trait StaffReplyRepo {
         suffix: Option<&str>,
     ) -> Result<(), Self::Error>;
 
-    async fn update_staff_reply_thread(&self, post_id: &str, hash: &str)
-    -> Result<(), Self::Error>;
+    async fn update_staff_reply_thread(
+        &self,
+        post_id: &str,
+        hash: &Base64Hash,
+    ) -> Result<(), Self::Error>;
 
     async fn get_staff_replies_in(&self, post_id: &str) -> Result<Vec<StaffReply>, Self::Error>;
 
@@ -84,7 +89,7 @@ pub trait StaffReplyRepo {
         subreddit: &str,
         post_id: &str,
         our_comment_id: &str,
-        hash: &str,
+        hash: &Base64Hash,
     ) -> Result<(), Self::Error>;
 
     async fn get_staff_reply_thread(
@@ -157,7 +162,7 @@ impl StaffReplyRepo for PgClient {
     async fn update_staff_reply_thread(
         &self,
         post_id: &str,
-        hash: &str,
+        hash: &Base64Hash,
     ) -> Result<(), Self::Error> {
         self.execute(
             r"
@@ -165,7 +170,7 @@ impl StaffReplyRepo for PgClient {
                 hash=$2
             WHERE post_id=$1
             ",
-            &[&post_id, &hash],
+            &[&post_id, &hash.as_str()],
         )
         .await?;
 
@@ -199,10 +204,10 @@ impl StaffReplyRepo for PgClient {
         subreddit: &str,
         post_id: &str,
         our_comment_id: &str,
-        hash: &str,
+        hash: &Base64Hash,
     ) -> Result<(), Self::Error> {
         self.execute("INSERT INTO staff_reply_threads (post_id, our_comment_id, subreddit, hash) VALUES ($1, $2, $3, $4)",
-            &[&post_id, &our_comment_id, &subreddit, &hash]).await?;
+            &[&post_id, &our_comment_id, &subreddit, &hash.as_str()]).await?;
         Ok(())
     }
 
@@ -230,7 +235,7 @@ impl StaffReplyRepo for PgClient {
                 our_comment_id: r.get(1),
                 subreddit: r.get(2),
                 created_at: r.get(3),
-                hash: r.get(4),
+                hash: Base64Hash::from_string(r.get(4)),
                 suffix: r.get(5),
             })
         })

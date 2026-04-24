@@ -19,11 +19,9 @@ mlapibot-webhook = { path = "../mlapibot-webhook" }
 annotate-snippets = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-base64ct = { workspace = true, features = ["alloc"] }
 bumpalo = { workspace = true, features = ["allocator_api", "collections"] }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
-digest-io = { workspace = true }
 futures-util = { workspace = true }
 image = { workspace = true }
 markdown = { workspace = true }
@@ -33,7 +31,6 @@ reqwest = { workspace = true }
 roux = { workspace = true, features = ["json-error-path", "log-json-on-error"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
 statuspage = { workspace = true }
 strsim = { workspace = true }
 systemd_socket = { workspace = true }

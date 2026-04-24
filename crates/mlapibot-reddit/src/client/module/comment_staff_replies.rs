@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
+use mlapibot_common::hash::Sha256Hasher;
 use mlapibot_database_v2::{
     client::PgClient,
     repos::staff_replies::{FindBy, StaffReply, StaffReplyRepo},
@@ -16,10 +17,7 @@ use roux::{
     models::{ArticleCommentOrMore, Listing},
 };
 
-use crate::{
-    client::{ModuleRedditClient, module::impl_mask_subreddits},
-    utils::Sha256Hasher,
-};
+use crate::client::{ModuleRedditClient, module::impl_mask_subreddits};
 
 pub struct CommentStaffReplies {
     next_update: DateTime<Utc>,

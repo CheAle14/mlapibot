@@ -23,7 +23,9 @@ async fn can_insert_and_list_staff_replies() -> DbResult<()> {
 
     let now = chrono::Utc::now();
 
-    db.insert_staff_reply_thread("sub0123", "post123", "comment032", "abchash")
+    let hash = mlapibot_common::hash::Sha256Hasher::oneshot("hellosup0123");
+
+    db.insert_staff_reply_thread("sub0123", "post123", "comment032", &hash)
         .await?;
 
     db.insert_staff_reply("comment112", "post123", "Hello", "some text", now)
@@ -54,13 +56,17 @@ async fn can_update_staff_replies() -> DbResult<()> {
 
     let now = chrono::Utc::now();
 
-    db.insert_staff_reply_thread("sub0123", "post123", "comment032", "abchash")
+    let hash = mlapibot_common::hash::Sha256Hasher::oneshot("hello world");
+
+    db.insert_staff_reply_thread("sub0123", "post123", "comment032", &hash)
         .await?;
 
     db.insert_staff_reply("comment112", "post123", "Hello", "some text", now)
         .await?;
 
-    db.update_staff_reply_thread("post123", "hashxyz").await?;
+    let newhash = mlapibot_common::hash::Sha256Hasher::oneshot("Hello world");
+
+    db.update_staff_reply_thread("post123", &newhash).await?;
 
     db.update_staff_reply_thread_suffix("post123", Some("hello world"))
         .await?;
@@ -88,7 +94,7 @@ async fn can_update_staff_replies() -> DbResult<()> {
             post_id: "post123".into(),
             our_comment_id: "comment032".into(),
             created_at: thread.created_at,
-            hash: "hashxyz".into(),
+            hash: newhash,
             suffix: Some("hello world".into())
         }
     );
