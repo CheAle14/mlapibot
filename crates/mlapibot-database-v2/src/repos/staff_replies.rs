@@ -59,6 +59,7 @@ pub trait StaffReplyRepo {
         post_id: &str,
         author_name: &str,
         content: &str,
+        created_at: DateTimeUtc,
     ) -> Result<(), Self::Error>;
 
     async fn update_staff_reply_content(
@@ -108,9 +109,10 @@ impl StaffReplyRepo for PgClient {
         post_id: &str,
         author_name: &str,
         content: &str,
+        created_at: DateTimeUtc,
     ) -> Result<(), Self::Error> {
-        self.execute("INSERT INTO staff_replies (comment_id, post_id, author_name, content) VALUES ($1, $2, $3, $4)",
-            &[&comment_id, &post_id, &author_name, &content]).await?;
+        self.execute("INSERT INTO staff_replies (comment_id, post_id, author_name, content, created_at) VALUES ($1, $2, $3, $4, $5)",
+            &[&comment_id, &post_id, &author_name, &content, &created_at]).await?;
 
         Ok(())
     }

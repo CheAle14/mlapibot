@@ -26,9 +26,10 @@ async fn can_insert_and_list_staff_replies() -> DbResult<()> {
     db.insert_staff_reply_thread("sub0123", "post123", "comment032", "abchash")
         .await?;
 
-    db.insert_staff_reply("comment112", "post123", "Hello", "some text")
+    db.insert_staff_reply("comment112", "post123", "Hello", "some text", now)
         .await?;
-    db.insert_staff_reply("comment113", "post123", "World", "other types")
+
+    db.insert_staff_reply("comment113", "post123", "World", "other types", now)
         .await?;
 
     let threads = db.get_staff_reply_threads_in("sub0123", now).await?;
@@ -56,7 +57,7 @@ async fn can_update_staff_replies() -> DbResult<()> {
     db.insert_staff_reply_thread("sub0123", "post123", "comment032", "abchash")
         .await?;
 
-    db.insert_staff_reply("comment112", "post123", "Hello", "some text")
+    db.insert_staff_reply("comment112", "post123", "Hello", "some text", now)
         .await?;
 
     db.update_staff_reply_thread("post123", "hashxyz").await?;

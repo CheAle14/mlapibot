@@ -431,9 +431,12 @@ impl super::Module for CommentStaffReplies {
         let comment_id = comment.id();
         let post_id = comment.link_id().id();
 
+        let utc_seconds = comment.created_utc();
+        let utc = chrono::DateTime::from_timestamp_secs(utc_seconds as i64).unwrap_or_default();
+
         client
             .db
-            .insert_staff_reply(comment_id, post_id, comment.author(), comment.body())
+            .insert_staff_reply(comment_id, post_id, comment.author(), comment.body(), utc)
             .await
             .with_context(|| format!("staff reply {post_id} / {comment_id}"))?;
 
