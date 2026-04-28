@@ -3049,11 +3049,13 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-rustls",
+ "hyper-tls",
  "hyper-util",
  "js-sys",
  "log",
  "mime",
  "mime_guess",
+ "native-tls",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -3062,8 +3064,10 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
+ "tokio-native-tls",
  "tokio-rustls",
  "tokio-util",
  "tower",
@@ -3102,12 +3106,12 @@ dependencies = [
 
 [[package]]
 name = "roux"
-version = "2.3.51"
-source = "git+https://github.com/CheAle14/roux.git?rev=154dfbe1#154dfbe144109b956333e99988c6d59395f665cc"
+version = "2.3.52"
+source = "git+https://github.com/CheAle14/roux.git?rev=516a1f2b#516a1f2bf0e5944223502ff10c520b946751e516"
 dependencies = [
  "html-escape",
  "maybe-async",
- "reqwest 0.12.28",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "serde_path_to_error",
