@@ -65,11 +65,6 @@ pub enum StickyState {
 
 impl StickyState {
     fn from_row(row: &Row) -> DbResult<Self> {
-        println!("has columns:");
-        for col in row.columns() {
-            println!("- {} {:?}", col.name(), col.type_());
-        }
-
         let sticky_state: DbStickyState = row.get("sticky_state");
 
         match sticky_state {

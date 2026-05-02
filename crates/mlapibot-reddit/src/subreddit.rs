@@ -17,7 +17,7 @@ use roux::{
     util::RouxError,
 };
 
-use mlapibot_common::{LazyCached, LowercaseString};
+use mlapibot_common::{LazyCached, LowercaseString, extensions::StringOptionExt};
 
 use crate::{client::module::post_scams::ScamAnalyzer, status_tracker::IncidentWithLive};
 
@@ -116,18 +116,12 @@ impl Subreddit {
         sticky: &StatusStickyConfig,
         submission: &Submission,
     ) -> anyhow::Result<()> {
-        let prior_id = if let Some(replace) = sticky.replace_sticky.as_ref() {
-            let replacing = Self::get_sticky_to_replace(reddit, replace).await?;
-
-            if let Some(replacing) = replacing.as_ref() {
-                println!("replacing {:?}", replacing.name());
-                // slot does not matter here.
-                replacing.sticky(false, SubmissionStickySlot::Top).await?;
-            } else {
-                println!("replacing nothing??");
-            };
-
-            replacing
+        let prior_id = if let Some(replacing) =
+            Self::get_sticky_to_replace(reddit, sticky.replace_sticky.map_str()).await?
+        {
+            println!("replacing {:?}", replacing.name());
+            replacing.unsticky().await?;
+            Some(replacing)
         } else {
             None
         };
@@ -223,41 +217,46 @@ impl Subreddit {
 
     async fn get_sticky_to_replace(
         subreddit: &mut RouxSubreddit,
-        replace: &str,
+        replace: Option<&str>,
     ) -> anyhow::Result<Option<Submission>> {
         println!("Looking for {replace:?}");
         let Some(top) = subreddit.sticky(SubmissionStickySlot::Top).await? else {
-            println!("No top sticky post");
+            println!("No top sticky post, so we aren't replacing anything");
             return Ok(None);
         };
 
-        if let Some(id) = top.link_flair_template_id() {
-            if id.as_str() == replace {
+        match (top.link_flair_template_id(), replace) {
+            (Some(top_template), Some(replace)) if top_template.as_str() == replace => {
                 return Ok(Some(top));
             }
+            _ => (),
         }
+
         println!(
             "Top template no match, was: {:?}",
             top.link_flair_template_id()
         );
 
         let Some(bottom) = subreddit.sticky(SubmissionStickySlot::Bottom).await? else {
-            println!("No bottom sticky post");
+            println!("No bottom sticky post, so we aren't replacing anything");
             return Ok(None);
         };
 
-        if let Some(id) = bottom.link_flair_template_id() {
-            if id.as_str() == replace {
-                return Ok(Some(bottom));
-            }
-        }
+        // match (bottom.link_flair_template_id(), replace) {
+        //     (Some(bottom_template), Some(replace)) if bottom_template.as_str() == replace => {
+        //         return Ok(Some(bottom));
+        //     }
+        //     _ => (),
+        // }
 
-        println!(
-            "Bottom template no match, was: {:?}",
-            bottom.link_flair_template_id()
-        );
+        // println!(
+        //     "Bottom template no match, was: {:?}",
+        //     bottom.link_flair_template_id()
+        // );
 
-        Ok(None)
+        println!("Regardless of whether the bottom matches or not, we use it anyway");
+
+        Ok(Some(bottom))
     }
 
     async fn set_resolved_flair(_post: &Submission, _config: &StatusModule) -> anyhow::Result<()> {
@@ -390,6 +389,10 @@ impl Subreddit {
                             .await?;
                     }
                 }
+            }
+            StickyState::Stickied { removed: None } => {
+                eprintln!("nothing to put back - removed is None?");
+                submission.unsticky().await?;
             }
             other => {
                 eprintln!("unexpected sticky state: {other:?}");
