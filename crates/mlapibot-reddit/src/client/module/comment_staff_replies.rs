@@ -259,7 +259,7 @@ impl CommentStaffReplies {
                         .map(|v| v.as_str()),
                     comment
                         .common
-                        .author_flair_text
+                        .author_flair_css_class
                         .as_ref()
                         .map(|v| v.as_str()),
                 ) {
