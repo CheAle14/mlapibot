@@ -8,7 +8,10 @@ use chrono::{DateTime, TimeDelta, Utc};
 use mlapibot_common::hash::Sha256Hasher;
 use mlapibot_database_v2::{
     client::PgClient,
-    repos::staff_replies::{FindBy, StaffReply, StaffReplyRepo},
+    repos::{
+        staff_replies::{FindBy, StaffReply, StaffReplyRepo},
+        subreddits::StaffReplyModule,
+    },
 };
 use mlapibot_markdown::substr::{LayoutPlan, SubstrAttempt, substr_markdown_many};
 use roux::{
@@ -199,6 +202,7 @@ impl CommentStaffReplies {
         post_id: &str,
         replies: &mut [StaffReply],
         now: DateTime<Utc>,
+        config: &StaffReplyModule,
     ) -> anyhow::Result<()> {
         // Best case scenario is that the post doesn't have too many comments, so
         // we can just fetch the entire post's comments and then look for the
@@ -225,6 +229,7 @@ impl CommentStaffReplies {
             now: DateTime<Utc>,
             map: &'a mut HashMap<String, &'b mut StaffReply>,
             db: &'a PgClient,
+            config: &'a StaffReplyModule,
         }
 
         impl<'a, 'b> CommentVisitor for Visitor<'a, 'b> {
@@ -246,6 +251,36 @@ impl CommentStaffReplies {
                         .update_staff_reply_content(&staff_reply.comment_id, &staff_reply.content)
                         .await
                         .context("update staff reply")?;
+                } else if self.config.is_staff(
+                    comment
+                        .common
+                        .author_flair_template_id
+                        .as_ref()
+                        .map(|v| v.as_str()),
+                    comment
+                        .common
+                        .author_flair_text
+                        .as_ref()
+                        .map(|v| v.as_str()),
+                ) {
+                    println!(
+                        "Pickup unfamiliar staff reply by /u/{} in {} @ {}",
+                        comment.common.author, comment.common.link_id, comment.common.id
+                    );
+
+                    let utc_seconds = comment.common.created_utc;
+                    let utc = chrono::DateTime::from_timestamp_secs(utc_seconds as i64)
+                        .unwrap_or_default();
+
+                    self.db
+                        .insert_staff_reply(
+                            &comment.common.id,
+                            comment.common.link_id.id(),
+                            &comment.common.author,
+                            &comment.common.body,
+                            utc,
+                        )
+                        .await?;
                 }
 
                 Ok(())
@@ -258,6 +293,7 @@ impl CommentStaffReplies {
                 now,
                 map: &mut reply_map,
                 db: client.db,
+                config,
             },
         )
         .await?;
@@ -290,12 +326,14 @@ impl CommentStaffReplies {
         client: &mut ModuleRedditClient<'client>,
         subreddit: &str,
         post_id: &str,
+        config: &StaffReplyModule,
+        force_refresh: bool,
     ) -> anyhow::Result<()> {
         let mut all_replies = client.db.get_staff_replies_in(post_id).await?;
         let now = Utc::now();
 
-        if all_replies.iter().any(|v| v.is_outdated(now)) {
-            self.fetch_reply_updates(client, subreddit, post_id, &mut all_replies, now)
+        if force_refresh || all_replies.iter().any(|v| v.is_outdated(now)) {
+            self.fetch_reply_updates(client, subreddit, post_id, &mut all_replies, now, config)
                 .await
                 .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
         }
@@ -400,9 +438,15 @@ impl super::Module for CommentStaffReplies {
                 comment.subreddit_name_prefixed(),
                 live.post_id
             );
-            self.update_or_make_staff_reply_comment(client, comment.subreddit(), &live.post_id)
-                .await
-                .context("redo reply")?;
+            self.update_or_make_staff_reply_comment(
+                client,
+                comment.subreddit(),
+                &live.post_id,
+                config,
+                true,
+            )
+            .await
+            .context("redo reply")?;
             return Ok(());
         }
 
@@ -438,9 +482,15 @@ impl super::Module for CommentStaffReplies {
             .await
             .with_context(|| format!("staff reply {post_id} / {comment_id}"))?;
 
-        self.update_or_make_staff_reply_comment(client, comment.subreddit(), post_id)
-            .await
-            .with_context(|| format!("make reply comment {post_id} (due to {comment_id})"))?;
+        self.update_or_make_staff_reply_comment(
+            client,
+            comment.subreddit(),
+            post_id,
+            config,
+            false,
+        )
+        .await
+        .with_context(|| format!("make reply comment {post_id} (due to {comment_id})"))?;
 
         Ok(())
     }
@@ -467,14 +517,20 @@ impl super::Module for CommentStaffReplies {
                 .await?;
 
             for thread in threads {
-                self.update_or_make_staff_reply_comment(client, &thread.subreddit, &thread.post_id)
-                    .await
-                    .with_context(|| {
-                        format!(
-                            "run_timer refresh /r/{}/{}",
-                            thread.subreddit, thread.post_id
-                        )
-                    })?;
+                self.update_or_make_staff_reply_comment(
+                    client,
+                    &thread.subreddit,
+                    &thread.post_id,
+                    &subreddit.db.mod_staff_reply,
+                    false,
+                )
+                .await
+                .with_context(|| {
+                    format!(
+                        "run_timer refresh /r/{}/{}",
+                        thread.subreddit, thread.post_id
+                    )
+                })?;
             }
         }
 
