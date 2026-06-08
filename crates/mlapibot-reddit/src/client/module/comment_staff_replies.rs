@@ -200,7 +200,7 @@ impl CommentStaffReplies {
         client: &mut ModuleRedditClient<'client>,
         subreddit: &str,
         post_id: &str,
-        replies: &mut [StaffReply],
+        replies: &mut Vec<StaffReply>,
         now: DateTime<Utc>,
         config: &StaffReplyModule,
     ) -> anyhow::Result<()> {
@@ -210,8 +210,9 @@ impl CommentStaffReplies {
         //
         // Any left over we can fetch one-by-one.
 
+        let mut new_replies = Vec::new();
         let mut reply_map = HashMap::new();
-        for reply in replies {
+        for reply in &mut *replies {
             reply_map.insert(reply.comment_id.clone(), reply);
         }
 
@@ -225,9 +226,14 @@ impl CommentStaffReplies {
             )
             .await?;
 
+        if post_id == "1tqhb8o" {
+            println!("looking for staff: {:#?}", config);
+        }
+
         struct Visitor<'a, 'b> {
             now: DateTime<Utc>,
             map: &'a mut HashMap<String, &'b mut StaffReply>,
+            new: &'a mut Vec<StaffReply>,
             db: &'a PgClient,
             config: &'a StaffReplyModule,
         }
@@ -239,6 +245,15 @@ impl CommentStaffReplies {
                 &mut self,
                 comment: &ArticleCommentData,
             ) -> Result<(), Self::Error> {
+                if comment.common.link_id.id() == "1tqhb8o" {
+                    println!(
+                        "dbg: id={} template_id={:?} css_class={:?}",
+                        comment.common.id,
+                        comment.common.author_flair_template_id,
+                        comment.common.author_flair_css_class
+                    );
+                }
+
                 if let Some(staff_reply) = self.map.remove(&comment.common.id) {
                     staff_reply.content = comment.common.body.to_owned();
                     staff_reply.last_updated = self.now;
@@ -272,15 +287,26 @@ impl CommentStaffReplies {
                     let utc = chrono::DateTime::from_timestamp_secs(utc_seconds as i64)
                         .unwrap_or_default();
 
+                    let reply = StaffReply {
+                        comment_id: comment.common.id.clone(),
+                        post_id: comment.common.link_id.id().to_owned(),
+                        author_name: comment.common.author.clone(),
+                        content: comment.common.body.clone(),
+                        last_updated: utc,
+                        created_at: utc,
+                    };
+
                     self.db
                         .insert_staff_reply(
-                            &comment.common.id,
-                            comment.common.link_id.id(),
-                            &comment.common.author,
-                            &comment.common.body,
-                            utc,
+                            &reply.comment_id,
+                            &reply.post_id,
+                            &reply.author_name,
+                            &reply.content,
+                            reply.created_at,
                         )
                         .await?;
+
+                    self.new.push(reply);
                 }
 
                 Ok(())
@@ -292,6 +318,7 @@ impl CommentStaffReplies {
             Visitor {
                 now,
                 map: &mut reply_map,
+                new: &mut new_replies,
                 db: client.db,
                 config,
             },
@@ -303,6 +330,10 @@ impl CommentStaffReplies {
             if unseen.is_outdated(now) {
                 println!("TODO: fetch individual comment {unseen:?}");
             }
+        }
+
+        for reply in new_replies {
+            replies.push(reply);
         }
 
         Ok(())
