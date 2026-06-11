@@ -14,7 +14,7 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<Toaster />
+<Toaster richColors />
 
 <Sidebar.Provider>
     <Sidebar.Root>
@@ -94,6 +94,20 @@
                                                     {...props}
                                                 >
                                                     Posts
+                                                </a>
+                                            {/snippet}
+                                        </Sidebar.MenuSubButton>
+                                    </Sidebar.MenuSubItem>
+
+                                    <Sidebar.MenuSubItem>
+                                        <Sidebar.MenuSubButton>
+                                            {#snippet child({ props })}
+                                                <a
+                                                    href={href +
+                                                        "/staff_replies"}
+                                                    {...props}
+                                                >
+                                                    Staff Replies
                                                 </a>
                                             {/snippet}
                                         </Sidebar.MenuSubButton>

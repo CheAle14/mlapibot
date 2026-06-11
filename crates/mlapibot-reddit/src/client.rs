@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::Utc;
-use mlapibot_api::{ApiEvent, GotAnalysis, GotRedditPost, OcrImageData};
+use mlapibot_api::{ApiEvent, GotAnalysis, GotRedditPost, OcrImageData, RefreshStaffResponse};
 use mlapibot_common::{
     Cached, LowercaseString, Words,
     action::PostAction,
@@ -882,6 +882,46 @@ impl RedditClient {
                 };
 
                 let _ = reply.send(post);
+            }
+            ApiEvent::RefreshStaffReply {
+                subreddit_name,
+                post_id,
+                reply,
+            } => {
+                let Some(subreddit) = self
+                    .subreddits
+                    .iter_mut()
+                    .find(|s| s.name() == subreddit_name.as_str())
+                else {
+                    return Ok(());
+                };
+
+                for module in &mut self.modules {
+                    let Some(module) = module.module.as_staff_replies() else {
+                        continue;
+                    };
+
+                    let mut client = make_view!(self);
+
+                    let counts = module
+                        .update_or_make_staff_reply_comment(
+                            &mut client,
+                            &subreddit_name,
+                            &post_id,
+                            &subreddit.db.mod_staff_reply,
+                            true,
+                        )
+                        .await
+                        .context("api redo")?;
+
+                    let _ = reply.send(RefreshStaffResponse {
+                        total_comments: counts.total,
+                        total_staff_comments: counts.staff,
+                        new_staff_comments: counts.new_staff,
+                    });
+
+                    break;
+                }
             }
             ApiEvent::AnalyzeInfo {
                 subreddit_id,

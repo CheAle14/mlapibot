@@ -1,10 +1,12 @@
 import { DATABASE_URI } from "$env/static/private";
+import type { PageReq, PageResp } from "$lib/types/pagination";
 import type {
   CreateSubredditPost,
   DbSubredditPost,
   SubredditPost,
   SubredditPostStub,
 } from "$lib/types/posts";
+import { type StaffReplyThread } from "$lib/types/staff_replies";
 import {
   type Subreddit,
   type ApiSubredditOptions,
@@ -497,4 +499,27 @@ export async function deleteSubPost(subreddit_id: string, post_id: number) {
   await sql`
       DELETE FROM subreddit_posts
       WHERE subreddit=${subreddit_id} AND id=${post_id}`;
+}
+
+export async function getStaffReplyThreads(
+  subreddit_name: string,
+  page: PageReq,
+): Promise<PageResp<StaffReplyThread>> {
+  const rows = await sql<StaffReplyThread[]>`
+    SELECT *
+    FROM staff_reply_threads
+    WHERE subreddit=${subreddit_name}
+    ORDER BY created_at DESC
+    OFFSET ${page.page}
+    LIMIT ${page.limit}`;
+
+  const [row]: [{ count: number }?] = await sql`
+    SELECT COUNT(*) as count FROM staff_reply_threads
+    WHERE subreddit=${subreddit_name}
+  `;
+
+  return {
+    total: row ? Number(row.count) : rows.length,
+    data: rows,
+  };
 }

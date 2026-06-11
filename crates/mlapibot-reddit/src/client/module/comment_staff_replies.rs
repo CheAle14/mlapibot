@@ -194,6 +194,12 @@ async fn visit_comments<V: CommentVisitor>(
     Ok(())
 }
 
+pub struct CommentCounts {
+    pub total: u64,
+    pub staff: u64,
+    pub new_staff: u64,
+}
+
 impl CommentStaffReplies {
     async fn fetch_reply_updates<'client>(
         &self,
@@ -201,6 +207,7 @@ impl CommentStaffReplies {
         subreddit: &str,
         post_id: &str,
         replies: &mut Vec<StaffReply>,
+        counts: &mut CommentCounts,
         now: DateTime<Utc>,
         config: &StaffReplyModule,
     ) -> anyhow::Result<()> {
@@ -236,6 +243,7 @@ impl CommentStaffReplies {
             new: &'a mut Vec<StaffReply>,
             db: &'a PgClient,
             config: &'a StaffReplyModule,
+            total_comments: &'a mut u64,
         }
 
         impl<'a, 'b> CommentVisitor for Visitor<'a, 'b> {
@@ -245,6 +253,8 @@ impl CommentStaffReplies {
                 &mut self,
                 comment: &ArticleCommentData,
             ) -> Result<(), Self::Error> {
+                *self.total_comments += 1;
+
                 if comment.common.link_id.id() == "1tqhb8o" {
                     println!(
                         "dbg: id={} template_id={:?} css_class={:?}",
@@ -321,6 +331,7 @@ impl CommentStaffReplies {
                 new: &mut new_replies,
                 db: client.db,
                 config,
+                total_comments: &mut counts.total,
             },
         )
         .await?;
@@ -332,6 +343,7 @@ impl CommentStaffReplies {
             }
         }
 
+        counts.new_staff = new_replies.len() as u64;
         for reply in new_replies {
             replies.push(reply);
         }
@@ -349,30 +361,49 @@ impl CommentStaffReplies {
             }
         }
 
-        earliest_next_update.unwrap_or_else(|| Utc::now())
+        earliest_next_update.unwrap_or_else(|| Utc::now() + TimeDelta::hours(1))
     }
 
-    async fn update_or_make_staff_reply_comment<'client>(
+    pub async fn update_or_make_staff_reply_comment<'client>(
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddit: &str,
         post_id: &str,
         config: &StaffReplyModule,
         force_refresh: bool,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<CommentCounts> {
         let mut all_replies = client.db.get_staff_replies_in(post_id).await?;
         let now = Utc::now();
 
+        let mut counts = CommentCounts {
+            total: all_replies.len() as u64,
+            staff: all_replies.len() as u64,
+            new_staff: 0,
+        };
+
         if force_refresh || all_replies.iter().any(|v| v.is_outdated(now)) {
-            self.fetch_reply_updates(client, subreddit, post_id, &mut all_replies, now, config)
-                .await
-                .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
+            self.fetch_reply_updates(
+                client,
+                subreddit,
+                post_id,
+                &mut all_replies,
+                &mut counts,
+                now,
+                config,
+            )
+            .await
+            .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
         }
 
         if self.next_update <= now {
             self.next_update = Self::get_next_update(&all_replies);
         } else {
             self.next_update = std::cmp::min(self.next_update, Self::get_next_update(&all_replies));
+        }
+
+        if all_replies.len() == 0 {
+            eprintln!("Post {post_id} in {subreddit} had no staff replies, even after a fetch?");
+            return Ok(counts);
         }
 
         match client
@@ -424,7 +455,7 @@ impl CommentStaffReplies {
             }
         }
 
-        Ok(())
+        Ok(counts)
     }
 }
 
@@ -437,6 +468,10 @@ impl super::Module for CommentStaffReplies {
         Self {
             next_update: Utc::now(),
         }
+    }
+
+    fn as_staff_replies(&mut self) -> Option<&mut CommentStaffReplies> {
+        Some(self)
     }
 
     fn name(&self) -> &'static str {
