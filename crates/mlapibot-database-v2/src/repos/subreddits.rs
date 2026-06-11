@@ -385,8 +385,14 @@ pub struct StaffReplyModule {
 
 impl StaffReplyModule {
     pub fn is_staff(&self, template_id: Option<&str>, css_class: Option<&str>) -> bool {
-        template_id.is_some_and(|id| id == self.flair_id)
-            || self.css_class.as_ref().map(|v| v.as_str()) == css_class
+        if template_id.is_some_and(|id| id == self.flair_id) {
+            return true;
+        }
+
+        match (&self.css_class, css_class) {
+            (Some(ours), Some(theirs)) => ours == theirs,
+            _ => false,
+        }
     }
 }
 

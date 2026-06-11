@@ -44,6 +44,10 @@ pub trait Module {
     fn name(&self) -> &'static str;
     fn wants(&self) -> ModuleWants;
 
+    fn as_staff_replies(&mut self) -> Option<&mut CommentStaffReplies> {
+        None
+    }
+
     fn mask_subreddits(&self, subreddits: &[Subreddit]) -> SplitSubMask {
         SplitSubMask::new()
     }

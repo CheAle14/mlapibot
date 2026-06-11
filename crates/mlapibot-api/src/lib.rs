@@ -22,6 +22,13 @@ pub enum ApiEvent {
         reply: oneshot::Sender<GotRedditPost>,
     },
 
+    RefreshStaffReply {
+        subreddit_name: String,
+        post_id: String,
+
+        reply: oneshot::Sender<RefreshStaffResponse>,
+    },
+
     AnalyzeInfo {
         subreddit_id: String,
         title: String,
@@ -137,6 +144,31 @@ pub fn start_web_connection(
                         Err(_) => request.respond(Response::empty(500)),
                     };
                 }
+                "/refresh-staff-reply" => {
+                    let parsed: RefreshStaffReq = match serde_json::from_reader(body) {
+                        Ok(value) => value,
+                        Err(err) => {
+                            println!("[status-webhook] {err:?}");
+                            let _ = request.respond(Response::empty(400));
+                            continue;
+                        }
+                    };
+
+                    let (tx, rx) = oneshot::channel();
+                    channel
+                        .blocking_send(ApiEvent::RefreshStaffReply {
+                            subreddit_name: parsed.subreddit_name,
+                            post_id: parsed.post_id,
+                            reply: tx,
+                        })
+                        .unwrap();
+
+                    let _ = match rx.blocking_recv() {
+                        Ok(post) => request
+                            .respond(Response::from_json(&post).unwrap().with_status_code(200)),
+                        Err(_) => request.respond(Response::empty(500)),
+                    };
+                }
                 "/analyze" => {
                     let parsed: AnalyzeReq = match serde_json::from_reader(body) {
                         Ok(value) => value,
@@ -220,6 +252,19 @@ pub struct GotRedditPost {
     pub links: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct RefreshStaffReq {
+    pub subreddit_name: String,
+    pub post_id: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct RefreshStaffResponse {
+    pub total_comments: u64,
+    pub total_staff_comments: u64,
+    pub new_staff_comments: u64,
 }
 
 #[derive(serde::Deserialize)]
