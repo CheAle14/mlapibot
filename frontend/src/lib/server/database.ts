@@ -510,7 +510,7 @@ export async function getStaffReplyThreads(
     FROM staff_reply_threads
     WHERE subreddit=${subreddit_name}
     ORDER BY created_at DESC
-    OFFSET ${page.page}
+    OFFSET ${page.page * page.limit}
     LIMIT ${page.limit}`;
 
   const [row]: [{ count: number }?] = await sql`
