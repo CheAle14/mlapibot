@@ -23,10 +23,22 @@
         header: Snippet<[Query]>;
         row: Snippet<[T, number, PageResp<T>]>;
 
+        skeletonRow?: Snippet<[number]>;
+
+        alwaysShowPager?: boolean;
+
         key: (item: T) => string;
     }
 
-    let { query, header, row, key, page = $bindable() }: Props = $props();
+    let {
+        query,
+        header,
+        row,
+        skeletonRow,
+        key,
+        page = $bindable(),
+        alwaysShowPager = false,
+    }: Props = $props();
 
     let previous = $state<PageResp<T> | undefined>(undefined);
 
@@ -56,35 +68,41 @@
             {#each renderQuery.data as item, index (key(item))}
                 {@render row(item, index, renderQuery)}
             {/each}
+        {:else if skeletonRow}
+            {@render skeletonRow(0)}
+            {@render skeletonRow(1)}
+            {@render skeletonRow(2)}
         {/if}
     </TableBody>
 
-    <TableFooter>
-        <TableRow>
-            <TableCell colspan={"100%" as any}>
-                <div class="flex justify-around gap-5">
-                    <Button
-                        onclick={prevPage}
-                        disabled={query.loading || page.page === 0}
-                    >
-                        Prev</Button
-                    >
+    {#if alwaysShowPager || maxPages > 0}
+        <TableFooter>
+            <TableRow>
+                <TableCell colspan={"100%" as any}>
+                    <div class="flex justify-around gap-5">
+                        <Button
+                            onclick={prevPage}
+                            disabled={query.loading || page.page === 0}
+                        >
+                            Prev</Button
+                        >
 
-                    <div>
-                        {#if query.loading}
-                            <Spinner />
-                        {:else}
-                            Page {page.page} of {maxPages}
-                        {/if}
+                        <div>
+                            {#if query.loading}
+                                <Spinner />
+                            {:else}
+                                Page {page.page} of {maxPages}
+                            {/if}
+                        </div>
+
+                        <Button
+                            onclick={nextPage}
+                            disabled={query.loading || page.page + 1 > maxPages}
+                            >Next</Button
+                        >
                     </div>
-
-                    <Button
-                        onclick={nextPage}
-                        disabled={query.loading || page.page + 1 > maxPages}
-                        >Next</Button
-                    >
-                </div>
-            </TableCell>
-        </TableRow>
-    </TableFooter>
+                </TableCell>
+            </TableRow>
+        </TableFooter>
+    {/if}
 </Table>

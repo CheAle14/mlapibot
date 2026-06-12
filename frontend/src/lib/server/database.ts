@@ -6,7 +6,10 @@ import type {
   SubredditPost,
   SubredditPostStub,
 } from "$lib/types/posts";
-import { type StaffReplyThread } from "$lib/types/staff_replies";
+import {
+  type StaffReply,
+  type StaffReplyThread,
+} from "$lib/types/staff_replies";
 import {
   type Subreddit,
   type ApiSubredditOptions,
@@ -516,6 +519,30 @@ export async function getStaffReplyThreads(
   const [row]: [{ count: number }?] = await sql`
     SELECT COUNT(*) as count FROM staff_reply_threads
     WHERE subreddit=${subreddit_name}
+  `;
+
+  return {
+    total: row ? Number(row.count) : rows.length,
+    data: rows,
+  };
+}
+
+export async function getStaffRepliesInThread(
+  post_id: string,
+  page: PageReq,
+): Promise<PageResp<StaffReply>> {
+  const rows = await sql<StaffReply[]>`
+    SELECT *
+    FROM staff_replies
+    WHERE post_id=${post_id}
+    ORDER BY created_at DESC
+    OFFSET ${page.page * page.limit}
+    LIMIT ${page.limit}`;
+
+  const [row]: [{ count: number }?] = await sql`
+    SELECT COUNT(*) as count
+    FROM staff_replies
+    WHERE post_id=${post_id}
   `;
 
   return {

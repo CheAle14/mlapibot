@@ -4,7 +4,7 @@ import * as db from "$lib/server/database";
 import { isModeratorOf } from "./auth.remote";
 import { error } from "@sveltejs/kit";
 import { sleep } from "moderndash";
-import type { StaffReplyThread } from "$lib/types/staff_replies";
+import type { StaffReply, StaffReplyThread } from "$lib/types/staff_replies";
 import { ZPageReq, type PageResp } from "$lib/types/pagination";
 import { API_URL } from "$env/static/private";
 
@@ -21,6 +21,22 @@ export const fetchStaffReplyThreads = query(
   }): Promise<PageResp<StaffReplyThread>> => {
     if (!(await isModeratorOf(subreddit_id))) throw error(401);
     const threads = await db.getStaffReplyThreads(subreddit_name, page);
+    return threads;
+  },
+);
+
+export const fetchStaffRepliesInThread = query(
+  z.object({
+    subreddit_id: z.string(),
+    post_id: z.string(),
+    page: ZPageReq,
+  }),
+  async ({ subreddit_id, post_id, page }): Promise<PageResp<StaffReply>> => {
+    if (!(await isModeratorOf(subreddit_id))) throw error(401);
+
+    await sleep(5000);
+
+    const threads = await db.getStaffRepliesInThread(post_id, page);
     return threads;
   },
 );

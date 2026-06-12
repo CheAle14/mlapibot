@@ -121,8 +121,11 @@
         </Sidebar.Content>
     </Sidebar.Root>
 
-    <Sidebar.Trigger />
-    <main class="w-full py-1 px-2">
-        {@render children()}
-    </main>
+    <Sidebar.Inset>
+        <Sidebar.Trigger />
+
+        <div class="px-2 py-1">
+            {@render children()}
+        </div>
+    </Sidebar.Inset>
 </Sidebar.Provider>

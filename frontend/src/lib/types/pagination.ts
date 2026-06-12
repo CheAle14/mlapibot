@@ -2,7 +2,7 @@ import z from "zod";
 
 export const ZPageReq = z.object({
   page: z.number().nonnegative(),
-  limit: z.number().nonnegative().lt(100),
+  limit: z.number().nonnegative().lte(100),
 });
 
 export type PageReq = z.infer<typeof ZPageReq>;

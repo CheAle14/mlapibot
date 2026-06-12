@@ -1,19 +1,29 @@
 <script lang="ts">
     import {
+        fetchStaffRepliesInThread,
         fetchStaffReplyThreads,
         refreshStaffReplyThread,
     } from "$lib/api/staff_replies.remote";
     import { Anchor } from "$lib/components/reuse/anchor";
     import { PagedTable } from "$lib/components/reuse/paged-table";
-    import { Json } from "$lib/components/ui/json";
-    import { Spinner } from "$lib/components/ui/spinner";
     import { TableCell, TableHead, TableRow } from "$lib/components/ui/table";
     import type { PageReq, PageResp } from "$lib/types/pagination";
-    import type { StaffReplyThread } from "$lib/types/staff_replies";
-    import { RefreshCcw, Settings } from "@lucide/svelte";
+    import type {
+        StaffReply,
+        StaffReplyThread,
+    } from "$lib/types/staff_replies";
+    import {
+        ChevronDown,
+        ChevronUp,
+        RefreshCcw,
+        Settings,
+    } from "@lucide/svelte";
     import type { PageProps } from "../$types";
     import { Button, PromiseButton } from "$lib/components/ui/button";
     import { toast } from "svelte-sonner";
+    import { Json } from "$lib/components/ui/json";
+    import { Spinner } from "$lib/components/ui/spinner";
+    import StaffRepliesTable from "./StaffRepliesTable.svelte";
 
     const { params, data }: PageProps = $props();
 
@@ -23,6 +33,8 @@
         page: 0,
         limit: 10,
     });
+
+    let expanded = $state<string | null>(null);
 
     const sub = $derived(data.subs.find((s) => s.name === params.subreddit));
 
@@ -68,11 +80,20 @@
 
         return innerPromise;
     };
+
+    const expandRow = (item: StaffReplyThread) => {
+        if (expanded === item.post_id) {
+            expanded = null;
+        } else {
+            expanded = item.post_id;
+        }
+    };
 </script>
 
 <PagedTable query={threads} bind:page key={(i) => i.post_id}>
     {#snippet header()}
         <TableRow>
+            <TableHead></TableHead>
             <TableHead>Post</TableHead>
             <TableHead>Stickied Comment</TableHead>
             <TableHead>Commented At</TableHead>
@@ -84,24 +105,50 @@
     {#snippet row(item: StaffReplyThread)}
         <TableRow>
             <TableCell>
+                <Button
+                    variant="outline"
+                    size="icon-sm"
+                    onclick={() => expandRow(item)}
+                >
+                    {#if expanded === item.post_id}
+                        <ChevronUp />
+                    {:else}
+                        <ChevronDown />
+                    {/if}
+                </Button>
+            </TableCell>
+            <TableCell>
                 <Anchor href={getLink(item.post_id)}>{item.post_id}</Anchor>
             </TableCell>
-            <TableHead>
+            <TableCell>
                 <Anchor href={getLink(item.post_id, item.our_comment_id)}>
                     {item.our_comment_id}
                 </Anchor>
-            </TableHead>
-            <TableHead>{item.created_at}</TableHead>
-            <TableHead>{item.suffix ? "yes" : "no"}</TableHead>
-            <TableHead>
+            </TableCell>
+            <TableCell>{item.created_at}</TableCell>
+            <TableCell>{item.suffix ? "yes" : "no"}</TableCell>
+            <TableCell>
                 <PromiseButton
                     disabled={liveRefreshes >= 3}
                     size="icon-sm"
+                    variant="ghost"
                     onclick={async () => refreshStaffThread(item)}
                 >
                     <RefreshCcw />
                 </PromiseButton>
-            </TableHead>
+            </TableCell>
         </TableRow>
+
+        {#if expanded === item.post_id}
+            <TableRow>
+                <TableCell colspan={"100%" as any} class="pl-5">
+                    <StaffRepliesTable
+                        subreddit_id={sub?.id ?? ""}
+                        subreddit_name={params.subreddit}
+                        post_id={item.post_id}
+                    />
+                </TableCell>
+            </TableRow>
+        {/if}
     {/snippet}
 </PagedTable>
