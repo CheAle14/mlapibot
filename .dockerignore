@@ -1,3 +1,10 @@
+Dockerfile
+.dockerignore
+.git
+.gitignore
+.gitattributes
+README.md
+
 /target
 /.vs
 *.png

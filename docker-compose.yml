@@ -1,0 +1,18 @@
+services:
+  backend:
+    image: ghcr.io/cheale14/mlapibot:${IMAGE_TAG:-rust}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - ${PORT}:${PORT}
+    env_file: ".env"
+    environment:
+      - PORT=${PORT}
+    volumes:
+      - ${DATA_DIR}:/data
+    healthcheck:
+      test: curl -f http://localhost:${PORT}/healthcheck || exit 1
+      interval: 1m30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
