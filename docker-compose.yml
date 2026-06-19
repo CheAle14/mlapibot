@@ -1,6 +1,8 @@
 services:
   backend:
     image: ghcr.io/cheale14/mlapibot:${IMAGE_TAG:-rust}
+    networks:
+      - shared
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -16,3 +18,7 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
+networks:
+  shared:
+    name: mlapibot_shared
+    external: true

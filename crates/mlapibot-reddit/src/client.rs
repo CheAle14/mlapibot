@@ -257,18 +257,9 @@ impl RedditClient {
                 .password(&reddit.password)
                 .timeout(std::time::Duration::from_mins(1));
 
-        println!("Logging in now...");
         let client = OAuthClient::new(config)?.login().await?;
-        println!("Logged in!");
-
-        let me = client.me().await?;
-
-        println!("me: {me:#?}");
-
-        tokio::time::sleep(Duration::from_secs(10)).await;
 
         println!("Fetching and syncing subreddits");
-
         let db_subreddits = Self::fetch_and_sync_subreddits(&mut db, &client).await?;
 
         let webhook = settings
