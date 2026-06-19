@@ -5,7 +5,6 @@ members = [
     "crates/mlapibot-api",
     "crates/mlapibot-common",
     "crates/mlapibot-database-v2",
-    "crates/mlapibot-datastore",
     "crates/mlapibot-imgur",
     "crates/mlapibot-markdown",
     "crates/mlapibot-ocr",
