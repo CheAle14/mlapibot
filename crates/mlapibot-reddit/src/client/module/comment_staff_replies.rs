@@ -579,13 +579,13 @@ impl super::Module for CommentStaffReplies {
         for subreddit in subreddits {
             let threads = client
                 .db
-                .get_staff_reply_threads_in(subreddit.name().as_str(), after)
+                .get_staff_reply_threads_in(&subreddit.db.id, after)
                 .await?;
 
             for thread in threads {
                 self.update_or_make_staff_reply_comment(
                     client,
-                    &thread.subreddit,
+                    subreddit.name().as_str(),
                     &thread.post_id,
                     &subreddit.db.mod_staff_reply,
                     false,
@@ -594,7 +594,8 @@ impl super::Module for CommentStaffReplies {
                 .with_context(|| {
                     format!(
                         "run_timer refresh /r/{}/{}",
-                        thread.subreddit, thread.post_id
+                        subreddit.name().as_str(),
+                        thread.post_id
                     )
                 })?;
             }

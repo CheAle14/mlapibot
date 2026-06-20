@@ -884,14 +884,11 @@ impl RedditClient {
                 let _ = reply.send(post);
             }
             ApiEvent::RefreshStaffReply {
-                subreddit_name,
+                subreddit_id,
                 post_id,
                 reply,
             } => {
-                let Some(subreddit) = self
-                    .subreddits
-                    .iter_mut()
-                    .find(|s| s.name() == subreddit_name.as_str())
+                let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.db.id == subreddit_id)
                 else {
                     return Ok(());
                 };
@@ -906,7 +903,7 @@ impl RedditClient {
                     let counts = module
                         .update_or_make_staff_reply_comment(
                             &mut client,
-                            &subreddit_name,
+                            subreddit.name().as_str(),
                             &post_id,
                             &subreddit.db.mod_staff_reply,
                             true,

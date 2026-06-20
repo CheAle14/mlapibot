@@ -39,7 +39,7 @@ async fn can_insert_and_list_staff_replies() -> DbResult<()> {
     assert_eq!(
         threads,
         vec![SubredditStaffReplyThread {
-            subreddit: "sub0123".into(),
+            subreddit_id: "sub0123".into(),
             post_id: "post123".into()
         }]
     );
@@ -90,7 +90,7 @@ async fn can_update_staff_replies() -> DbResult<()> {
     assert_eq!(
         thread,
         StaffReplyThread {
-            subreddit: "sub0123".into(),
+            subreddit_id: "sub0123".into(),
             post_id: "post123".into(),
             our_comment_id: "comment032".into(),
             created_at: thread.created_at,

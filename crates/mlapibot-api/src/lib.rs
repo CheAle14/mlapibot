@@ -23,7 +23,7 @@ pub enum ApiEvent {
     },
 
     RefreshStaffReply {
-        subreddit_name: String,
+        subreddit_id: String,
         post_id: String,
 
         reply: oneshot::Sender<RefreshStaffResponse>,
@@ -157,7 +157,7 @@ pub fn start_web_connection(
                     let (tx, rx) = oneshot::channel();
                     channel
                         .blocking_send(ApiEvent::RefreshStaffReply {
-                            subreddit_name: parsed.subreddit_name,
+                            subreddit_id: parsed.subreddit_id,
                             post_id: parsed.post_id,
                             reply: tx,
                         })
@@ -256,7 +256,7 @@ pub struct GotRedditPost {
 
 #[derive(serde::Deserialize)]
 pub struct RefreshStaffReq {
-    pub subreddit_name: String,
+    pub subreddit_id: String,
     pub post_id: String,
 }
 

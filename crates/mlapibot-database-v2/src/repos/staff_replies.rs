@@ -33,7 +33,7 @@ impl StaffReply {
 
 #[derive(Debug, PartialEq)]
 pub struct StaffReplyThread {
-    pub subreddit: String,
+    pub subreddit_id: String,
     pub post_id: String,
     pub our_comment_id: String,
     pub created_at: DateTimeUtc,
@@ -43,7 +43,7 @@ pub struct StaffReplyThread {
 
 #[derive(Debug, PartialEq)]
 pub struct SubredditStaffReplyThread {
-    pub subreddit: String,
+    pub subreddit_id: String,
     pub post_id: String,
 }
 
@@ -218,12 +218,12 @@ impl StaffReplyRepo for PgClient {
     ) -> Result<Option<StaffReplyThread>, Self::Error> {
         let stmt = match find_by {
             FindBy::PostId => {
-                "SELECT post_id, our_comment_id, subreddit, created_at, hash, suffix
+                "SELECT post_id, our_comment_id, subreddit_id, created_at, hash, suffix
                 FROM staff_reply_threads
                 WHERE post_id=$1"
             }
             FindBy::OurCommentId => {
-                "SELECT post_id, our_comment_id, subreddit, created_at, hash, suffix
+                "SELECT post_id, our_comment_id, subreddit_id, created_at, hash, suffix
                 FROM staff_reply_threads
                 WHERE our_comment_id=$1"
             }
@@ -233,7 +233,7 @@ impl StaffReplyRepo for PgClient {
             Ok(StaffReplyThread {
                 post_id: r.get(0),
                 our_comment_id: r.get(1),
-                subreddit: r.get(2),
+                subreddit_id: r.get(2),
                 created_at: r.get(3),
                 hash: Base64Hash::from_string(r.get(4)),
                 suffix: r.get(5),
@@ -244,18 +244,18 @@ impl StaffReplyRepo for PgClient {
 
     async fn get_staff_reply_threads_in(
         &self,
-        subreddit: &str,
+        subreddit_id: &str,
         after: DateTimeUtc,
     ) -> Result<Vec<SubredditStaffReplyThread>, Self::Error> {
         self.query_map(
             "
             SELECT post_id
             FROM staff_reply_threads
-            WHERE subreddit=$1 AND created_at >= $2",
-            &[&subreddit, &after],
+            WHERE subreddit_id=$1 AND created_at >= $2",
+            &[&subreddit_id, &after],
             |r| {
                 Ok(SubredditStaffReplyThread {
-                    subreddit: subreddit.to_owned(),
+                    subreddit_id: subreddit_id.to_owned(),
                     post_id: r.get(0),
                 })
             },
