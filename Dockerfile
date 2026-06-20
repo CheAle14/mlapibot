@@ -22,7 +22,7 @@ RUN cargo build
 # We do not need the Rust toolchain to run the binary!
 FROM debian:trixie-slim AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y libleptonica-dev pkg-config libtesseract-dev ca-certificates
+RUN apt-get update && apt-get install -y libleptonica-dev pkg-config libtesseract-dev ca-certificates tesseract-ocr-eng
 COPY --from=builder /app/target/debug/mlapibot-bin /usr/local/bin
 ENV RUST_BACKTRACE=1
 ENTRYPOINT ["mlapibot-bin", "reddit", "--release", "--scratch-dir", "/data"]
