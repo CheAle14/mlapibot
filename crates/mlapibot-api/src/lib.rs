@@ -4,13 +4,18 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use mlapibot_common::action::PostAction;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use statuspage::incident::Incident;
 use tiny_http::Header;
+use tiny_http::Request;
 use tiny_http::Response;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
 use mlapibot_common::config::ApiSettings;
+
+const MAX_BODY_LENGTH: u64 = 1024 * 1024 * 10;
 
 pub enum ApiEvent {
     WebhookRecv {
@@ -42,6 +47,12 @@ pub enum ApiEvent {
         id: i32,
 
         reply: oneshot::Sender<Option<String>>,
+    },
+
+    GetSubredditRemovalReasons {
+        subreddit_id: String,
+
+        reply: oneshot::Sender<SubredditRemovalReasonsResp>,
     },
 }
 
@@ -87,10 +98,10 @@ pub fn start_web_connection(
 
             println!("[api] {} {}", request.method(), url);
 
-            let body = request.as_reader().take(1024 * 1024 * 10);
-
             match url.as_str() {
                 "/status" => {
+                    let body = request.as_reader().take(MAX_BODY_LENGTH);
+
                     let parsed: statuspage::webhook::StatusWebhook =
                         match serde_json::from_reader(body) {
                             Ok(value) => value,
@@ -121,111 +132,49 @@ pub fn start_web_connection(
                     let _ = request.respond(Response::empty(204));
                 }
                 "/get-reddit" => {
-                    let parsed: GetRedditReq = match serde_json::from_reader(body) {
-                        Ok(value) => value,
-                        Err(err) => {
-                            println!("[status-webhook] {err:?}");
-                            let _ = request.respond(Response::empty(400));
-                            continue;
-                        }
-                    };
-
-                    let (tx, rx) = oneshot::channel();
-                    channel
-                        .blocking_send(ApiEvent::GetRedditPost {
+                    handle_request(&channel, request, |parsed: GetRedditReq, reply| {
+                        ApiEvent::GetRedditPost {
                             link: parsed.link,
-                            reply: tx,
-                        })
-                        .unwrap();
-
-                    let _ = match rx.blocking_recv() {
-                        Ok(post) => request
-                            .respond(Response::from_json(&post).unwrap().with_status_code(200)),
-                        Err(_) => request.respond(Response::empty(500)),
-                    };
+                            reply,
+                        }
+                    })
                 }
                 "/refresh-staff-reply" => {
-                    let parsed: RefreshStaffReq = match serde_json::from_reader(body) {
-                        Ok(value) => value,
-                        Err(err) => {
-                            println!("[status-webhook] {err:?}");
-                            let _ = request.respond(Response::empty(400));
-                            continue;
-                        }
-                    };
-
-                    let (tx, rx) = oneshot::channel();
-                    channel
-                        .blocking_send(ApiEvent::RefreshStaffReply {
+                    handle_request(&channel, request, |parsed: RefreshStaffReq, reply| {
+                        ApiEvent::RefreshStaffReply {
                             subreddit_id: parsed.subreddit_id,
                             post_id: parsed.post_id,
-                            reply: tx,
-                        })
-                        .unwrap();
-
-                    let _ = match rx.blocking_recv() {
-                        Ok(post) => request
-                            .respond(Response::from_json(&post).unwrap().with_status_code(200)),
-                        Err(_) => request.respond(Response::empty(500)),
-                    };
-                }
-                "/analyze" => {
-                    let parsed: AnalyzeReq = match serde_json::from_reader(body) {
-                        Ok(value) => value,
-                        Err(err) => {
-                            println!("[status-webhook] {err:?}");
-                            let _ = request.respond(Response::empty(400));
-                            continue;
+                            reply,
                         }
-                    };
+                    })
+                }
+                "/analyze" => handle_request(&channel, request, |parsed: AnalyzeReq, reply| {
+                    ApiEvent::AnalyzeInfo {
+                        subreddit_id: parsed.subreddit_id,
+                        title: parsed.title,
+                        links: parsed.links,
+                        body: parsed.body,
 
-                    let (tx, rx) = oneshot::channel();
-                    channel
-                        .blocking_send(ApiEvent::AnalyzeInfo {
+                        reply,
+                    }
+                }),
+                "/publish" => handle_request(&channel, request, |parsed: PublishPostReq, reply| {
+                    ApiEvent::PublishPost {
+                        id: parsed.id,
+                        reply,
+                    }
+                }),
+                "/removal-reasons" => handle_request(
+                    &channel,
+                    request,
+                    |parsed: SubredditRemovalReasonsReq, reply| {
+                        ApiEvent::GetSubredditRemovalReasons {
                             subreddit_id: parsed.subreddit_id,
-                            title: parsed.title,
-                            links: parsed.links,
-                            body: parsed.body,
-
-                            reply: tx,
-                        })
-                        .unwrap();
-
-                    let _ = match rx.blocking_recv() {
-                        Ok(action) => request
-                            .respond(Response::from_json(&action).unwrap().with_status_code(200)),
-                        Err(_) => request.respond(Response::empty(500)),
-                    };
-                }
-                "/publish" => {
-                    let parsed: PublishPostReq = match serde_json::from_reader(body) {
-                        Ok(value) => value,
-                        Err(err) => {
-                            println!("[status-webhook] {err:?}");
-                            let _ = request.respond(Response::empty(400));
-                            continue;
+                            reply,
                         }
-                    };
+                    },
+                ),
 
-                    let (tx, rx) = oneshot::channel();
-
-                    channel
-                        .blocking_send(ApiEvent::PublishPost {
-                            id: parsed.id,
-                            reply: tx,
-                        })
-                        .unwrap();
-
-                    let _ = match rx.blocking_recv() {
-                        Ok(Some(id)) => request.respond(
-                            Response::from_json(&PublishPostResponse { id })
-                                .unwrap()
-                                .with_status_code(200),
-                        ),
-                        Ok(None) => request.respond(Response::empty(400)),
-                        Err(_) => request.respond(Response::empty(500)),
-                    };
-                }
                 other => {
                     eprintln!("[api] unexpected request: {other:?}");
                     let _ = request.respond(Response::empty(404));
@@ -235,6 +184,35 @@ pub fn start_web_connection(
     });
 
     Ok(())
+}
+
+fn handle_request<TReq, TConv, TResp>(
+    channel: &mpsc::Sender<ApiEvent>,
+    mut request: Request,
+    converter: TConv,
+) where
+    TReq: DeserializeOwned,
+    TConv: FnOnce(TReq, oneshot::Sender<TResp>) -> ApiEvent,
+    TResp: Serialize,
+{
+    let body = request.as_reader().take(MAX_BODY_LENGTH);
+
+    let parsed: TReq = match serde_json::from_reader(body) {
+        Ok(value) => value,
+        Err(err) => {
+            println!("[status-webhook] {err:?}");
+            let _ = request.respond(Response::empty(400));
+            return;
+        }
+    };
+
+    let (tx, rx) = oneshot::channel::<TResp>();
+    channel.blocking_send(converter(parsed, tx)).unwrap();
+
+    let _ = match rx.blocking_recv() {
+        Ok(action) => request.respond(Response::from_json(&action).unwrap().with_status_code(200)),
+        Err(_) => request.respond(Response::empty(500)),
+    };
 }
 
 #[derive(serde::Deserialize)]
@@ -298,6 +276,23 @@ pub struct PublishPostReq {
 #[derive(serde::Serialize)]
 pub struct PublishPostResponse {
     pub id: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct SubredditRemovalReasonsReq {
+    pub subreddit_id: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct RemovalReason {
+    pub id: String,
+    pub title: String,
+    pub message: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct SubredditRemovalReasonsResp {
+    pub reasons: Vec<RemovalReason>,
 }
 
 trait ResponseFromJson: Sized {

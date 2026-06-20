@@ -6,7 +6,10 @@ use std::{
 
 use anyhow::Context;
 use chrono::Utc;
-use mlapibot_api::{ApiEvent, GotAnalysis, GotRedditPost, OcrImageData, RefreshStaffResponse};
+use mlapibot_api::{
+    ApiEvent, GotAnalysis, GotRedditPost, OcrImageData, RefreshStaffResponse,
+    SubredditRemovalReasonsResp,
+};
 use mlapibot_common::{
     Cached, LowercaseString, Words,
     action::PostAction,
@@ -1075,6 +1078,33 @@ impl RedditClient {
                         }
                     }
                 }
+            }
+            ApiEvent::GetSubredditRemovalReasons {
+                subreddit_id,
+                reply,
+            } => {
+                let Some(subreddit) = self.subreddits.iter().find(|s| s.db.id == subreddit_id)
+                else {
+                    return Ok(());
+                };
+
+                let reddit = self.client.subreddit(subreddit.name().as_str());
+                let mut reasons = reddit.list_removal_reasons().await?;
+                let mut response = Vec::with_capacity(reasons.data.len());
+
+                for key in reasons.order {
+                    let Some(value) = reasons.data.remove(&key) else {
+                        continue;
+                    };
+
+                    response.push(mlapibot_api::RemovalReason {
+                        id: value.id,
+                        title: value.title,
+                        message: value.message,
+                    });
+                }
+
+                let _ = reply.send(SubredditRemovalReasonsResp { reasons: response });
             }
         };
         Ok(())
