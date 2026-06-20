@@ -1,5 +1,8 @@
 use mlapibot_common::Words;
-use roux::client::RemoveReason;
+use roux::{
+    client::RemoveReason,
+    util::{RouxError, error::RouxErrorKind},
+};
 
 use crate::subreddit::Subreddit;
 
@@ -53,9 +56,24 @@ impl super::Module for CommentComplex {
                 continue;
             }
 
-            comment
+            match comment
                 .remove_with_reason(false, RemoveReason::ReasonId(&complex.reason))
-                .await?;
+                .await
+            {
+                Ok(_) => (),
+                Err(RouxError {
+                    kind: RouxErrorKind::RedditError2(error),
+                    ..
+                }) if error.reason == "INVALID_ID" => {
+                    eprintln!(
+                        "Failed to remove with reason post={} comment={} reason={:?}",
+                        comment.link_id().id(),
+                        comment.id(),
+                        complex.reason
+                    );
+                }
+                Err(err) => return Err(err.into()),
+            }
         }
 
         Ok(())

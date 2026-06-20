@@ -1,6 +1,7 @@
 services:
   backend:
     image: ghcr.io/cheale14/mlapibot:${IMAGE_TAG:-rust}
+    restart: on-failure:3
     networks:
       - shared
     extra_hosts:
