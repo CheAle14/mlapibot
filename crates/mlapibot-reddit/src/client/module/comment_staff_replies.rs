@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use mlapibot_common::hash::Sha256Hasher;
+use mlapibot_common::{LowercaseString, hash::Sha256Hasher};
 use mlapibot_database_v2::{
     client::PgClient,
     repos::{
@@ -368,6 +368,7 @@ impl CommentStaffReplies {
         &mut self,
         client: &mut ModuleRedditClient<'client>,
         subreddit: &str,
+        subreddit_id: &str,
         post_id: &str,
         config: &StaffReplyModule,
         force_refresh: bool,
@@ -443,7 +444,7 @@ impl CommentStaffReplies {
 
                 client
                     .db
-                    .insert_staff_reply_thread(subreddit, post_id, reply.id(), &reply_hash)
+                    .insert_staff_reply_thread(subreddit_id, post_id, reply.id(), &reply_hash)
                     .await?;
 
                 if reply.can_mod_post() {
@@ -507,6 +508,7 @@ impl super::Module for CommentStaffReplies {
             self.update_or_make_staff_reply_comment(
                 client,
                 comment.subreddit(),
+                comment.subreddit_id().id(),
                 &live.post_id,
                 config,
                 true,
@@ -551,6 +553,7 @@ impl super::Module for CommentStaffReplies {
         self.update_or_make_staff_reply_comment(
             client,
             comment.subreddit(),
+            comment.subreddit_id().id(),
             post_id,
             config,
             false,
@@ -586,6 +589,7 @@ impl super::Module for CommentStaffReplies {
                 self.update_or_make_staff_reply_comment(
                     client,
                     subreddit.name().as_str(),
+                    &subreddit.db.id,
                     &thread.post_id,
                     &subreddit.db.mod_staff_reply,
                     false,

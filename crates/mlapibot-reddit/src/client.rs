@@ -907,6 +907,7 @@ impl RedditClient {
                         .update_or_make_staff_reply_comment(
                             &mut client,
                             subreddit.name().as_str(),
+                            &subreddit.db.id,
                             &post_id,
                             &subreddit.db.mod_staff_reply,
                             true,
