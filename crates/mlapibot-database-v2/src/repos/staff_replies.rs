@@ -206,7 +206,7 @@ impl StaffReplyRepo for PgClient {
         our_comment_id: &str,
         hash: &Base64Hash,
     ) -> Result<(), Self::Error> {
-        self.execute("INSERT INTO staff_reply_threads (post_id, our_comment_id, subreddit, hash) VALUES ($1, $2, $3, $4)",
+        self.execute("INSERT INTO staff_reply_threads (post_id, our_comment_id, subreddit_id, hash) VALUES ($1, $2, $3, $4)",
             &[&post_id, &our_comment_id, &subreddit, &hash.as_str()]).await?;
         Ok(())
     }
