@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use mlapibot_api::{
     ApiEvent, GotAnalysis, GotRedditPost, OcrImageData, RefreshStaffResponse,
     SubredditRemovalReasonsResp,
@@ -105,6 +105,39 @@ macro_rules! make_view {
 }
 
 impl RedditClient {
+    async fn sync_subreddit_moderators(
+        db: &mut PgClient,
+        reddit: &RouxClient,
+        now: DateTime<Utc>,
+        subreddit: &mut DbSubreddit,
+        force_sync: bool,
+    ) -> anyhow::Result<()> {
+        let diff = now.signed_duration_since(subreddit.last_sync);
+
+        if force_sync || diff.num_days() >= 7 {
+            let mods = match reddit.subreddit(&subreddit.name).moderators().await {
+                Ok(m) => m,
+                Err(err) => {
+                    eprintln!("Failed to get mods for /r/{}: {err}", subreddit.name);
+                    return Ok(());
+                }
+            };
+
+            let names: Vec<_> = mods
+                .data
+                .children
+                .iter()
+                .map(|data| data.name.as_str())
+                .collect();
+
+            db.set_subreddit_moderators(&subreddit.id, &names)
+                .await
+                .with_context(|| format!("set moderators {}", subreddit.id))?;
+        }
+
+        Ok(())
+    }
+
     async fn fetch_and_sync_subreddits(
         db: &mut PgClient,
         reddit: &RouxClient,
@@ -153,28 +186,7 @@ impl RedditClient {
 
         let now = Utc::now();
         for subreddit in &mut in_db {
-            let diff = now.signed_duration_since(subreddit.last_sync);
-
-            if diff.num_days() >= 7 {
-                let mods = match reddit.subreddit(&subreddit.name).moderators().await {
-                    Ok(m) => m,
-                    Err(err) => {
-                        eprintln!("Failed to get mods for /r/{}: {err}", subreddit.name);
-                        continue;
-                    }
-                };
-
-                let names: Vec<_> = mods
-                    .data
-                    .children
-                    .iter()
-                    .map(|data| data.name.as_str())
-                    .collect();
-
-                db.set_subreddit_moderators(&subreddit.id, &names)
-                    .await
-                    .with_context(|| format!("set moderators {}", subreddit.id))?;
-            }
+            Self::sync_subreddit_moderators(db, reddit, now, subreddit, false).await?;
         }
 
         Ok(in_db)
@@ -1107,6 +1119,27 @@ impl RedditClient {
                 }
 
                 let _ = reply.send(SubredditRemovalReasonsResp { reasons: response });
+            }
+
+            ApiEvent::RefreshSubredditModerators {
+                subreddit_id,
+                reply,
+            } => {
+                let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.db.id == subreddit_id)
+                else {
+                    return Ok(());
+                };
+
+                Self::sync_subreddit_moderators(
+                    &mut self.db,
+                    &self.client,
+                    Utc::now(),
+                    &mut subreddit.db,
+                    true,
+                )
+                .await?;
+
+                let _ = reply.send(());
             }
         };
         Ok(())

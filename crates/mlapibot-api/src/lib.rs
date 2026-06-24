@@ -54,6 +54,12 @@ pub enum ApiEvent {
 
         reply: oneshot::Sender<SubredditRemovalReasonsResp>,
     },
+
+    RefreshSubredditModerators {
+        subreddit_id: String,
+
+        reply: oneshot::Sender<()>,
+    },
 }
 
 pub fn start_web_connection(
@@ -164,16 +170,22 @@ pub fn start_web_connection(
                         reply,
                     }
                 }),
-                "/removal-reasons" => handle_request(
-                    &channel,
-                    request,
-                    |parsed: SubredditRemovalReasonsReq, reply| {
+                "/removal-reasons" => {
+                    handle_request(&channel, request, |parsed: SubredditIdReq, reply| {
                         ApiEvent::GetSubredditRemovalReasons {
                             subreddit_id: parsed.subreddit_id,
                             reply,
                         }
-                    },
-                ),
+                    })
+                }
+                "/refresh-subreddit-moderators" => {
+                    handle_request(&channel, request, |parsed: SubredditIdReq, reply| {
+                        ApiEvent::RefreshSubredditModerators {
+                            subreddit_id: parsed.subreddit_id,
+                            reply,
+                        }
+                    })
+                }
 
                 other => {
                     eprintln!("[api] unexpected request: {other:?}");
@@ -279,7 +291,7 @@ pub struct PublishPostResponse {
 }
 
 #[derive(serde::Deserialize)]
-pub struct SubredditRemovalReasonsReq {
+pub struct SubredditIdReq {
     pub subreddit_id: String,
 }
 
