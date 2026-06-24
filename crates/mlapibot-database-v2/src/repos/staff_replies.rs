@@ -37,6 +37,7 @@ pub struct StaffReplyThread {
     pub post_id: String,
     pub our_comment_id: String,
     pub created_at: DateTimeUtc,
+    pub title: Option<String>,
     pub hash: Base64Hash,
     pub suffix: Option<String>,
 }
@@ -79,6 +80,7 @@ pub trait StaffReplyRepo {
     async fn update_staff_reply_thread(
         &self,
         post_id: &str,
+        post_title: Option<&str>,
         hash: &Base64Hash,
     ) -> Result<(), Self::Error>;
 
@@ -89,6 +91,7 @@ pub trait StaffReplyRepo {
         subreddit: &str,
         post_id: &str,
         our_comment_id: &str,
+        title: Option<&str>,
         hash: &Base64Hash,
     ) -> Result<(), Self::Error>;
 
@@ -162,15 +165,17 @@ impl StaffReplyRepo for PgClient {
     async fn update_staff_reply_thread(
         &self,
         post_id: &str,
+        post_title: Option<&str>,
         hash: &Base64Hash,
     ) -> Result<(), Self::Error> {
         self.execute(
             r"
             UPDATE staff_reply_threads SET
-                hash=$2
+                hash=$2,
+                title=$3
             WHERE post_id=$1
             ",
-            &[&post_id, &hash.as_str()],
+            &[&post_id, &hash.as_str(), &post_title],
         )
         .await?;
 
@@ -204,10 +209,11 @@ impl StaffReplyRepo for PgClient {
         subreddit: &str,
         post_id: &str,
         our_comment_id: &str,
+        title: Option<&str>,
         hash: &Base64Hash,
     ) -> Result<(), Self::Error> {
-        self.execute("INSERT INTO staff_reply_threads (post_id, our_comment_id, subreddit_id, hash) VALUES ($1, $2, $3, $4)",
-            &[&post_id, &our_comment_id, &subreddit, &hash.as_str()]).await?;
+        self.execute("INSERT INTO staff_reply_threads (post_id, our_comment_id, subreddit_id, title, hash) VALUES ($1, $2, $3, $4, $5)",
+            &[&post_id, &our_comment_id, &subreddit, &title, &hash.as_str()]).await?;
         Ok(())
     }
 
@@ -218,12 +224,12 @@ impl StaffReplyRepo for PgClient {
     ) -> Result<Option<StaffReplyThread>, Self::Error> {
         let stmt = match find_by {
             FindBy::PostId => {
-                "SELECT post_id, our_comment_id, subreddit_id, created_at, hash, suffix
+                "SELECT post_id, our_comment_id, subreddit_id, created_at, title, hash, suffix
                 FROM staff_reply_threads
                 WHERE post_id=$1"
             }
             FindBy::OurCommentId => {
-                "SELECT post_id, our_comment_id, subreddit_id, created_at, hash, suffix
+                "SELECT post_id, our_comment_id, subreddit_id, created_at, title, hash, suffix
                 FROM staff_reply_threads
                 WHERE our_comment_id=$1"
             }
@@ -235,8 +241,9 @@ impl StaffReplyRepo for PgClient {
                 our_comment_id: r.get(1),
                 subreddit_id: r.get(2),
                 created_at: r.get(3),
-                hash: Base64Hash::from_string(r.get(4)),
-                suffix: r.get(5),
+                title: r.get(4),
+                hash: Base64Hash::from_string(r.get(5)),
+                suffix: r.get(6),
             })
         })
         .await

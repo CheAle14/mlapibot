@@ -25,8 +25,14 @@ async fn can_insert_and_list_staff_replies() -> DbResult<()> {
 
     let hash = mlapibot_common::hash::Sha256Hasher::oneshot("hellosup0123");
 
-    db.insert_staff_reply_thread("sub0123", "post123", "comment032", &hash)
-        .await?;
+    db.insert_staff_reply_thread(
+        "sub0123",
+        "post123",
+        "comment032",
+        Some("some title here"),
+        &hash,
+    )
+    .await?;
 
     db.insert_staff_reply("comment112", "post123", "Hello", "some text", now)
         .await?;
@@ -58,15 +64,22 @@ async fn can_update_staff_replies() -> DbResult<()> {
 
     let hash = mlapibot_common::hash::Sha256Hasher::oneshot("hello world");
 
-    db.insert_staff_reply_thread("sub0123", "post123", "comment032", &hash)
-        .await?;
+    db.insert_staff_reply_thread(
+        "sub0123",
+        "post123",
+        "comment032",
+        Some("a title here"),
+        &hash,
+    )
+    .await?;
 
     db.insert_staff_reply("comment112", "post123", "Hello", "some text", now)
         .await?;
 
     let newhash = mlapibot_common::hash::Sha256Hasher::oneshot("Hello world");
 
-    db.update_staff_reply_thread("post123", &newhash).await?;
+    db.update_staff_reply_thread("post123", Some("new title"), &newhash)
+        .await?;
 
     db.update_staff_reply_thread_suffix("post123", Some("hello world"))
         .await?;
@@ -94,6 +107,7 @@ async fn can_update_staff_replies() -> DbResult<()> {
             post_id: "post123".into(),
             our_comment_id: "comment032".into(),
             created_at: thread.created_at,
+            title: Some("new title".into()),
             hash: newhash,
             suffix: Some("hello world".into())
         }

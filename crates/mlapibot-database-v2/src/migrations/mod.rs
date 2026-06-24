@@ -146,5 +146,6 @@ define_migrations![
     m003_init_incidents::InitIncidents,
     m004_add_frontend::AddFrontend,
     m005_scheduled_posts::ScheduledPosts,
-    m006_use_subreddit_id::UseSubredditId
+    m006_use_subreddit_id::UseSubredditId,
+    m007_staff_reply_thread_title::StaffReplyThreadTitle,
 ];

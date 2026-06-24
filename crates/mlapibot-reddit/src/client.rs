@@ -909,6 +909,7 @@ impl RedditClient {
                             subreddit.name().as_str(),
                             &subreddit.db.id,
                             &post_id,
+                            None,
                             &subreddit.db.mod_staff_reply,
                             true,
                         )

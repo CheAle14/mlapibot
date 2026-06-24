@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 use chrono::{DateTime, TimeDelta, Utc};
-use mlapibot_common::{LowercaseString, hash::Sha256Hasher};
+use mlapibot_common::{extensions::StringOptionExt, hash::Sha256Hasher};
 use mlapibot_database_v2::{
     client::PgClient,
     repos::{
@@ -20,7 +20,10 @@ use roux::{
     models::{ArticleCommentOrMore, Listing},
 };
 
-use crate::client::{ModuleRedditClient, module::impl_mask_subreddits};
+use crate::{
+    Submission,
+    client::{ModuleRedditClient, module::impl_mask_subreddits},
+};
 
 pub struct CommentStaffReplies {
     next_update: DateTime<Utc>,
@@ -210,7 +213,7 @@ impl CommentStaffReplies {
         counts: &mut CommentCounts,
         now: DateTime<Utc>,
         config: &StaffReplyModule,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Submission> {
         // Best case scenario is that the post doesn't have too many comments, so
         // we can just fetch the entire post's comments and then look for the
         // staff replies we know about and update our record.
@@ -223,9 +226,9 @@ impl CommentStaffReplies {
             reply_map.insert(reply.comment_id.clone(), reply);
         }
 
-        let post_comments = client
+        let (post, post_comments) = client
             .client
-            .article_comments(
+            .article_with_comments(
                 subreddit,
                 &ThingFullname::from_submission_id(post_id),
                 None,
@@ -348,7 +351,7 @@ impl CommentStaffReplies {
             replies.push(reply);
         }
 
-        Ok(())
+        Ok(post)
     }
 
     fn get_next_update(replies: &[StaffReply]) -> DateTime<Utc> {
@@ -370,6 +373,7 @@ impl CommentStaffReplies {
         subreddit: &str,
         subreddit_id: &str,
         post_id: &str,
+        post_title: Option<&str>,
         config: &StaffReplyModule,
         force_refresh: bool,
     ) -> anyhow::Result<CommentCounts> {
@@ -382,19 +386,30 @@ impl CommentStaffReplies {
             new_staff: 0,
         };
 
+        let mut found_post: Option<Submission> = None;
+
         if force_refresh || all_replies.iter().any(|v| v.is_outdated(now)) {
-            self.fetch_reply_updates(
-                client,
-                subreddit,
-                post_id,
-                &mut all_replies,
-                &mut counts,
-                now,
-                config,
-            )
-            .await
-            .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
+            let post = self
+                .fetch_reply_updates(
+                    client,
+                    subreddit,
+                    post_id,
+                    &mut all_replies,
+                    &mut counts,
+                    now,
+                    config,
+                )
+                .await
+                .with_context(|| format!("fetch replies for /r/{subreddit}/{post_id}"))?;
+
+            found_post = Some(post);
         }
+
+        let post_title = match (post_title, &found_post) {
+            (_, Some(new)) => Some(new.title()),
+            (None, None) => None,
+            (Some(given), None) => Some(given),
+        };
 
         if self.next_update <= now {
             self.next_update = Self::get_next_update(&all_replies);
@@ -424,13 +439,25 @@ impl CommentStaffReplies {
 
                 let reply_hash = Sha256Hasher::oneshot(&reply_text);
 
-                if reply_hash != existing.hash {
+                let hash_changed = reply_hash != existing.hash;
+
+                let (post_title, title_changed) = match (post_title, &existing.title) {
+                    (None, None) => (None, false),
+                    (None, Some(e)) => (Some(e.as_str()), false),
+                    (Some(g), None) => (Some(g), true),
+                    (Some(g), Some(e)) => (Some(g), g != e),
+                };
+
+                if hash_changed || title_changed {
                     let fullname = ThingFullname::from_comment_id(&existing.our_comment_id);
-                    client.client.edit(&reply_text, &fullname).await?;
+
+                    if hash_changed {
+                        client.client.edit(&reply_text, &fullname).await?;
+                    }
 
                     client
                         .db
-                        .update_staff_reply_thread(&existing.post_id, &reply_hash)
+                        .update_staff_reply_thread(&existing.post_id, post_title, &reply_hash)
                         .await?;
                 }
             }
@@ -444,7 +471,13 @@ impl CommentStaffReplies {
 
                 client
                     .db
-                    .insert_staff_reply_thread(subreddit_id, post_id, reply.id(), &reply_hash)
+                    .insert_staff_reply_thread(
+                        subreddit_id,
+                        post_id,
+                        reply.id(),
+                        post_title,
+                        &reply_hash,
+                    )
                     .await?;
 
                 if reply.can_mod_post() {
@@ -510,6 +543,7 @@ impl super::Module for CommentStaffReplies {
                 comment.subreddit(),
                 comment.subreddit_id().id(),
                 &live.post_id,
+                live.title.map_str(),
                 config,
                 true,
             )
@@ -555,6 +589,7 @@ impl super::Module for CommentStaffReplies {
             comment.subreddit(),
             comment.subreddit_id().id(),
             post_id,
+            Some(comment.link_title()),
             config,
             false,
         )
@@ -591,6 +626,7 @@ impl super::Module for CommentStaffReplies {
                     subreddit.name().as_str(),
                     &subreddit.db.id,
                     &thread.post_id,
+                    None,
                     &subreddit.db.mod_staff_reply,
                     false,
                 )
