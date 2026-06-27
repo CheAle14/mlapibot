@@ -43,7 +43,7 @@ impl super::Module for PostVagueTitle {
         }
 
         let mut title_words = Words::new(post.title());
-        title_words.remove_stop_words();
+        title_words.remove_stop_words(|word| subreddit.vague_words.contains(word));
 
         let title_words = title_words.iter_stemmed_words().collect::<HashSet<_>>();
 

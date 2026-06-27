@@ -148,4 +148,5 @@ define_migrations![
     m005_scheduled_posts::ScheduledPosts,
     m006_use_subreddit_id::UseSubredditId,
     m007_staff_reply_thread_title::StaffReplyThreadTitle,
+    m008_dynamic_word_list::DynamicWordList,
 ];

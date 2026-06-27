@@ -21,6 +21,7 @@ moduse!(
 );
 
 pub mod action;
+pub mod collections;
 pub mod config;
 pub mod extensions;
 pub mod hash;

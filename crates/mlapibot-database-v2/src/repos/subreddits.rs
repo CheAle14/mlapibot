@@ -4,7 +4,7 @@ use postgres_types::Json;
 use serde::{Deserialize, Serialize};
 use tokio_postgres::Row;
 
-use mlapibot_common::matchers::Matchers;
+use mlapibot_common::{collections::OrderedSet, matchers::Matchers};
 
 use crate::{DateTimeUtc, errors::DbResult};
 
@@ -38,6 +38,8 @@ pub trait SubredditsRepo {
         id: ScheduledPostId,
         reddit: &str,
     ) -> Result<(), Self::Error>;
+
+    async fn get_vague_words(&self, id: &str) -> Result<OrderedSet<String>, Self::Error>;
 }
 
 impl SubredditsRepo for crate::client::PgClient {
@@ -231,6 +233,21 @@ impl SubredditsRepo for crate::client::PgClient {
         .await?;
 
         Ok(())
+    }
+
+    async fn get_vague_words(&self, id: &str) -> Result<OrderedSet<String>, Self::Error> {
+        let list = self
+            .query_scalar(
+                "
+            SELECT word FROM subreddit_vague_words
+            WHERE
+                subreddit_id=$1
+            ORDER BY word ASC",
+                &[&id],
+            )
+            .await?;
+
+        Ok(OrderedSet::new_assert_ordered(list))
     }
 }
 

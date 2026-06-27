@@ -17,7 +17,9 @@ use roux::{
     util::RouxError,
 };
 
-use mlapibot_common::{LazyCached, LowercaseString, extensions::StringOptionExt};
+use mlapibot_common::{
+    LazyCached, LowercaseString, collections::OrderedSet, extensions::StringOptionExt,
+};
 
 use crate::{client::module::post_scams::ScamAnalyzer, status_tracker::IncidentWithLive};
 
@@ -41,6 +43,7 @@ pub struct Subreddit {
     pub analyzers: Vec<ScamAnalyzer>,
 
     pub removal_reasons: SubCached<HashMap<String, RemovalReason>>,
+    pub vague_words: OrderedSet<String>,
 }
 
 fn minimal_urldecode(text: &mut String) {
@@ -70,6 +73,7 @@ impl Subreddit {
         templates: Vec<ReplyTemplate>,
         analyzers: Vec<Scam>,
         moderators: HashSet<String>,
+        vague_words: OrderedSet<String>,
         name: LowercaseString,
     ) -> anyhow::Result<Self> {
         let removal_reasons = SubCached::new(Duration::from_secs(60 * 60), |c| {
@@ -98,6 +102,7 @@ impl Subreddit {
             template_map: map,
             analyzers: analyzers.into_iter().map(ScamAnalyzer).collect(),
             removal_reasons,
+            vague_words,
             moderators,
         })
     }

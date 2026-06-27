@@ -1,4 +1,4 @@
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::{
     AsyncMessage, Row, Statement, ToStatement, Transaction,

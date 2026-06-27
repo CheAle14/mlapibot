@@ -34,6 +34,7 @@ use roux::{
     },
     util::{SubmissionStream, now_utc},
 };
+use serde::Deserialize;
 use statuspage::{StatusClient, component::Component, incident::Incident, status::StatusIndicator};
 
 use mlapibot_analysis::{ContextWarning, Url};
@@ -211,12 +212,15 @@ impl RedditClient {
 
             let name = LowercaseString::new(&db_sub.name);
 
+            let vague_words = db.get_vague_words(&db_sub.id).await?;
+
             let sub = Subreddit::new(
                 client.subreddit(&db_sub.name),
                 db_sub,
                 templates,
                 scams,
                 moderators,
+                vague_words,
                 name,
             );
 
@@ -1277,20 +1281,57 @@ impl RedditClient {
         &mut self,
         ratelimiter: &mut Ratelimiter<Self>,
         // For now we just refresh everything.
-        _msg: PgNotification,
+        msg: PgNotification,
     ) -> anyhow::Result<()> {
-        let db_subreddits = Self::fetch_and_sync_subreddits(&mut self.db, &self.client).await?;
-        let subreddits =
-            Self::convert_db_subreddits(&mut self.db, &self.client, db_subreddits).await?;
-        let (subreddits_mask, modules) = Self::build_modules(&subreddits);
-        let posts = Self::make_submission_stream(&subreddits, subreddits_mask);
+        #[derive(Deserialize)]
+        #[serde(tag = "type", rename_all = "snake_case")]
+        enum NotificationKind {
+            Subreddit {
+                subreddit_id: String,
+            },
+            VagueWords {
+                subreddit_id: String,
+            },
 
-        self.subreddits = subreddits;
-        self.subreddits_mask = subreddits_mask;
-        self.modules = modules;
-        self.posts = posts;
+            #[serde(untagged)]
+            Unknown,
+        }
 
-        Self::reconfigure_ratelimit(&self.modules, ratelimiter);
+        match serde_json::from_str(&msg.payload) {
+            Ok(NotificationKind::Subreddit { .. }) => {
+                // TODO: update just the specific subreddit that has changed.
+                let db_subreddits =
+                    Self::fetch_and_sync_subreddits(&mut self.db, &self.client).await?;
+                let subreddits =
+                    Self::convert_db_subreddits(&mut self.db, &self.client, db_subreddits).await?;
+                let (subreddits_mask, modules) = Self::build_modules(&subreddits);
+                let posts = Self::make_submission_stream(&subreddits, subreddits_mask);
+
+                self.subreddits = subreddits;
+                self.subreddits_mask = subreddits_mask;
+                self.modules = modules;
+                self.posts = posts;
+
+                Self::reconfigure_ratelimit(&self.modules, ratelimiter);
+            }
+            Ok(NotificationKind::VagueWords { subreddit_id }) => {
+                let Some(subreddit) = self.subreddits.iter_mut().find(|s| s.db.id == subreddit_id)
+                else {
+                    return Ok(());
+                };
+
+                subreddit.vague_words = self.db.get_vague_words(&subreddit_id).await?;
+                println!("[db-notif] Updated vague words for {subreddit_id}");
+            }
+            Ok(NotificationKind::Unknown) => {
+                eprintln!("[db-notif] Unknown notification from subreddit.")
+            }
+            Err(err) => {
+                eprintln!("[db-notif] Failed to parse payload: {err}");
+                eprintln!("Payload: {:?}", msg.payload);
+            }
+        }
+
         Ok(())
     }
 
