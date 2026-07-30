@@ -1,4 +1,6 @@
 use chrono::SubsecRound;
+use pretty_assertions::assert_eq;
+
 use mlapibot_database_v2::{
     client::{PgClient, PgClientBuilder},
     errors::DbResult,
@@ -22,7 +24,7 @@ async fn make_db() -> PgClient {
 async fn insert_and_fetch_subreddits() -> DbResult<()> {
     let mut db = make_db().await;
 
-    let now = chrono::Utc::now().trunc_subsecs(4);
+    let now = chrono::Utc::now().trunc_subsecs(1);
 
     let mods_ids = vec!["user01", "user02", "user33"];
 
@@ -60,6 +62,7 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
             enabled: true,
             reason: RemovalReasonKey::new("#repost"),
             check_img_posts: true,
+            auto_add_remove_text: Some("vague title".into()),
         },
         mod_complex_comments: ComplexCommentsModule {
             enabled: true,
@@ -77,8 +80,34 @@ async fn insert_and_fetch_subreddits() -> DbResult<()> {
     let mods = db.get_subreddit_moderators(&subreddit.id).await?;
     assert_eq!(mods, mods_ids);
 
-    let subs = db.fetch_all_subreddits().await?;
-    assert_eq!(subs, vec![subreddit]);
+    let mut subs = db.fetch_all_subreddits().await?;
+
+    let fromdb = subs[0].last_sync.trunc_subsecs(1);
+    assert_eq!(fromdb, subreddit.last_sync);
+    subs[0].last_sync = subreddit.last_sync;
+    assert_eq!(subs[0], subreddit);
+
+    let words = db.get_vague_words(&subreddit.id).await?;
+    assert_eq!(words.len(), 0);
+
+    db.add_vague_words(&subreddit.id, &["hello", "world", "wowza"])
+        .await?;
+
+    let words = db.get_vague_words(&subreddit.id).await?;
+    assert_eq!(words.len(), 3);
+    assert!(words.contains("hello"));
+    assert!(words.contains("world"));
+    assert!(words.contains("wowza"));
+
+    db.add_vague_words(&subreddit.id, &["hello", "extra"])
+        .await?;
+
+    let words = db.get_vague_words(&subreddit.id).await?;
+    assert_eq!(words.len(), 4);
+    assert!(words.contains("hello"));
+    assert!(words.contains("world"));
+    assert!(words.contains("wowza"));
+    assert!(words.contains("extra"));
 
     Ok(())
 }

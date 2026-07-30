@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, collections::HashMap};
 
-use postgres_types::Json;
+use postgres_types::{Json, ToSql};
 use serde::{Deserialize, Serialize};
 use tokio_postgres::Row;
 
@@ -40,6 +40,8 @@ pub trait SubredditsRepo {
     ) -> Result<(), Self::Error>;
 
     async fn get_vague_words(&self, id: &str) -> Result<OrderedSet<String>, Self::Error>;
+
+    async fn add_vague_words(&self, subreddit_id: &str, words: &[&str]) -> Result<(), Self::Error>;
 }
 
 impl SubredditsRepo for crate::client::PgClient {
@@ -248,6 +250,35 @@ impl SubredditsRepo for crate::client::PgClient {
             .await?;
 
         Ok(OrderedSet::new_assert_ordered(list))
+    }
+
+    async fn add_vague_words(&self, subreddit_id: &str, words: &[&str]) -> Result<(), Self::Error> {
+        use std::fmt::Write;
+
+        let mut params: Vec<&(dyn ToSql + Sync)> = words
+            .iter()
+            .map(|s| {
+                let x: &(dyn ToSql + Sync) = &*s;
+                x
+            })
+            .collect();
+
+        let mut query =
+            String::from("INSERT INTO subreddit_vague_words (subreddit_id, word) VALUES\n");
+
+        for (idx, _) in words.iter().enumerate() {
+            let _ = writeln!(query, "  (${}, ${}),", words.len() + 1, idx + 1);
+        }
+        params.push(&subreddit_id);
+
+        query.pop(); // \n
+        query.pop(); // ,
+
+        query.push_str("\nON CONFLICT DO NOTHING;");
+
+        self.execute(&query, &params).await?;
+
+        Ok(())
     }
 }
 
@@ -480,6 +511,8 @@ pub struct RelatedTitleModule {
     pub reason: RemovalReasonKey,
     #[serde(default)]
     pub check_img_posts: bool,
+    #[serde(default)]
+    pub auto_add_remove_text: Option<String>,
 }
 
 #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]

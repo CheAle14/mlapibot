@@ -136,6 +136,7 @@ impl PgClient {
                 DELETE FROM status_incidents;
                 DELETE FROM subreddit_mods;
                 DELETE FROM subreddit_scam_rules;
+                DELETE FROM subreddit_vague_words;
                 DELETE FROM subreddits;
                 DELETE FROM users;
                 "#,

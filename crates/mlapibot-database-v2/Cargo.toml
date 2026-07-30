@@ -17,3 +17,6 @@ statuspage = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"

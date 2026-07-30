@@ -64,6 +64,10 @@ impl<T> OrderedSet<T> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    pub fn as_slice(&self) -> &[T] {
+        &self.inner
+    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,14 @@
+use std::borrow::Cow;
+
 use crate::embed::MessageEmbed;
+
+pub fn as_reddit_link(text: &str) -> Cow<'_, str> {
+    if text.starts_with("http") {
+        Cow::Borrowed(text)
+    } else {
+        Cow::Owned(format!("https://reddit.com{text}"))
+    }
+}
 
 pub trait LinkExt {
     fn with_reddit_link(&mut self, maybe_full_url: &str) -> &mut Self;
@@ -13,11 +23,6 @@ pub trait LinkExt {
 
 impl LinkExt for MessageEmbed {
     fn with_reddit_link(&mut self, maybe_full_url: &str) -> &mut Self {
-        if maybe_full_url.starts_with("http") {
-            self.with_url(maybe_full_url)
-        } else {
-            let full = format!("https://reddit.com{maybe_full_url}");
-            self.with_url(full)
-        }
+        self.with_url(as_reddit_link(maybe_full_url))
     }
 }

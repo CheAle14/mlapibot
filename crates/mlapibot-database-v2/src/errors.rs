@@ -39,9 +39,9 @@ impl std::fmt::Display for DbError {
         self.inner.fmt(f)?;
 
         if let Some(source) = self.inner.source() {
-            writeln!(f, "Caused by:")?;
+            writeln!(f, "\nCaused by:")?;
             for (i, e) in std::iter::successors(Some(source), |&e| e.source()).enumerate() {
-                writeln!(f, "\n- {i}: {e}")?;
+                writeln!(f, "\n- {i}: {e} ({e:?})")?;
             }
         }
 
